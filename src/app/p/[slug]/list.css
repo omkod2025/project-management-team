@@ -1,0 +1,591 @@
+/*
+ * The ruled page. See DESIGN.md § Layout and § Components.
+ *
+ * Three things this sheet is careful about, because they are the ones that
+ * quietly turn a field book back into a SaaS table:
+ *   - no zebra striping, no row background changes, ever
+ *   - depth is indent and bracket, never tint
+ *   - the double rule under the column heads appears nowhere else
+ */
+
+.book {
+  display: flex;
+  min-height: 100vh;
+  max-width: 1440px;
+  margin: 0 auto;
+  background: var(--color-page);
+  box-shadow: 2px 0 0 rgba(0, 0, 0, 0.25);
+}
+
+/* ---- fore-edge tab rail ---- */
+
+.rail {
+  width: 30px;
+  flex: 0 0 30px;
+  background: var(--color-page-edge);
+  border-right: 1px solid var(--color-rule);
+  display: flex;
+  flex-direction: column;
+  padding-top: 64px;
+}
+
+.tab {
+  position: relative;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 44px;
+  padding: 12px 0 12px 8px;
+  border: 0;
+  border-bottom: 1px solid var(--color-rule);
+  background: var(--color-page-edge);
+  color: var(--color-ink-graphite-soft);
+  cursor: pointer;
+  /* A long module name must not spill past the rail; it clips like a printed
+     tab does, and the title attribute carries the full text. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tab::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: var(--tab-hue);
+}
+.tab[aria-current='true'] {
+  background: var(--color-page);
+  color: var(--color-ink-graphite);
+  width: 34px;
+  margin-right: -4px;
+  z-index: 2;
+}
+
+.sheet { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+/* ---- head ---- */
+
+.head {
+  display: flex;
+  align-items: baseline;
+  gap: 20px;
+  padding: 22px 20px 10px;
+}
+.head h1 {
+  margin: 0;
+  font-family: var(--font-struct), sans-serif;
+  font-size: var(--type-headline-size);
+  font-weight: var(--type-headline-weight);
+}
+.views { margin-left: auto; display: flex; gap: 10px; align-items: center; }
+.views a, .views span { color: var(--color-ink-graphite-soft); text-decoration: none; }
+.views [aria-current='page'] { color: var(--color-ink-graphite); }
+
+.toolbar {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  padding: 0 20px 10px;
+  color: var(--color-ink-graphite-soft);
+}
+
+/* ---- the run ---- */
+
+.scroller { flex: 1; overflow: auto; }
+
+table.run { border-collapse: separate; border-spacing: 0; width: 100%; }
+
+.run thead th {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  height: 26px;
+  padding: 0 10px;
+  text-align: left;
+  white-space: nowrap;
+  background: var(--color-page);
+  color: var(--color-ink-graphite-soft);
+  border-right: 1px solid var(--color-rule);
+  /* the signature double rule */
+  box-shadow: inset 0 -1px 0 var(--color-rule-major), 0 2px 0 -1px var(--color-rule-major);
+}
+.run th.num, .run td.num { text-align: right; }
+
+/* ---- the locked name column ----
+   Two things keep it a column rather than a hole. It is opaque, so the cells
+   sliding under it are covered; and it is raised above them, so they cannot
+   paint over it.
+
+   The raising is not optional. Every body cell is `position: relative` (for
+   the in-flight save tick), which makes them all positioned with `z-index:
+   auto` — and positioned siblings at the same level paint in DOM order, so
+   every column to the right would draw on top of the sticky one that comes
+   first. */
+.run th.nm, .run td.nm {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  background: var(--color-page);
+  width: 320px;
+  min-width: 320px;
+  /* The one shadow in the system (DESIGN.md § Elevation): a hard 2px offset,
+     no blur, where the current leaf sits above the leaves beneath. Here the
+     leaves beneath are the columns scrolling under it. */
+  box-shadow: 2px 0 0 rgba(42, 38, 34, 0.16);
+}
+
+/* The head is above the body it scrolls under, and carries both marks: the
+   double rule that closes the column heads, and the fore-edge offset. */
+.run thead th.nm {
+  z-index: 6;
+  box-shadow:
+    inset 0 -1px 0 var(--color-rule-major),
+    0 2px 0 -1px var(--color-rule-major),
+    2px 0 0 rgba(42, 38, 34, 0.16);
+}
+
+/* A module row keeps its top rule as well as the offset — box-shadow does not
+   merge, so both have to be restated together or one of them is lost. */
+.run tr.module td.nm {
+  box-shadow:
+    inset 0 1px 0 var(--color-rule-major),
+    2px 0 0 rgba(42, 38, 34, 0.16);
+}
+
+.run tbody td {
+  height: var(--space-row);
+  padding: 0 10px;
+  white-space: nowrap;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--color-rule);
+  border-right: 1px solid var(--color-rule);
+}
+
+/* Hover raises the rule. It does NOT change the background. */
+.run tbody tr:hover td { border-bottom-color: var(--color-rule-major); }
+
+/* A module row doubles as its group head. */
+.run tr.module td {
+  height: 44px;
+  padding-top: 12px;
+  box-shadow: inset 0 1px 0 var(--color-rule-major);
+}
+.run tr.module .name-text { font-family: var(--font-struct), sans-serif; font-weight: 600; }
+
+.gutter { width: 20px; min-width: 20px; border-right: 0 !important; }
+
+/* ---- name cell ---- */
+
+.nm-inner { display: flex; align-items: center; gap: 6px; min-width: 0; }
+
+.hole {
+  width: 9px; height: 9px; flex: 0 0 9px;
+  border-radius: var(--radius-hole);
+  background: transparent;
+}
+tr[aria-selected='true'] .hole { background: rgba(42, 38, 34, 0.3); }
+
+.twist {
+  width: 12px; height: 12px; flex: 0 0 12px;
+  border: 0; padding: 0; background: none; cursor: pointer;
+  color: var(--color-ink-graphite);
+}
+.twist::before {
+  content: '';
+  display: block;
+  width: 0; height: 0;
+  border-left: 5px solid currentColor;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  transition: transform 90ms steps(2);
+}
+.twist[aria-expanded='true']::before { transform: rotate(90deg) translateX(1px); }
+.twist.leaf { visibility: hidden; }
+
+.bracket {
+  flex: 0 0 12px;
+  width: 12px; height: 12px;
+  margin-top: -6px;
+  border-left: 1px solid var(--color-ink-graphite-soft);
+  border-bottom: 1px solid var(--color-ink-graphite-soft);
+}
+
+.name-text { overflow: hidden; text-overflow: ellipsis; }
+.count { color: var(--color-ink-graphite-soft); font-size: 11px; }
+
+/* ---- values ---- */
+
+.computed { font-family: var(--font-figure), monospace; font-size: 12px; color: var(--color-ink-blue); font-variant-numeric: tabular-nums; }
+.entered  { font-family: var(--font-figure), monospace; font-size: 12px; color: var(--color-ink-graphite); font-variant-numeric: tabular-nums; }
+.empty    { color: var(--color-ink-graphite-soft); }
+
+/* A select value is a square and a label. Never a pill. */
+.opt { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.swatch { width: 6px; height: 6px; flex: 0 0 6px; background: var(--opt-hue); }
+.opt-archived { text-decoration: line-through; }
+.arch { color: var(--color-ink-graphite-soft); font-size: 9px; letter-spacing: 0.1em; }
+
+/* ---- a chosen option, stated in its own colour ----
+
+   The colour is mixed against the page rather than laid over it, so the chip
+   sits *in* the paper like a stamp instead of floating above it as a sticker.
+   Square corners, no shadow, and a 2px bar of the full hue on the leading edge
+   — the same leading edge the Timeline bars carry, and the thing that still
+   distinguishes two options in a greyscale print.
+
+   The label darkens toward graphite rather than using the raw hue: three of
+   the six tab colours are too light to read at 13px on their own wash. */
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+  height: 20px;
+  padding: 0 8px;
+  background: color-mix(in srgb, var(--opt-hue) 17%, var(--color-page));
+  box-shadow: inset 2px 0 0 var(--opt-hue);
+  color: color-mix(in srgb, var(--opt-hue) 42%, var(--color-ink-graphite));
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---- the module's colour in the name column ----
+
+   A 3px stripe, not a filled tag. A filled tag would compete with the status
+   chip two columns to the right, and only one of the two is a value somebody
+   chose. */
+
+.modchip {
+  width: 3px;
+  height: 15px;
+  flex: 0 0 3px;
+  margin-right: 7px;
+  background: var(--row-hue);
+}
+
+/* Every row beneath a module carries the same hue as a hairline in the
+   gutter its indent already reserves. It costs no width and it means a task
+   scrolled far from its module heading is still attributable. */
+.run tbody tr td.nm .nm-inner { position: relative; }
+.run tbody tr:not(.module) td.nm .nm-inner::before {
+  content: '';
+  position: absolute;
+  left: 12px;
+  top: -1px;
+  bottom: -1px;
+  width: 2px;
+  background: color-mix(in srgb, var(--row-hue) 40%, transparent);
+}
+
+/* The errata slip: inset within the cell, never filling it edge to edge. */
+.slip {
+  display: inline-block;
+  padding: 2px 6px;
+  line-height: 1.2;
+  background: var(--color-vermilion-wash);
+  color: var(--color-vermilion);
+  font-family: var(--font-figure), monospace;
+  font-size: 11px;
+}
+
+/* ---- editing: a clear leaf laid over one cell, never a lifted row ---- */
+
+td.editing { background: #F6F1E4; box-shadow: inset 0 0 0 1px var(--color-ink-graphite); }
+td.saving::after {
+  content: '';
+  position: absolute;
+  right: 3px; top: 50%;
+  width: 2px; height: 10px;
+  margin-top: -5px;
+  background: var(--color-ink-graphite);
+}
+td.failed { box-shadow: inset 0 0 0 1px var(--color-vermilion); }
+.run tbody td { position: relative; }
+
+.cell-input {
+  width: 100%;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  outline: none;
+  font: inherit;
+}
+.cell-input.fig { font-family: var(--font-figure), monospace; font-size: 12px; }
+
+/* Hinged leaf: 1px rule all round, flat on the page, no blur. */
+.leaf {
+  position: absolute;
+  z-index: 20;
+  min-width: 180px;
+  max-height: 280px;
+  overflow: auto;
+  background: var(--color-page);
+  border: 1px solid var(--color-ink-graphite);
+}
+.leaf button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 0 10px;
+  height: 28px;
+  border: 0;
+  border-bottom: 1px solid var(--color-rule);
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+.leaf button:last-child { border-bottom: 0; }
+.leaf button:hover { background: #F6F1E4; }
+.leaf .stage { margin-left: auto; color: var(--color-ink-graphite-soft); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; }
+
+.add-row td { color: var(--color-ink-graphite-soft); border-right: 0; }
+
+.errata {
+  padding: 6px 20px;
+  background: var(--color-vermilion-wash);
+  color: var(--color-vermilion);
+  font-family: var(--font-figure), monospace;
+  font-size: 11px;
+}
+
+@media (max-width: 900px) {
+  .run th.nm, .run td.nm { width: 200px; min-width: 200px; }
+}
+
+/* ---- toolbar search ---- */
+
+.search {
+  height: 24px;
+  width: 200px;
+  padding: 0 8px;
+  background: var(--color-page);
+  border: 1px solid var(--color-rule);
+  font-family: var(--font-read), sans-serif;
+  font-size: 12px;
+  letter-spacing: normal;
+  text-transform: none;
+}
+.search:focus { border-color: var(--color-ink-graphite); }
+.hint { margin-left: auto; color: var(--color-ink-graphite-soft); }
+
+/* ---- the facing page ----
+   A panel, not a modal: the grid stays visible and scrollable beside it,
+   because the reason to open a task is usually to compare it with another. */
+
+.pagebody { flex: 1; display: flex; min-height: 0; }
+.pagebody .scroller { flex: 1; min-width: 0; }
+
+.facing {
+  width: 340px;
+  flex: 0 0 340px;
+  overflow: auto;
+  padding: 18px 20px 40px;
+  background: var(--color-page);
+  border-left: 1px solid var(--color-rule-major);   /* the spine */
+}
+.facing-head { display: flex; align-items: baseline; gap: 12px; }
+.facing-head button {
+  margin-left: auto;
+  border: 1px solid var(--color-ink-graphite);
+  background: none;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+.crumb { color: var(--color-ink-graphite-soft); display: flex; gap: 6px; flex-wrap: wrap; }
+.crumb span::after { content: ' ›'; }
+.crumb span:last-child::after { content: ''; }
+
+.facing h2 {
+  margin: 10px 0 4px;
+  font-family: var(--font-struct), sans-serif;
+  font-size: var(--type-headline-size);
+  font-weight: var(--type-headline-weight);
+}
+
+.facing-section { margin-top: 20px; }
+.facing-section h3 {
+  margin: 0 0 6px;
+  color: var(--color-ink-graphite-soft);
+  box-shadow: inset 0 -1px 0 var(--color-rule-major), 0 2px 0 -1px var(--color-rule-major);
+  padding-bottom: 6px;
+}
+.facing-line {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: 8px;
+  align-items: baseline;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--color-rule);
+}
+.facing-line > .label { color: var(--color-ink-graphite-soft); }
+.facing-note {
+  grid-column: 2;
+  color: var(--color-ink-graphite-soft);
+  font-size: 11px;
+  font-style: italic;
+}
+
+/* ---- empty run: the columns are drawn, the page is simply blank ---- */
+
+.run tbody td.empty {
+  color: var(--color-ink-graphite-soft);
+  font-style: italic;
+}
+
+@media (max-width: 900px) {
+  .facing { position: absolute; right: 0; top: 0; bottom: 0; z-index: 30; }
+  .hint { display: none; }
+}
+
+/* ---- row actions ----
+   A pencil and a bin, drawn in the same hand as the rules on the page: 1px
+   strokes, square ends, no rounded corners, no fill. An imported icon set
+   would be the single borrowed voice in the interface. */
+
+.rowacts {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  padding-left: 8px;
+  flex: 0 0 auto;
+}
+
+.rowact {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-ink-graphite-soft);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.rowact svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1;
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+  shape-rendering: crispEdges;
+}
+.rowact:hover { color: var(--color-ink-graphite); }
+.rowact:focus-visible { outline: 2px solid var(--color-ink-graphite); outline-offset: 0; }
+
+/* Hidden until the row is wanted: two controls repeated down 174 rows is
+   clutter, and F2 and Delete reach the same actions without them. An armed
+   row stays visible, because a question has to be readable to be answered. */
+.rowacts { visibility: hidden; }
+tr:hover .rowacts,
+tr[aria-selected='true'] .rowacts,
+.rowacts:focus-within { visibility: visible; }
+
+/* ---- undo ----
+   Archiving is reversible, and this is the reversal rather than a countdown
+   before a delete. It reads as an errata slip because that is what it is: a
+   note about something already written down. */
+.undo {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 7px 20px;
+  background: var(--color-page-edge);
+  border-top: 1px solid var(--color-rule-major);
+  border-bottom: 1px solid var(--color-rule-major);
+  font-size: 12.5px;
+}
+.undo button {
+  border: 1px solid var(--color-ink-graphite);
+  background: none;
+  padding: 3px 10px;
+  cursor: pointer;
+}
+.undo .dismiss { margin-left: auto; border: 0; font-size: 14px; }
+
+/* ---- the archive question ----
+   A leaf laid over the page, not a card floating above it: page ground, one
+   1px graphite rule, square corners. No blur, no radius, no drop shadow — the
+   only shadow this system has is the hard fore-edge offset, and it is used
+   here for the same reason, to say this sheet sits on top of the others.
+
+   The backdrop is a flat wash of the board colour: the desk showing through,
+   rather than the frosted glass every other product reaches for. */
+
+.sheetover {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(59, 58, 51, 0.42);
+}
+
+.overleaf {
+  width: 420px;
+  max-width: calc(100vw - 40px);
+  padding: 20px 22px 18px;
+  background: var(--color-page);
+  border: 1px solid var(--color-ink-graphite);
+  box-shadow: 2px 2px 0 rgba(42, 38, 34, 0.25);
+}
+
+.overleaf h2 {
+  margin: 0 0 10px;
+  padding-bottom: 8px;
+  color: var(--color-ink-graphite-soft);
+  box-shadow: inset 0 -1px 0 var(--color-rule-major), 0 2px 0 -1px var(--color-rule-major);
+}
+
+.overleaf-name {
+  margin: 12px 0 10px;
+  font-family: var(--font-struct), sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.overleaf-body { margin: 0 0 10px; font-size: 13px; }
+.overleaf-body .figure { font-size: 13px; }
+
+.overleaf-note {
+  margin: 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-rule);
+  color: var(--color-ink-graphite-soft);
+  font-size: 12px;
+}
+
+.overleaf-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 18px;
+}
+.overleaf-actions button {
+  height: 30px;
+  padding: 0 14px;
+  border: 1px solid var(--color-ink-graphite);
+  background: none;
+  cursor: pointer;
+}
+/* The primary action inverts. There is no filled accent button in this system,
+   and it is not red: vermilion means out of tolerance, and archiving is a
+   deliberate act rather than a mistake (DESIGN.md § Colors, rule 1). */
+.overleaf-actions .primary {
+  background: var(--color-ink-graphite);
+  color: var(--color-page);
+}

@@ -1,0 +1,25 @@
+services:
+  db:
+    image: postgres:18-alpine
+    container_name: fieldbook-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: fieldbook
+      POSTGRES_USER: fieldbook
+      POSTGRES_PASSWORD: fieldbook_dev
+      # Deterministic sorting for Thai content; the app never relies on
+      # database collation for display order, but reproducible dumps matter.
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    # 5433 on the host: PostgreSQL 18 is already installed locally on 5432.
+    ports:
+      - "5433:5432"
+    volumes:
+      - fieldbook_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fieldbook -d fieldbook"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  fieldbook_pgdata:

@@ -1,0 +1,86 @@
+@import './tokens.css';
+
+/*
+ * Base sheet for the Field Book world. See DESIGN.md.
+ *
+ * Three rules this file exists to hold:
+ *   - radius is 0 everywhere except the punched hole
+ *   - there is one shadow in the system, a hard 2px offset at the fore edge
+ *   - nothing eases; state changes are a two-frame step at 90ms
+ */
+
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--color-board);
+  color: var(--color-ink-graphite);
+  font-family: var(--font-read), system-ui, sans-serif;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-leading);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Thai sets optically smaller than Latin and its tone marks need headroom.
+   Never track or uppercase Thai — it breaks the mark stacking. */
+:lang(th) {
+  font-size: 1.05em;
+  line-height: 1.55;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.label {
+  font-family: var(--font-struct), system-ui, sans-serif;
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+  letter-spacing: var(--type-label-tracking);
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.figure {
+  font-family: var(--font-figure), ui-monospace, monospace;
+  font-size: var(--type-figure-size);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--type-figure-tracking);
+}
+
+/* The page is the container: filled to its rules, never a centred column. */
+.page {
+  background: var(--color-page);
+  min-height: 100vh;
+  max-width: 1440px;
+  margin: 0 auto;
+  box-shadow: 2px 0 0 rgba(0, 0, 0, 0.25);   /* the only shadow in the system */
+}
+
+a { color: inherit; }
+
+button, input, select, textarea {
+  font: inherit;
+  color: inherit;
+  border-radius: var(--radius-none);
+}
+
+/* Square, high contrast, always visible. This grid is keyboard-operated. */
+:focus-visible {
+  outline: 2px solid var(--color-ink-graphite);
+  outline-offset: 1px;
+}
+
+::selection {
+  background: var(--color-vermilion-wash);
+  color: var(--color-ink-graphite);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0s !important;
+    animation-duration: 0s !important;
+  }
+}

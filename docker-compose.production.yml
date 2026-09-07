@@ -1,0 +1,9 @@
+services:
+  app:
+    image: ${IMAGE:?IMAGE must be set}
+    container_name: fieldbook-app
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "${APP_PORT:-3000}:3000"

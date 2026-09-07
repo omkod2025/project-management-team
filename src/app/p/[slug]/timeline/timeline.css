@@ -1,0 +1,275 @@
+/*
+ * The field. See DESIGN.md § Components and spec 04.
+ *
+ * The rule that decides whether this view works: estimate and actual differ
+ * by POSITION, HEIGHT and FILL before they differ by ink. Greyscale, a
+ * colour-blind viewer and a bad screen all still read plan-versus-record.
+ */
+
+.tl { display: flex; min-width: max-content; }
+
+.tl-names {
+  position: sticky;
+  left: 0;
+  z-index: 4;
+  width: 320px;
+  min-width: 320px;
+  background: var(--color-page);
+  border-right: 1px solid var(--color-rule);
+  /* Same device as the List: the name column is a leaf above the field
+     sliding beneath it, marked by the one hard offset the system allows. */
+  box-shadow: 2px 0 0 rgba(42, 38, 34, 0.16);
+}
+
+.tl-field { position: relative; }
+
+.tl-head {
+  height: 26px;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--color-page);
+  box-shadow: inset 0 -1px 0 var(--color-rule-major), 0 2px 0 -1px var(--color-rule-major);
+}
+
+.tl-months { display: flex; height: 26px; align-items: center; }
+.tl-month {
+  height: 26px;
+  display: flex;
+  align-items: center;
+  padding-left: 6px;
+  border-left: 1px solid var(--color-rule-major);
+  color: var(--color-ink-graphite-soft);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.tl-days {
+  display: flex;
+  height: 22px;
+  align-items: center;
+  position: sticky;
+  top: 26px;
+  z-index: 5;
+  background: var(--color-page);
+  border-bottom: 1px solid var(--color-rule);
+}
+.tl-day {
+  flex: 0 0 auto;
+  text-align: center;
+  font-family: var(--font-figure), monospace;
+  font-size: 10px;
+  color: var(--color-ink-graphite-soft);
+  overflow: hidden;
+}
+.tl-day.off { background: var(--color-page-edge); }
+
+.tl-rows { position: relative; }
+
+.tl-namerow,
+.tl-row {
+  height: var(--space-row);
+  border-bottom: 1px solid var(--color-rule);
+  position: relative;
+}
+.tl-namerow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 10px;
+  /* Fixed height and no wrapping. A wrapped Thai name would make this row
+     taller than its counterpart in the field, and every row below it would
+     drift out of register — the bar you read would not belong to the name
+     you read. */
+  overflow: hidden;
+  white-space: nowrap;
+}
+.tl-namerow .name-text { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.tl-namerow.module,
+.tl-row.module { height: 44px; box-shadow: inset 0 1px 0 var(--color-rule-major); }
+.tl-namerow.module { font-family: var(--font-struct), sans-serif; font-weight: 600; }
+.tl-namerow[aria-selected='true'] { box-shadow: inset 3px 0 0 rgba(42, 38, 34, 0.3); }
+
+/* Non-working days band the whole run, behind every bar. */
+.band { position: absolute; top: 0; bottom: 0; background: var(--color-page-edge); z-index: 0; }
+
+.datum { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--color-datum); z-index: 3; }
+.datum-cap {
+  position: absolute;
+  top: 4px;
+  transform: translateX(-50%);
+  z-index: 6;
+  padding: 0 4px;
+  background: var(--color-page);
+  color: var(--color-datum);
+}
+
+/* ---- the two bars ---- */
+
+.bar { position: absolute; z-index: 2; box-sizing: border-box; }
+.bar .lead { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--bar-hue); }
+
+/* Both bars are keyed to their module's colour, so a run of work reads as one
+   thread across a field of two hundred rows. The colour says *whose*; it never
+   says how the work is going — that is the misclosure's job, and vermilion
+   stays the only colour that carries a verdict.
+
+   The plan/record distinction is NOT carried by hue, and must not become so.
+   It survives in position (upper/lower), height (9px/13px) and treatment
+   (hatch/solid), which is what keeps it legible in a greyscale print and to a
+   colour-blind reader. Hue is a third axis laid over the top of that, not a
+   replacement for it. */
+
+/* pencil — a plan */
+.bar.est {
+  top: 5px;
+  height: 9px;
+  border: 1px solid color-mix(in srgb, var(--bar-hue) 50%, var(--color-ink-graphite-soft));
+  background-color: color-mix(in srgb, var(--bar-hue) 22%, var(--color-page));
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='6'%3E%3Cpath d='M-1,1 l2,-2 M0,6 l6,-6 M5,7 l2,-2' stroke='%232A2622' stroke-width='1' opacity='.34'/%3E%3C/svg%3E");
+}
+/* ink — a record. Darkened toward the blue-black so a filled bar stays ink
+   rather than becoming a bright block, and so tab-1 cannot be mistaken at a
+   glance for the vermilion of an overrun. */
+.bar.act {
+  top: 18px;
+  height: 13px;
+  background: color-mix(in srgb, var(--bar-hue) 62%, var(--color-ink-blue));
+  border: 1px solid color-mix(in srgb, var(--bar-hue) 40%, var(--color-ink-blue-soft));
+}
+
+.bar.draggable { cursor: grab; }
+.bar.dragging { cursor: grabbing; z-index: 8; }
+.bar .handle {
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 6px;
+  cursor: ew-resize;
+}
+.bar .handle.start { left: -2px; }
+.bar .handle.end { right: -2px; }
+
+/* the original position, held while dragging so the size of the change shows */
+.ghost {
+  position: absolute;
+  border: 1px dashed var(--color-ink-graphite-soft);
+  z-index: 1;
+  pointer-events: none;
+}
+
+.drag-dates {
+  position: absolute;
+  top: -14px;
+  z-index: 9;
+  white-space: nowrap;
+  padding: 0 4px;
+  background: var(--color-page);
+  color: var(--color-ink-graphite);
+  font-family: var(--font-figure), monospace;
+  font-size: 10px;
+}
+
+/* milestone: an end with no start (D-12) */
+.mile {
+  position: absolute;
+  top: 8px;
+  width: 9px; height: 9px;
+  transform: rotate(45deg);
+  border: 1px solid color-mix(in srgb, var(--bar-hue) 50%, var(--color-ink-graphite-soft));
+  z-index: 2;
+}
+/* Hollow for a plan, filled for a record — the same distinction the bars make,
+   carried by treatment rather than by hue. */
+.mile.act {
+  top: 20px;
+  background: color-mix(in srgb, var(--bar-hue) 62%, var(--color-ink-blue));
+  border-color: color-mix(in srgb, var(--bar-hue) 40%, var(--color-ink-blue-soft));
+}
+
+/* ---- parent brackets ---- */
+
+.brk {
+  position: absolute;
+  height: 7px;
+  z-index: 2;
+}
+.brk.base { top: 8px; border: 1px solid var(--color-ink-graphite); border-bottom: 0; }
+.brk.roll { top: 24px; border: 1px solid var(--color-ink-graphite-soft); border-top: 0; }
+/* only the overhang is vermilion, never the whole bracket */
+.brk.over { top: 24px; border: 1px solid var(--color-vermilion); border-top: 0; z-index: 3; }
+
+.over-fig {
+  position: absolute;
+  top: 20px;
+  z-index: 4;
+  padding-left: 4px;
+  color: var(--color-vermilion);
+  font-family: var(--font-figure), monospace;
+  font-size: 11px;
+}
+
+/* ---- controls ---- */
+
+.seg { display: flex; border: 1px solid var(--color-ink-graphite); }
+.seg button {
+  padding: 5px 9px;
+  border: 0;
+  border-right: 1px solid var(--color-ink-graphite);
+  background: none;
+  color: var(--color-ink-graphite-soft);
+  cursor: pointer;
+}
+.seg button:last-child { border-right: 0; }
+.seg button[aria-pressed='true'] { background: var(--color-ink-graphite); color: var(--color-page); }
+
+@media (max-width: 900px) {
+  .tl-names { width: 200px; min-width: 200px; }
+}
+
+.tl-empty {
+  padding: 10px 20px;
+  margin: 0;
+  color: var(--color-ink-graphite-soft);
+  font-style: italic;
+  font-size: 12.5px;
+}
+
+/* ---- sort control ---- */
+
+.sortbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-ink-graphite-soft);
+}
+.sortbox .field-input {
+  height: 26px;
+  padding: 0 6px;
+  background: var(--color-page);
+  border: 1px solid var(--color-rule);
+  letter-spacing: normal;
+  text-transform: none;
+}
+.sortbox .field-input:focus { border-color: var(--color-ink-graphite); }
+
+.flip {
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--color-ink-graphite);
+  background: none;
+  color: var(--color-ink-graphite);
+  cursor: pointer;
+  font-family: var(--font-figure), monospace;
+}
+
+/* Which module a row belongs to, shown only when the sort has flattened the
+   tree and the indent can no longer say it. */
+.rowmodule {
+  margin-left: auto;
+  padding-left: 10px;
+  flex: 0 0 auto;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--color-ink-graphite-soft);
+}

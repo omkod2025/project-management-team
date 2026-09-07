@@ -1,0 +1,11 @@
+.env
+.env.*
+!.env.example
+.git
+.github
+.next
+node_modules
+data/clickup-raw
+data/import
+*.log
+*.tsbuildinfo
