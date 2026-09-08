@@ -16,6 +16,8 @@ import {
   assertPassword, assertNewPassword, MIN_PASSWORD_LENGTH,
   assertNotProtectedAccount, assertNotSelf, assertLeavesNoProjectAdminless,
   assertAdminsEveryProjectOf, PROTECTED_EMAIL,
+  assertFullName, assertNotProtectedReset, assertResetIsNotSelf,
+  assertSharesAnAdministeredProject,
 } from '../src/lib/admin-rules.ts';
 import { DomainError } from '../src/lib/errors.ts';
 
@@ -199,5 +201,79 @@ describe('deleting a user — the four refusals', () => {
     // no standing to destroy access to another.
     refuses('E_FORBIDDEN', () => assertAdminsEveryProjectOf(1));
     assert.equal(assertAdminsEveryProjectOf(0), undefined);
+  });
+});
+
+/* ============================================================ own profile */
+
+describe('renaming yourself', () => {
+  test('a name is trimmed and kept exactly as typed otherwise', () => {
+    assert.equal(assertFullName('  Pim Suwannarat  '), 'Pim Suwannarat');
+    // Thai is content, not chrome: no case folding, no transliteration, and it
+    // must survive the boundary unchanged.
+    assert.equal(assertFullName('พิมพ์ สุวรรณรัตน์'), 'พิมพ์ สุวรรณรัตน์');
+  });
+
+  test('an empty name is refused — the column is NOT NULL and it is drawn everywhere', () => {
+    refuses('E_UNKNOWN_FIELD', () => assertFullName(''));
+    refuses('E_UNKNOWN_FIELD', () => assertFullName('   '));
+    refuses('E_UNKNOWN_FIELD', () => assertFullName(null));
+    refuses('E_UNKNOWN_FIELD', () => assertFullName(42));
+  });
+
+  test('and an unreasonable one', () => {
+    assert.equal(assertFullName('น'.repeat(120)).length, 120);
+    refuses('E_UNKNOWN_FIELD', () => assertFullName('n'.repeat(121)));
+  });
+});
+
+/* ================================================ resetting a password */
+
+describe('resetting somebody else’s password — the three refusals', () => {
+  test('the install account is not resettable, however the address is cased', () => {
+    refuses('E_FORBIDDEN', () => assertNotProtectedReset('admin@cit.com'));
+    refuses('E_FORBIDDEN', () => assertNotProtectedReset('  Admin@CIT.com '));
+    // Near misses pass, so the guard is equality and not a substring test.
+    assert.equal(assertNotProtectedReset('notadmin@cit.com'), undefined);
+    assert.equal(assertNotProtectedReset('admin@cit.com.co'), undefined);
+  });
+
+  test('the refusal is about the password, not about deletion', () => {
+    // Two rules, two sentences. Being told the account cannot be deleted when
+    // you asked to reset a password reads as a bug in the page.
+    assert.throws(() => assertNotProtectedReset(PROTECTED_EMAIL), (err: unknown) => {
+      assert.ok(err instanceof DomainError);
+      assert.ok(!/deleted/.test(err.message), err.message);
+      return true;
+    });
+  });
+
+  test('nobody resets their own — it would raise the flag on their own session', () => {
+    refuses('E_FORBIDDEN', () => assertResetIsNotSelf('u1', 'u1'));
+    assert.equal(assertResetIsNotSelf('u1', 'u2'), undefined);
+  });
+
+  /*
+   * One shared administered project is the whole standing test, at the owner's
+   * instruction (2026-09-08). It is looser than deletion's on purpose: the
+   * stricter rule made a reset unusable on an install where people sit on
+   * several projects, because only an admin of all of them could help.
+   */
+  test('one project you administer, shared with them, is enough', () => {
+    assert.equal(assertSharesAnAdministeredProject(1), undefined);
+    assert.equal(assertSharesAnAdministeredProject(4), undefined);
+  });
+
+  test('and none is not', () => {
+    // Which is the case that matters: the access board lists every account on
+    // the install, including people the caller has no relationship with.
+    refuses('E_FORBIDDEN', () => assertSharesAnAdministeredProject(0));
+  });
+
+  test('this is deliberately looser than the rule for deleting the same person', () => {
+    // Somebody on two projects, one of which the caller does not administer.
+    // Their password may be reset; their account may not be deleted.
+    assert.equal(assertSharesAnAdministeredProject(1), undefined);
+    refuses('E_FORBIDDEN', () => assertAdminsEveryProjectOf(1));
   });
 });

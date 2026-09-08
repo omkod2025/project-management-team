@@ -305,7 +305,7 @@ Neither is a defect. Both are the owner's data to enter, and until they are, the
   - [x] A warning when a money column is switched on
   - [x] Variance is opt-in; closed counts and dates are always shown
   - [x] Print styles drop the buff ground to white — on paper the page *is* paper — and keep modules off page breaks
-- [x] Q5 — **Field Book**. Decided 2026-09-07 and signed on the client report
+- [x] Q5 — **T-Timeline**. Decided 2026-09-07 and signed on the client report
 
 ## Deferred by decision — do not start without reopening the decision
 

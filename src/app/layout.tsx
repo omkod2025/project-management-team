@@ -30,7 +30,7 @@ const figure = Martian_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Field Book',
+  title: 'T-Timeline',
   description: 'Plan and reality, booked side by side.',
 };
 

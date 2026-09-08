@@ -29,7 +29,7 @@ Visual rules come from [`../../DESIGN.md`](../../DESIGN.md). This document cover
 
 **Column head.** 26px, label caps, closed by the signature double rule. Sticky to the top of the run.
 
-**Every project surface carries a way back to the shelf.** `‹ Field Book`, the system's Button, set before the project name on the List, Timeline, Settings and Report. It is deliberately **not** filed beside `List · Timeline · Report · Settings`: those are views of this project and this is the way out of it, and putting a level change among sibling views because the two sit near each other is the same grouping-by-adjacency error as `Closed` under `Variance`.
+**Every project surface carries a way back to the shelf.** `‹ T-Timeline`, the system's Button, set before the project name on the List, Timeline, Settings and Report. It is deliberately **not** filed beside `List · Timeline · Report · Settings`: those are views of this project and this is the way out of it, and putting a level change among sibling views because the two sit near each other is the same grouping-by-adjacency error as `Closed` under `Variance`.
 
 It is a word, not a house glyph — every icon here is drawn in the same 1px hand as the rules on the page, so a borrowed pictogram would be the one imported voice in the interface, and the word also says *which* home. On the Report it sits inside `.no-print`, so it never reaches the client's copy.
 

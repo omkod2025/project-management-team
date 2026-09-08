@@ -66,7 +66,7 @@ export default function SettingsView({ settings: initial, slug }: Props) {
               project* and this is the way out of it — filing a level change
               among sibling views because the two sit near each other is the
               grouping-by-adjacency this page has been unpicking. */}
-          <a className="shelf label" href="/">‹ Field Book</a>
+          <a className="shelf label" href="/">‹ Home</a>
           <h1>{s.project.name}</h1>
           <div className="views label">
             <a href={`/p/${slug}`}>List</a>

@@ -1,4 +1,4 @@
-# PRD — Field Book
+# PRD — T-Timeline
 
 > Project management for software delivery, where the plan and what actually happened are recorded separately and shown against each other.
 
@@ -9,7 +9,7 @@
 | Owner | Ouan (delivery lead, sole admin) |
 | Replaces | ClickUp workspace `36753462` (`Ouan Ouan's Workspace`) |
 | Stack | Next.js · PostgreSQL · Drizzle · TypeScript |
-| Design system | [`../DESIGN.md`](../DESIGN.md) — The Surveyor's Field Book |
+| Design system | [`../DESIGN.md`](../DESIGN.md) — The Surveyor's T-Timeline |
 | Product truth | [`../PRODUCT.md`](../PRODUCT.md) |
 
 ---

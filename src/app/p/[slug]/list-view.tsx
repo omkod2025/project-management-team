@@ -621,7 +621,7 @@ export default function ListView({
               project* and this is the way out of it — filing a level change
               among sibling views because the two sit near each other is the
               grouping-by-adjacency this page has been unpicking. */}
-          <a className="shelf label" href="/">‹ Field Book</a>
+          <a className="shelf label" href="/">‹ Home</a>
           <ProjectTitle projectId={projectId} name={projectName} canRename={isAdmin} />
           <div className="views label">
             <span aria-current="page">List</span>

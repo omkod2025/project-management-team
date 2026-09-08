@@ -363,7 +363,7 @@
 }
 .seg button:last-child { border-right: 0; }
 .seg button:hover { background: var(--cu-hover); color: var(--cu-ink); }
-.seg button[aria-pressed='true'] { background: var(--cu-ink); color: #fff; }
+.seg button[aria-pressed='true'] { background: var(--brand); color: var(--brand-ink); }
 
 @media (max-width: 900px) {
   .tl-names { width: 200px; min-width: 200px; }
@@ -395,7 +395,7 @@
   letter-spacing: normal;
   text-transform: none;
 }
-.sortbox .field-input:focus { border-color: var(--cu-ink); }
+.sortbox .field-input:focus { border-color: var(--brand); }
 
 /* Ruled, no fill — the ordinary button of the sheet. It is not the primary
    action (that inversion is reserved), it is a way back. */

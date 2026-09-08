@@ -21,7 +21,7 @@ export default function AuthShell({
         <section className="auth-field">
           <div className="auth-mark">
             <FieldBookMark />
-            <span>Field Book</span>
+            <span>T-Timeline</span>
           </div>
 
           <div className="auth-figure">

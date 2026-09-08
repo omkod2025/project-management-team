@@ -192,6 +192,21 @@ export function assertEmail(email: unknown): string {
   return s;
 }
 
+/**
+ * A person's own name, as they type it on their profile.
+ *
+ * `user_full_name` is `NOT NULL` and is what every avatar, roster lane and
+ * assignee chip in the product draws, so an empty string is not a name — it is
+ * a row that renders as a gap everywhere at once. Content here is Thai as often
+ * as not, so nothing is transformed on the way in beyond trimming the edges.
+ */
+export function assertFullName(name: unknown): string {
+  const trimmed = typeof name === 'string' ? name.trim() : '';
+  if (!trimmed) throw domainError('E_UNKNOWN_FIELD', 'A person needs a name.');
+  if (trimmed.length > 120) throw domainError('E_UNKNOWN_FIELD', 'That name is too long.');
+  return trimmed;
+}
+
 /* ------------------------------------------------------- deleting a user */
 
 /**
@@ -310,4 +325,69 @@ export function assertNewPassword(current: unknown, next: unknown): string {
     throw domainError('E_UNKNOWN_FIELD', 'Choose a password you have not been given.');
   }
   return fresh;
+}
+
+/* ---------------------------------------------- resetting someone's password */
+
+/**
+ * The install account's password is not resettable from the board.
+ *
+ * `admin@cit.com` is the account somebody signs in as when every other route in
+ * has been lost, and it is an admin of projects its holder did not necessarily
+ * create. If any project admin could hand themselves its password, the one
+ * account the install falls back on would be the easiest one to take — the
+ * deletion rule would hold while the thing it protects changed hands.
+ *
+ * Separate from `assertNotProtectedAccount` because the sentence differs: that
+ * one says the account cannot be deleted, and being told that when you asked to
+ * reset a password reads as a bug.
+ */
+export function assertNotProtectedReset(email: string): void {
+  if (email.trim().toLowerCase() === PROTECTED_EMAIL) {
+    throw domainError(
+      'E_FORBIDDEN',
+      `${PROTECTED_EMAIL} is the install account. Its password is changed by signing in as it.`,
+    );
+  }
+}
+
+/**
+ * Nobody resets their own password from here.
+ *
+ * Not a safety rail — a correctness one. A reset raises
+ * `user_must_change_password`, so an admin doing this to themselves would lock
+ * their own session out of everything but the change-password page, having just
+ * chosen the password they would then be told to replace. `/profile` sends them
+ * to the form that asks for the current password, which is the honest one.
+ */
+export function assertResetIsNotSelf(targetUserId: string, actingUserId: string): void {
+  if (targetUserId === actingUserId) {
+    throw domainError(
+      'E_FORBIDDEN',
+      'Change your own password from your profile, where the current one is asked for.',
+    );
+  }
+}
+
+/**
+ * You may only reset the password of somebody you share an administered
+ * project with. One shared project is enough.
+ *
+ * This is the whole standing test for a reset, and it is looser than the one
+ * for deletion on purpose (see `issuePasswordReset`): a reset is the everyday
+ * act of somebody who has lost their password, and requiring the caller to
+ * administer *every* project the person holds meant that on a real install only
+ * one person could ever help.
+ *
+ * What it still refuses is the case that matters: the access board lists every
+ * account on the install, including people you have no relationship with at
+ * all. Without this rule that listing would be a list of accounts to take.
+ */
+export function assertSharesAnAdministeredProject(sharedCount: number): void {
+  if (sharedCount < 1) {
+    throw domainError(
+      'E_FORBIDDEN',
+      'You share no project you administer with them, so their password is not yours to set.',
+    );
+  }
 }

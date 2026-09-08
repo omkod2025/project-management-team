@@ -290,7 +290,7 @@ export default function ReportView({ projectName, slug, rows, fields, people, st
           {/* A document sent outside the building says what produced it.
               Relying on the browser's own print header would not do: it is
               off by default in some browsers and switchable in all of them. */}
-          <span className="report-mark">Field Book</span>
+          <span className="report-mark">T-Timeline</span>
           Dates are working days in Asia/Bangkok. “Closed” counts tasks whose
           status has reached a finished stage.
         </footer>

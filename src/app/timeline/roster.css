@@ -45,7 +45,7 @@
 }
 .rs-name:hover { background: var(--cu-hover); }
 .rs-name:focus-visible {
-  outline: 2px solid var(--cu-ink);
+  outline: 2px solid var(--brand);
   outline-offset: -2px;
 }
 
@@ -60,7 +60,7 @@
   top: 0;
   bottom: 0;
   width: 3px;
-  background: var(--cu-ink);
+  background: var(--brand);
 }
 
 .rs-person {

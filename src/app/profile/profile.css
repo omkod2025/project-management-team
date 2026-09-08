@@ -1,0 +1,304 @@
+/*
+ * The profile page.
+ *
+ * Account chrome, so it follows `people.css` rather than the field book: grey
+ * page, white sheet, cool grey hairlines, a 4–10px radius. The `--cu-*` names
+ * are redeclared here for the reason `people.css` gives — a page reaching into
+ * another page's stylesheet for its palette is how two surfaces end up unable
+ * to move independently.
+ *
+ * No colour carries meaning on this page. The role chips are held apart in ink
+ * weight and slope exactly as the access board holds them, because the six tab
+ * hues mean module identity everywhere in this system (DESIGN.md § Colors) and
+ * cannot be re-let to mean a permission level. Vermilion appears only on a
+ * failed save, which is a state out of tolerance and the one thing vermilion is
+ * allowed to mean.
+ */
+
+.prof {
+  --cu-canvas: #ffffff;
+  --cu-ground: #eef0f6;
+  --cu-line: #e4e7f0;
+  --cu-line-soft: #edeff6;
+  --cu-ink: #292d34;
+  --cu-ink-soft: #7c828d;
+  --cu-ink-faint: #a5abb5;
+  --cu-hover: #f6f7fc;
+  --cu-chip: #ebeef8;
+  --cu-r: 4px;
+  --cu-r-sheet: 10px;
+
+  min-height: 100vh;
+  padding: 24px 24px 64px;
+  background: var(--cu-ground);
+  color: var(--cu-ink);
+  box-shadow: none;
+  max-width: none;
+}
+
+.prof-sheet {
+  max-width: 880px;
+  margin: 0 auto;
+  background: var(--cu-canvas);
+  border: 1px solid var(--cu-line);
+  border-radius: var(--cu-r-sheet);
+  box-shadow: 0 1px 2px rgba(43, 58, 143, 0.06), 0 8px 24px -12px rgba(43, 58, 143, 0.18);
+  overflow: hidden;
+}
+
+/* ---- head ---- */
+
+.prof-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  padding: 22px 24px 18px;
+}
+.prof-head h1 {
+  margin: 0;
+  font-family: var(--font-struct), system-ui, sans-serif;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+}
+.prof-sub {
+  margin: 5px 0 0;
+  max-width: 62ch;
+  color: var(--cu-ink-soft);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.prof-out { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+
+/* Overrides of `.shelf-button`, rendered by `sign-out` which this stylesheet
+   does not own. Same treatment as the access board's. */
+.prof .shelf-link,
+.prof .shelf-button {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--cu-line);
+  border-radius: var(--cu-r);
+  background: var(--cu-canvas);
+  color: var(--cu-ink-soft);
+  text-decoration: none;
+  white-space: nowrap;
+  font-family: var(--font-read), system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
+}
+.prof .shelf-link:hover,
+.prof .shelf-button:hover {
+  background: var(--cu-hover);
+  border-color: var(--cu-ink-faint);
+  color: var(--cu-ink);
+}
+
+/* ---- identity ---- */
+
+.prof-id {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 4px 24px 20px;
+}
+.prof-mark {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  /* This page is about one person, so the monogram is that person at brand
+     weight — the same tile the rail draws for you. The board's monograms stay
+     grey: a column of them is a list, not an identity. */
+  background: var(--brand);
+  color: var(--brand-ink);
+  font-family: var(--font-struct), system-ui, sans-serif;
+  font-size: 19px;
+  font-weight: 600;
+  line-height: 1;
+  user-select: none;
+}
+.prof-id-lines { min-width: 0; }
+.prof-id-name {
+  display: block;
+  font-family: var(--font-struct), system-ui, sans-serif;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.prof-id-mail {
+  display: block;
+  margin-top: 2px;
+  color: var(--cu-ink-soft);
+  font-size: 13px;
+}
+
+.prof-errata {
+  margin: 0 24px 12px;
+  padding: 9px 12px;
+  background: var(--color-vermilion-wash);
+  border: 1px solid color-mix(in srgb, var(--color-vermilion) 28%, var(--cu-canvas));
+  border-radius: var(--cu-r);
+  color: var(--color-vermilion);
+  font-size: 12.5px;
+}
+
+/* ---- blocks ----
+
+   Each block is a heading, a sentence saying what the thing is and whose it is,
+   then the control or the fact. The sentence is not decoration: two of the
+   three blocks here are read-only, and without it their fields read as broken
+   rather than as somebody else's to change. */
+
+.prof-block {
+  padding: 20px 24px 22px;
+  border-top: 1px solid var(--cu-line);
+}
+.prof-block:nth-of-type(even) { background: var(--cu-hover); }
+.prof-block-head h2 {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-struct), system-ui, sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: normal;
+  text-transform: none;
+  box-shadow: none;
+}
+.prof-block-head p {
+  margin: 5px 0 0;
+  max-width: 68ch;
+  color: var(--cu-ink-soft);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+/* ---- the name field ---- */
+
+.prof-form { margin-top: 14px; }
+.prof-field { display: block; max-width: 420px; }
+.prof-label {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--cu-ink-soft);
+  font-size: 12px;
+  font-weight: 500;
+}
+.prof-field input {
+  width: 100%;
+  height: 36px;
+  padding: 0 11px;
+  background: var(--cu-canvas);
+  border: 1px solid var(--cu-line);
+  border-radius: var(--cu-r);
+  color: var(--cu-ink);
+  /* Thai sets no smaller than 13px anywhere in this product, and a name field
+     is where Thai actually lands. */
+  font-size: 14px;
+}
+.prof-field input:focus {
+  border-color: var(--cu-ink-faint);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--brand-glow);
+}
+
+.prof-actions { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+.prof-save {
+  height: 34px;
+  padding: 0 16px;
+  border: 1px solid var(--brand);
+  border-radius: var(--cu-r);
+  background: var(--brand);
+  color: #fff;
+  cursor: pointer;
+  font-family: var(--font-read), system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+}
+.prof-save:hover:not(:disabled) { background: var(--brand-deep); border-color: var(--brand-deep); }
+.prof-save:disabled { opacity: 0.45; cursor: default; }
+.prof-cancel {
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--cu-line);
+  border-radius: var(--cu-r);
+  background: var(--cu-canvas);
+  color: var(--cu-ink-soft);
+  cursor: pointer;
+  font-size: 13px;
+}
+.prof-cancel:hover { border-color: var(--cu-ink-faint); color: var(--cu-ink); }
+/* Grey, not green. Nothing in this product signals success in colour — the
+   record either says the thing or it does not. */
+.prof-saved { color: var(--cu-ink-soft); font-size: 12.5px; }
+
+/* ---- facts ---- */
+
+.prof-facts { margin: 14px 0 0; font-size: 13px; }
+.prof-facts > div {
+  display: grid;
+  grid-template-columns: 132px 1fr;
+  gap: 14px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--cu-line-soft);
+}
+.prof-facts > div:last-child { border-bottom: 0; }
+.prof-facts dt { color: var(--cu-ink-soft); }
+.prof-facts dd { margin: 0; color: var(--cu-ink); line-height: 1.5; }
+.prof-link { color: var(--brand); text-decoration: underline; text-underline-offset: 2px; }
+.prof-link:hover { color: var(--brand-deep); }
+.prof-note { color: var(--cu-ink-soft); }
+
+/* ---- access ---- */
+
+.prof-access { list-style: none; margin: 14px 0 0; padding: 0; font-size: 13px; }
+.prof-access li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--cu-line-soft);
+}
+.prof-access li:last-child { border-bottom: 0; }
+.prof-access a {
+  color: var(--cu-ink);
+  text-decoration: none;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.prof-access a:hover { text-decoration: underline; }
+.prof-role {
+  margin-left: auto;
+  padding: 3px 9px;
+  border-radius: var(--cu-r);
+  background: var(--cu-chip);
+  color: var(--cu-ink-soft);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.prof-role.role-admin { color: var(--brand); font-weight: 600; box-shadow: inset 2px 0 0 var(--brand); }
+.prof-role.role-viewer { font-style: italic; }
+
+.prof-blank {
+  margin: 14px 0 0;
+  max-width: 60ch;
+  color: var(--cu-ink-soft);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+@media (max-width: 720px) {
+  .prof { padding: 12px 12px 40px; }
+  .prof-head { flex-wrap: wrap; padding: 18px 16px 14px; }
+  .prof-id, .prof-block { padding-inline: 16px; }
+  .prof-errata { margin-inline: 16px; }
+  .prof-facts > div { grid-template-columns: 1fr; gap: 2px; }
+}

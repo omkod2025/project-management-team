@@ -242,7 +242,7 @@ The load is re-runnable. It records the ClickUp id for every created node inside
 
 **Verified on 2026-09-07**: generating the load from the second capture produced a byte-identical `load.sql`, and running it left the project's digest unchanged across all 175 nodes.
 
-> **The re-run overwrites `node_custom_values` wholesale.** Any value edited in the app since the last import is replaced by whatever ClickUp held. That is correct while the import is still the source of truth, and wrong the moment the team starts working in Field Book. Before re-running the load after go-live, either stop or narrow it to the columns the import actually owns.
+> **The re-run overwrites `node_custom_values` wholesale.** Any value edited in the app since the last import is replaced by whatever ClickUp held. That is correct while the import is still the source of truth, and wrong the moment the team starts working in T-Timeline. Before re-running the load after go-live, either stop or narrow it to the columns the import actually owns.
 
 > `_clickup_id` is the one reserved key in `node_custom_values`. The underscore prefix marks it as system-owned; the API rejects writes to underscore-prefixed keys from clients.
 

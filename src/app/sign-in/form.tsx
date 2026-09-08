@@ -31,7 +31,7 @@ export default function SignInForm() {
           exist here, and the true reason is more use than a button that would
           have to refuse. */}
       <p className="auth-note">
-        Field Book has no sign-up. An <strong>admin</strong> creates your
+        T-Timeline has no sign-up. An <strong>admin</strong> creates your
         account and sends you a one-time link to set your own password.
       </p>
     </form>

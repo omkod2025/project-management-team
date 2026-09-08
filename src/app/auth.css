@@ -27,10 +27,16 @@
  * DESIGN.md § Auth surfaces records it.
  */
 
+/*
+ * These three were the first appearance of the base pair in the product. On
+ * 2026-09-08 the user made that pair the base of the whole product, so they now
+ * read from `globals.css` rather than restating the hexes — the door and the
+ * rooms behind it cannot drift apart by one being edited alone.
+ */
 .auth {
-  --auth-field: #2B3A8F;
-  --auth-field-deep: #222E73;
-  --auth-field-ink: #ffffff;
+  --auth-field: var(--brand);
+  --auth-field-deep: var(--brand-deep);
+  --auth-field-ink: var(--brand-ink);
   /* Tinted from the field's own hue rather than grey, so the secondary voice
      stays part of the panel instead of sitting on top of it. */
   --auth-field-ink-soft: #B9C1E8;

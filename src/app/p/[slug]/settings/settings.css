@@ -52,7 +52,11 @@
   padding: 4px 9px;
   cursor: pointer;
 }
-.settings button.primary { background: var(--color-ink-graphite); color: var(--color-page); }
+.settings button.primary {
+  border-color: var(--brand);
+  background: var(--brand);
+  color: var(--brand-ink);
+}
 .settings [aria-busy='true'] { opacity: 0.6; }
 
 .kind { color: var(--color-ink-graphite-soft); }

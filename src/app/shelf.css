@@ -30,17 +30,24 @@
  * Report and Settings still read as the field book.
  */
 
+/*
+ * The greys are tinted toward the base (#2B3A8F on white, pinned 2026-09-08)
+ * rather than left neutral. A blue button dropped onto neutral grey reads as an
+ * accent bolted on; the same button over grounds that carry a few percent of
+ * its own hue reads as the page being made of one colour. The text inks stay
+ * near-black — indigo body text at 13px reads as a run of links.
+ */
 .sh {
-  --sh-ground: #f1f2f5;
+  --sh-ground: #eef0f6;
   --sh-panel: #ffffff;
-  --sh-panel-soft: #fafbfc;
-  --sh-line: #e6e8ec;
-  --sh-line-soft: #eef0f3;
+  --sh-panel-soft: #fafbfd;
+  --sh-line: #e4e7f0;
+  --sh-line-soft: #edeff6;
   --sh-ink: #1e2229;
   --sh-ink-soft: #6a717c;
   --sh-ink-faint: #9aa1ac;
-  --sh-hover: #f7f8fa;
-  --sh-chip: #eef0f3;
+  --sh-hover: #f6f7fc;
+  --sh-chip: #ebeef8;
 
   --sh-r-shell: 14px;
   --sh-r-block: 10px;
@@ -99,8 +106,8 @@
   height: 26px;
   flex: 0 0 26px;
   border-radius: 50%;
-  background: var(--color-ink-graphite);
-  box-shadow: inset 0 0 0 6px var(--sh-panel), inset 0 0 0 7px var(--color-ink-graphite);
+  background: var(--brand);
+  box-shadow: inset 0 0 0 6px var(--sh-panel), inset 0 0 0 7px var(--brand);
 }
 .sh-brand-name {
   font-family: var(--font-struct), sans-serif;
@@ -118,7 +125,14 @@
   background: var(--sh-panel-soft);
   border: 1px solid var(--sh-line);
   border-radius: var(--sh-r-block);
+  /* It became a link to /profile. It stays drawn as the identity block it
+     already was — an underline here would make the rail's one statement of
+     fact look like navigation. The border answers on approach instead. */
+  color: inherit;
+  text-decoration: none;
 }
+.sh-account:hover { border-color: var(--brand); background: var(--brand-wash); }
+.sh-account:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 .sh-account-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .sh-account-label {
   font-family: var(--font-struct), sans-serif;
@@ -157,11 +171,11 @@
 /* Current is stated by ground and weight, not by a coloured left border — the
    reference's own move, and the one this system would have refused anyway. */
 .sh-nav-item[aria-current='page'] {
-  background: var(--sh-chip);
-  color: var(--sh-ink);
+  background: var(--brand-wash);
+  color: var(--brand);
   font-weight: 600;
 }
-.sh-nav-item[aria-current='page'] svg { color: var(--color-ink-blue); }
+.sh-nav-item[aria-current='page'] svg { color: var(--brand); }
 .sh-nav-count {
   margin-left: auto;
   color: var(--sh-ink-soft);
@@ -196,17 +210,27 @@
 .sh-btn:hover { background: var(--sh-hover); color: var(--sh-ink); border-color: #dcdfe4; }
 .sh-btn:disabled { color: var(--sh-ink-faint); background: var(--sh-panel); cursor: default; }
 
-/* The primary action inverts to graphite ground rather than taking a blue fill.
-   DESIGN.md § Components: there is no filled accent button in this system, and
-   the reference's accent is the one part of it that is pure category habit. */
+/* The primary action takes the base fill. This overrides what this file used to
+   say — that there is no filled accent button in the system — at the user's
+   instruction on 2026-09-08, which made indigo on white the product's base
+   pair. The rule it does not override: the fill is the base, never a hue that
+   already means something. */
 .sh-btn-primary {
-  background: var(--color-ink-graphite);
-  border-color: var(--color-ink-graphite);
-  color: #fff;
+  background: var(--brand);
+  border-color: var(--brand);
+  color: var(--brand-ink);
   font-weight: 600;
 }
-.sh-btn-primary:hover { background: #17140f; border-color: #17140f; color: #fff; }
-.sh-btn-primary:disabled { background: #b9b5ae; border-color: #b9b5ae; color: #fff; }
+.sh-btn-primary:hover {
+  background: var(--brand-deep);
+  border-color: var(--brand-deep);
+  color: var(--brand-ink);
+}
+.sh-btn-primary:disabled {
+  background: color-mix(in srgb, var(--brand) 34%, #fff);
+  border-color: color-mix(in srgb, var(--brand) 34%, #fff);
+  color: var(--brand-ink);
+}
 
 .sh-btn-quiet { background: transparent; }
 
@@ -259,8 +283,8 @@
    only fixed vocabulary on the page, so they take three greys of increasing
    quiet rather than three of the six hues, which are spoken for. */
 .sh-block-bar { width: 3px; height: 15px; border-radius: 2px; background: var(--sh-ink-faint); }
-.sh-role-admin { background: var(--color-ink-graphite); }
-.sh-role-member { background: var(--color-ink-blue); }
+.sh-role-admin { background: var(--brand); }
+.sh-role-member { background: color-mix(in srgb, var(--brand) 55%, #fff); }
 .sh-role-viewer { background: var(--sh-ink-faint); }
 
 .sh-count {
@@ -409,8 +433,11 @@ table.sh-run {
   flex: 0 0 32px;
   border-radius: var(--sh-r);
   box-shadow: none;
-  background: var(--color-ink-graphite);
-  color: #fff;
+  /* You, at brand size, beside the brand mark. The small crew monograms stay
+     grey — one indigo tile in the rail is identity, twelve of them in a table
+     cell is a decoration. */
+  background: var(--brand);
+  color: var(--brand-ink);
   font-size: 12px;
 }
 
@@ -485,7 +512,7 @@ table.sh-run {
 .sh a:focus-visible,
 .sh button:focus-visible,
 .sh input:focus-visible {
-  outline: 2px solid var(--color-ink-graphite);
+  outline: 2px solid var(--brand);
   outline-offset: 2px;
   border-radius: var(--sh-r);
 }

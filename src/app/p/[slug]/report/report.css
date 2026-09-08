@@ -39,9 +39,9 @@
 .report-controls button.primary {
   margin: 6px 0 24px;
   padding: 6px 16px;
-  border: 1px solid var(--color-ink-graphite);
-  background: var(--color-ink-graphite);
-  color: var(--color-page);
+  border: 1px solid var(--brand);
+  background: var(--brand);
+  color: var(--brand-ink);
   cursor: pointer;
 }
 

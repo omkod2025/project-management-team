@@ -47,7 +47,7 @@ export default function ChangePasswordForm(
 
       {!forced && (
         <p className="auth-note">
-          <a href="/">‹ Back to Field Book</a>
+          <a href="/">‹ Back to Home</a>
         </p>
       )}
     </form>

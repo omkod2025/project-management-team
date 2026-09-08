@@ -171,7 +171,7 @@ export default function RosterView({ roster }: { roster: Roster }) {
     <div className="book">
       <div className="sheet">
         <header className="head">
-          <a className="shelf label" href="/">‹ Field Book</a>
+          <a className="shelf label" href="/">‹ Home</a>
           <h1>Roster</h1>
           <div className="views label">
             <a href="/">Projects</a>

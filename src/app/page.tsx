@@ -113,20 +113,23 @@ export default async function Home() {
       <aside className="sh-rail">
         <div className="sh-brand">
           <span className="sh-mark" aria-hidden="true" />
-          <span className="sh-brand-name">Field Book</span>
+          <span className="sh-brand-name">T-Timeline</span>
         </div>
 
         {account && (
-          <div className="sh-account">
+          /* The block that says who you are is also the way to change it —
+             a profile link parked elsewhere in the rail would be a second
+             place asking the same question. */
+          <Link className="sh-account" href="/profile" title="Your profile">
             <span className="sh-avatar sh-avatar-lg" aria-hidden="true">{initials(account.user_full_name)}</span>
             <span className="sh-account-text">
               <span className="sh-account-label">Signed in</span>
               <span className="sh-account-name" title={account.user_email}>{account.user_full_name}</span>
             </span>
-          </div>
+          </Link>
         )}
 
-        <nav className="sh-nav" aria-label="Field Book">
+        <nav className="sh-nav" aria-label="T-Timeline">
           <span className="sh-nav-item" aria-current="page">
             <IconShelf />
             Projects

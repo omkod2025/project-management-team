@@ -1,4 +1,4 @@
-# Field Book — working agreement
+# T-Timeline — working agreement
 
 Project management for software delivery. Plan and reality are recorded separately and shown against each other.
 
@@ -26,6 +26,7 @@ Project management for software delivery. Plan and reality are recorded separate
 | [`tests/e2e/admin.test.ts`](tests/e2e/admin.test.ts) | 29 end-to-end tests: columns, options, members, calendar, invitations, renaming |
 | [`tests/e2e/password.test.ts`](tests/e2e/password.test.ts) | 13 end-to-end tests: admin-set passwords and the change they force |
 | [`tests/e2e/roster.test.ts`](tests/e2e/roster.test.ts) | 12 end-to-end tests: assignment, the membership boundary, read-only |
+| [`tests/e2e/profile.test.ts`](tests/e2e/profile.test.ts) | 11 end-to-end tests: renaming yourself, and admin-issued password resets |
 | [`tests/roster-pack.test.ts`](tests/roster-pack.test.ts) | 23 tests: lane packing, occupancy, contention |
 | [`docs/TASKS.md`](docs/TASKS.md) | Build plan T0–T9 with per-task checklists |
 | [`docs/wireframes/index.html`](docs/wireframes/index.html) | Rendered wireframes for both views |
@@ -53,9 +54,9 @@ npm run db:seed -- <email> <password>
 
 ```bash
 npm run check      # typecheck + domain tests — the pre-commit bar
-npm test           # 94 domain rule tests (nodes, admin, timeline sort), no database needed
+npm test           # 126 domain rule tests (nodes, admin, timeline sort), no database needed
 npm run db:test    # 13 SQL groups, rolled back
-npm run test:e2e   # 91 API tests — REQUIRES `npm run dev` in another terminal
+npm run test:e2e   # 114 API tests — REQUIRES `npm run dev` in another terminal
 npm run test:acceptance  # 15 acceptance criteria, same requirement
 ```
 

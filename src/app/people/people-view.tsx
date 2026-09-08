@@ -69,6 +69,10 @@ export default function PeopleView({ board, actingUserId, signOut }: Props) {
   const [invited, setInvited] = useState<{ email: string; link: string | null } | null>(null);
   /** The id of the one row whose Delete is armed. Only ever one at a time. */
   const [arming, setArming] = useState<string | null>(null);
+  /** The id of the one row whose Reset is armed. Only ever one at a time. */
+  const [resetting, setResetting] = useState<string | null>(null);
+  /** The link just issued, shown once — the token is not readable back out. */
+  const [reset, setReset] = useState<{ name: string; link: string } | null>(null);
   /** The toolbar's Invite button does not open a form — it moves the caret to
       the one that is already on the page. */
   const inviteEmail = useRef<HTMLInputElement>(null);
@@ -117,6 +121,42 @@ export default function PeopleView({ board, actingUserId, signOut }: Props) {
       setPeople((ps) => ps.filter((p) => p.id !== person.id));
     } catch {
       setFailure('No connection. That account was not deleted.');
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  /**
+   * Reset somebody's password: revoke the one they hold, and get a link they
+   * can use to choose a new one.
+   *
+   * No password is typed here and none is shown. The admin never learns the new
+   * one, which is the same bargain the invite link makes and the reason both
+   * exist — a password an admin sets has to be delivered by being said, and
+   * whatever it is said into keeps it.
+   *
+   * Armed rather than confirmed in a dialog, because it does take something
+   * away: between this click and the claim the person cannot sign in at all.
+   */
+  async function resetPassword(person: PersonAccess) {
+    setResetting(null);
+    setBusy(`pw:${person.id}`);
+    setFailure(null);
+    setReset(null);
+    try {
+      const res = await fetch(`/api/users/${person.id}/password`, { method: 'POST' });
+      if (!res.ok) {
+        const err = (await res.json()) as { message?: string; code?: string };
+        setFailure(err.message ?? err.code ?? 'No reset link was issued.');
+        return;
+      }
+      const { token } = (await res.json()) as { token: string };
+      setReset({ name: person.name, link: inviteUrl(token) });
+      // The account now holds no password and a live token — which is what
+      // this row already calls an unclaimed invitation.
+      setPeople((ps) => ps.map((p) => (p.id === person.id ? { ...p, pending: true } : p)));
+    } catch {
+      setFailure('No connection. No reset link was issued.');
     } finally {
       setBusy(null);
     }
@@ -283,7 +323,9 @@ export default function PeopleView({ board, actingUserId, signOut }: Props) {
           <colgroup>
             <col style={{ width: 300 }} />
             {board.projects.map((p) => <col key={p.id} style={{ width: 176 }} />)}
-            <col style={{ width: 150 }} />
+            {/* Wide enough for both verbs side by side, and for the reset field
+                when it opens in place of them. */}
+            <col style={{ width: 300 }} />
           </colgroup>
           <thead>
             <tr>
@@ -348,22 +390,49 @@ export default function PeopleView({ board, actingUserId, signOut }: Props) {
                 })}
 
                 <td className="acct">
-                  <DeleteCell
+                 {/* Two verbs, ordered by what they cost: the recoverable one
+                     first, and the one with no undo last. While either is
+                     armed the other is withdrawn — an armed question and an
+                     unrelated button are not two things to weigh against each
+                     other, and the confirm should not have a neighbour. */}
+                 <span className="acct-verbs">
+                  {arming !== person.id && <ResetCell
+                    person={person}
+                    protectedAccount={person.email.toLowerCase() === PROTECTED_EMAIL}
+                    isSelf={person.id === actingUserId}
+                    armed={resetting === person.id}
+                    busy={busy === `pw:${person.id}`}
+                    onArm={() => { setResetting(person.id); setArming(null); }}
+                    onCancel={() => setResetting(null)}
+                    onConfirm={() => void resetPassword(person)}
+                  />}
+                  {resetting !== person.id && <DeleteCell
                     person={person}
                     protectedAccount={person.email.toLowerCase() === PROTECTED_EMAIL}
                     isSelf={person.id === actingUserId}
                     armed={arming === person.id}
                     busy={busy === `del:${person.id}`}
-                    onArm={() => setArming(person.id)}
+                    onArm={() => { setArming(person.id); setResetting(null); setReset(null); }}
                     onCancel={() => setArming(null)}
                     onConfirm={() => void remove(person)}
-                  />
+                  />}
+                 </span>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {reset && (
+        <p className="people-token">
+          <strong>{reset.name}</strong> can no longer sign in with their old
+          password. Hand them this one-time link — it expires in seven days and
+          they choose their own password, which you never see. It is shown once:
+          if it is lost, reset them again.
+          <InviteLink url={reset.link} />
+        </p>
+      )}
 
       <Invite
         projects={board.projects}
@@ -433,7 +502,9 @@ function DeleteCell({
     return <span className="acct-locked" title="The install account. It cannot be deleted.">install account</span>;
   }
   if (isSelf) {
-    return <span className="acct-locked">your account</span>;
+    // Your own name and your own password are changed where the current
+    // password can be asked for, which is not here.
+    return <a className="acct-mine" href="/profile">Your profile ›</a>;
   }
   if (busy) return <span className="acct-locked">deleting…</span>;
 
@@ -458,6 +529,57 @@ function DeleteCell({
   );
 }
 
+/**
+ * The Reset control: one quiet verb, armed before it fires.
+ *
+ * It generates a link rather than a password. The admin never learns what the
+ * person ends up with, which is the whole reason to prefer it — and it is armed
+ * anyway, because it revokes the password they currently hold. Until the link
+ * is claimed they cannot sign in, so this is not a button to press to see what
+ * it does.
+ *
+ * The install account and your own row draw nothing: the Delete cell beside
+ * this one already says why, and saying it twice in one cell reads as two
+ * different refusals.
+ */
+function ResetCell({
+  person, protectedAccount, isSelf, armed, busy, onArm, onCancel, onConfirm,
+}: {
+  person: PersonAccess;
+  protectedAccount: boolean;
+  isSelf: boolean;
+  armed: boolean;
+  busy: boolean;
+  onArm: () => void;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  if (protectedAccount || isSelf) return null;
+  if (busy) return <span className="acct-locked">issuing…</span>;
+
+  if (armed) {
+    return (
+      <span className="acct-armed">
+        {/* The verb says what actually happens, because "Confirm" would not:
+            the old password stops working here, not when the link is used. */}
+        <button className="acct-yes" onClick={onConfirm}>Revoke and issue link</button>
+        <button className="acct-no" onClick={onCancel}>Cancel</button>
+      </span>
+    );
+  }
+
+  return (
+    <button
+      className="acct-pw"
+      onClick={onArm}
+      aria-label={`Reset ${person.name}'s password`}
+      title="Ends the password they hold and issues a one-time link for them to choose a new one."
+    >
+      Reset password
+    </button>
+  );
+}
+
 function Head({ signOut }: { signOut: React.ReactNode }) {
   return (
     <header className="people-head">
@@ -471,7 +593,7 @@ function Head({ signOut }: { signOut: React.ReactNode }) {
       {/* Both of these change what level you are on rather than what you are
           looking at, so they share the head's edge. */}
       <div className="people-out">
-        <a className="shelf-link" href="/">‹ Field Book</a>
+        <a className="shelf-link" href="/">‹ Home</a>
         {signOut}
       </div>
     </header>

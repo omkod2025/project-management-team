@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="Field Book">
+  <title>Field Book</title>
+  <desc>A white bar on an indigo tile, its last quarter in red: the run, and the part of it that overran the plan.</desc>
+
+  <!--
+    The mark: one run, and the part of it that overran.
+
+    The bar runs in white to where the plan ended and stops; past that point it
+    is red. The estimate is not drawn. It is the seam between the two, which is
+    the only place it was ever visible anyway.
+
+    WHY THE INDIGO IS THE GROUND AND NOT THE BAR
+
+    Asked for #2B3A8F and #FFFFFF as the base, there were two readings: an
+    indigo mark on white, or a white mark on indigo. The first is not available,
+    and the reason is arithmetic rather than taste.
+
+    #2B3A8F against vermilion #A82A17 is 1.43:1. Those two colours abut at the
+    one seam the whole mark exists to show, so an indigo bar with a vermilion
+    tail resolves into a single dark blob at 16px and 24px. Rendered side by
+    side, it does exactly that. The mark would still be drawn and would no
+    longer say anything.
+
+    Inverted, every measurement clears: white on indigo is 9.98:1, and the seam
+    between the white run and its overrun is 3.33:1, which holds at 16px.
+
+    This also puts the icon in the same room as the door. DESIGN.md's auth
+    departure pins an indigo field with a white leaf, and the graphic on that
+    panel is already an estimate bar, an actual bar and the overrun measured
+    between them. The icon is that graphic reduced to one bar.
+
+    WHY THE RED IS #E5654E AND NOT #A82A17
+
+    Not a new colour and not a softening. DESIGN.md's auth section already
+    lightened vermilion to this exact value for exactly this ground, on the
+    finding that #A82A17 on indigo is unreadable. The law is unchanged: this red
+    is the overhang, it is measured from where the white stops, and nothing else
+    on the mark may take it.
+
+    Its width is a quarter of the bar because at an eighth it stopped resolving
+    at 16px and the mark became a plain white bar. That is the one reading this
+    product may never allow, since it is the reading where the overrun was
+    quietly absorbed.
+
+    The 9 unit tile radius and the bar's 1.5 unit radius are .sh-tile and
+    .sh-seg from shelf.css, so the icon keeps the shape the product already uses
+    to mean "a project". No hairline: unlike the white tile it replaces, indigo
+    supplies its own edge on a white tab.
+  -->
+
+  <clipPath id="bar">
+    <rect x="6" y="13" width="20" height="6" rx="1.5"/>
+  </clipPath>
+
+  <!-- the tile: .sh-tile's shape, the auth field's ground -->
+  <rect width="32" height="32" rx="9" fill="#2B3A8F"/>
+
+  <g clip-path="url(#bar)">
+    <!-- the run, as far as the plan went -->
+    <rect x="6" y="13" width="15" height="6" fill="#FFFFFF"/>
+    <!-- the misclosure: past the plan, and the only red permitted -->
+    <rect x="21" y="13" width="5" height="6" fill="#E5654E"/>
+  </g>
+</svg>

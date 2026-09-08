@@ -41,6 +41,7 @@
   white-space: nowrap;
 }
 .token-copy:hover {
-  border-color: var(--cu-ink-faint, var(--color-ink-graphite));
-  background: var(--cu-hover, var(--color-page-edge));
+  border-color: var(--brand);
+  background: var(--brand-wash);
+  color: var(--brand);
 }

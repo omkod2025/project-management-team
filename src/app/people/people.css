@@ -29,14 +29,14 @@
 
 .people {
   --cu-canvas: #ffffff;
-  --cu-ground: #f5f6f7;
-  --cu-line: #e8eaed;
-  --cu-line-soft: #f1f2f4;
+  --cu-ground: #eef0f6;
+  --cu-line: #e4e7f0;
+  --cu-line-soft: #edeff6;
   --cu-ink: #292d34;
   --cu-ink-soft: #7c828d;
   --cu-ink-faint: #a5abb5;
-  --cu-hover: #f9fafb;
-  --cu-chip: #f1f2f4;
+  --cu-hover: #f6f7fc;
+  --cu-chip: #ebeef8;
   --cu-r: 4px;
   --cu-r-lg: 6px;
   --cu-r-sheet: 10px;
@@ -57,7 +57,7 @@
   background: var(--cu-canvas);
   border: 1px solid var(--cu-line);
   border-radius: var(--cu-r-sheet);
-  box-shadow: 0 1px 2px rgba(41, 45, 52, 0.05), 0 8px 24px -12px rgba(41, 45, 52, 0.12);
+  box-shadow: 0 1px 2px rgba(43, 58, 143, 0.06), 0 8px 24px -12px rgba(43, 58, 143, 0.18);
   overflow: hidden;
 }
 
@@ -159,7 +159,7 @@
 .people-search:focus {
   border-color: var(--cu-ink-faint);
   outline: none;
-  box-shadow: 0 0 0 3px rgba(41, 45, 52, 0.06);
+  box-shadow: 0 0 0 3px var(--brand-glow);
 }
 
 /* The one filled control on the page. It does not open anything — the invite
@@ -171,16 +171,16 @@
   gap: 7px;
   height: 32px;
   padding: 0 13px;
-  border: 1px solid var(--cu-ink);
+  border: 1px solid var(--brand);
   border-radius: var(--cu-r);
-  background: var(--cu-ink);
+  background: var(--brand);
   color: #fff;
   cursor: pointer;
   font-size: 13px;
   font-weight: 500;
   white-space: nowrap;
 }
-.people-add:hover { background: #1e2228; border-color: #1e2228; }
+.people-add:hover { background: var(--brand-deep); border-color: var(--brand-deep); }
 
 .people-errata {
   margin: 0 24px 12px;
@@ -372,7 +372,7 @@ table.board {
   background: var(--cu-canvas);
   border-color: var(--cu-ink-faint);
   outline: none;
-  box-shadow: 0 0 0 3px rgba(41, 45, 52, 0.06);
+  box-shadow: 0 0 0 3px var(--brand-glow);
 }
 .role:disabled { color: var(--cu-ink-faint); cursor: default; }
 
@@ -386,7 +386,10 @@ table.board {
   color: var(--cu-ink);
   font-weight: 500;
 }
-.board td.role-admin .role { font-weight: 600; box-shadow: inset 2px 0 0 var(--cu-ink); }
+/* The admin marker takes the base rather than black ink. It is still weight
+   first — the bar is the second signal, so the distinction survives greyscale
+   exactly as it did before. */
+.board td.role-admin .role { font-weight: 600; box-shadow: inset 2px 0 0 var(--brand); }
 .board td.role-viewer .role { font-style: italic; }
 
 /* ---- the account column ----
@@ -400,11 +403,55 @@ table.board {
 .board td.acct, .board th.acct { padding: 0 16px 0 12px; }
 .board th.acct { text-align: right; }
 .board td.acct { text-align: right; white-space: nowrap; }
+/* Two verbs now, so a wrapper lays them out. The flexbox is on a span inside
+   the cell rather than on the cell: a `td` set to `display: flex` stops being a
+   table cell, and under `table-layout: fixed` the row then falls out of
+   alignment with its own colgroup. */
+.acct-verbs {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
 
 .acct-locked {
   color: var(--cu-ink-faint);
   font-size: 11.5px;
 }
+/* Your own row: not a refusal, a redirection. Drawn as quietly as the
+   Delete it stands beside, because it is not the page's business either. */
+.acct-mine {
+  color: var(--cu-ink-faint);
+  font-size: 11.5px;
+  text-decoration: none;
+}
+.acct-mine:hover { color: var(--cu-ink-soft); text-decoration: underline; }
+
+/* Reset is the recoverable verb, so it never reaches for vermilion — the
+   account is not in trouble, it is being handed a password. Grey at rest, a
+   frame on approach, and that is the whole of it. */
+.acct-pw {
+  height: 28px;
+  padding: 0 11px;
+  border: 1px solid transparent;
+  border-radius: var(--cu-r);
+  background: none;
+  color: var(--cu-ink-faint);
+  cursor: pointer;
+  font-size: 12.5px;
+}
+.board tbody tr:hover .acct-pw { color: var(--cu-ink-soft); border-color: var(--cu-line); }
+.acct-pw:hover,
+.acct-pw:focus-visible {
+  background: var(--cu-canvas);
+  border-color: var(--cu-ink-faint);
+  color: var(--cu-ink);
+}
+
+/* Armed, it borrows `.acct-armed` from the delete below — same shape, same
+   vermilion confirm. Vermilion is earned here rather than borrowed: at the
+   moment that button is pressed the account holds no password at all, which is
+   a state out of tolerance until the link is claimed. */
 
 .acct-del {
   height: 28px;
@@ -483,14 +530,14 @@ table.board {
 .invite-row select:focus {
   border-color: var(--cu-ink-faint);
   outline: none;
-  box-shadow: 0 0 0 3px rgba(41, 45, 52, 0.06);
+  box-shadow: 0 0 0 3px var(--brand-glow);
 }
 .invite-row button {
   height: 34px;
   padding: 0 16px;
-  border: 1px solid var(--cu-ink);
+  border: 1px solid var(--brand);
   border-radius: var(--cu-r);
-  background: var(--cu-ink);
+  background: var(--brand);
   color: #fff;
   cursor: pointer;
   font-family: var(--font-read), system-ui, sans-serif;
@@ -499,7 +546,7 @@ table.board {
   letter-spacing: normal;
   text-transform: none;
 }
-.invite-row button:hover:not(:disabled) { background: #1e2228; border-color: #1e2228; }
+.invite-row button:hover:not(:disabled) { background: var(--brand-deep); border-color: var(--brand-deep); }
 .invite-row button:disabled { opacity: 0.5; cursor: default; }
 .invite-note {
   margin: 12px 0 0;
@@ -521,7 +568,7 @@ table.board {
   font-size: 12.5px;
   cursor: pointer;
 }
-.invite-choice input { accent-color: var(--cu-ink); }
+.invite-choice input { accent-color: var(--brand); }
 
 .people-token {
   margin: 0;

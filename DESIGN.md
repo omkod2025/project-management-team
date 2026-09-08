@@ -1,6 +1,6 @@
 ---
-name: Field Book
-description: A project tracker built as a surveyor's field book — plan and reality booked side by side, and the misclosure shown in red.
+name: T-Timeline
+description: A project tracker built as a surveyor's timeline — plan and reality booked side by side, and the misclosure shown in red.
 colors:
   page: "#EDE5D2"
   page-edge: "#DED2B6"
@@ -133,7 +133,7 @@ components:
 
 ## Overview
 
-**Creative North Star: The Surveyor's Field Book.**
+**Creative North Star: The Surveyor's T-Timeline.**
 
 The product took the name on 2026-09-07, so this is no longer only a metaphor guiding the design — it is what the thing is called, and what a client reads at the foot of a report.
 
@@ -297,6 +297,21 @@ The access board follows the List sheet rather than the field book. Direction pi
 - **The invite form stays on the page.** The reference's `+ Add user` opens a modal; here the toolbar button moves the caret to the form that is already there. A task that needs neither interruption nor protected focus does not get a modal.
 
 ---
+
+## The base pair — indigo on white
+
+**Pinned by the owner on 2026-09-08: `#2B3A8F` and `#ffffff` are the product's base.** It began as the sign-in panel's field colour and is now what every surface answers to. The tokens live in `src/app/globals.css` — `--brand`, `--brand-deep`, `--brand-ink`, `--brand-wash`, `--brand-line`, `--brand-glow` — not in `tokens.css`, which is generated from this file's frontmatter and describes the paper world. This is the shell the paper is read inside.
+
+**Where indigo is allowed.** Filled primary buttons, the brand mark, the active nav item, the admin marker, focus rings, the selection wash, and the tint carried by hairlines and hover grounds. It also replaced vermilion as the `::selection` background, which had spent the one colour that means misclosure on the most ordinary gesture in the product.
+
+**What it does not touch, and this is the part that costs something to keep.**
+
+- **Rule 1 stands.** Vermilion is still the only colour that means out of closure. Indigo took the primary button so that vermilion never has to.
+- **Rule 2 stands.** Graphite means a person entered the value; blue-black (`#24384F`) means the system derived it. `--brand` is deliberately *not* `--color-ink-blue`: they are close enough to be confused if either is ever used where the other belongs, so the value ink is left alone and indigo never enters a cell.
+- **Rule 3 stands.** The six tab hues say whose work it is. Indigo says nothing about the work, so it is never mixed into a module chip, an option chip or a Timeline bar — A8's arithmetic is over those, and it is untouched.
+- **Body text stays near-black.** Indigo at 13px over a run of rows reads as a page of links.
+
+**What this overrides.** `shelf.css` used to record that there is no filled accent button in this system, and § Components said the same. That is now false by instruction: the primary action takes the base fill. The rule that replaced it — the fill is the base, never a hue that already means something — is the one worth keeping.
 
 ## Auth surfaces — a scoped departure
 

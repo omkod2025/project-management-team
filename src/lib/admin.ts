@@ -1,13 +1,15 @@
 import 'server-only';
 import { randomBytes } from 'node:crypto';
-import { and, asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 import { db, rawQuery } from '@/db/client';
 import { fieldDefinitions, fieldOptions, holidays, projectMembers, projects, users } from '@/db/schema';
 import { domainError } from '@/lib/errors';
 import {
-  assertColorIndex, assertEmail, assertFieldKind, assertFieldName, assertHolidayDate,
+  assertColorIndex, assertEmail, assertFieldKind, assertFieldName, assertFullName,
+  assertHolidayDate,
   assertAdminsEveryProjectOf, assertHolidayName, assertKeepsADoneStage, assertKeepsAnAdmin,
   assertKindUnchanged, assertLeavesNoProjectAdminless, assertNotProtectedAccount, assertNotSelf,
+  assertNotProtectedReset, assertResetIsNotSelf, assertSharesAnAdministeredProject,
   assertNewPassword, assertOptionLabel, assertPassword, assertProjectName, assertRole,
   assertStage, assertStatusFieldKind, slugFromName,
   type Role, type Stage,
@@ -548,6 +550,187 @@ export async function mustChangePassword(userId: string): Promise<boolean> {
     .where(eq(users.id, userId))
     .limit(1);
   return row?.must === true;
+}
+
+/* --------------------------------------------------------------- profile */
+
+export type Profile = {
+  id: string;
+  name: string;
+  email: string;
+  /** True while the current password was chosen by somebody else. */
+  mustChangePassword: boolean;
+  since: string;
+  /** Every project they hold, with the role they hold it as. */
+  memberships: { id: string; name: string; slug: string; role: Role }[];
+};
+
+/**
+ * What a person may see and change about themselves.
+ *
+ * Read by user id from the session rather than taken from the URL: there is no
+ * `/profile/:id`, because a page that can address somebody else's profile is a
+ * page that has to decide who may open it, and this one never has to.
+ *
+ * The memberships are here as fact, not as controls. Access is granted per
+ * project by an admin of that project (spec 05 §2), so this list is the answer
+ * to "what can I reach", which until now could only be assembled by reading the
+ * shelf. Nothing on the profile page changes a role.
+ */
+export async function loadProfile(userId: string): Promise<Profile> {
+  const [row] = await db
+    .select({
+      id: users.id,
+      name: users.fullName,
+      email: users.email,
+      must: users.mustChangePassword,
+      since: users.createdAt,
+    })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  if (!row) throw domainError('E_NOT_FOUND', 'No such person.');
+
+  const memberships = await db
+    .select({
+      id: projects.id,
+      name: projects.name,
+      slug: projects.slug,
+      role: projectMembers.role,
+    })
+    .from(projectMembers)
+    .innerJoin(projects, eq(projects.id, projectMembers.projectId))
+    .where(and(eq(projectMembers.userId, userId), isNull(projects.archivedAt)))
+    .orderBy(asc(projects.name));
+
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    mustChangePassword: row.must,
+    since: row.since.toISOString(),
+    memberships: memberships.map((m) => ({ ...m, role: m.role as Role })),
+  };
+}
+
+/**
+ * Rename yourself.
+ *
+ * Only the name. An address is what an account is identified by — it is the
+ * sign-in credential's first half and the key the ClickUp import matched people
+ * on — so changing it is an admin's act with consequences beyond the person
+ * doing it, and it is not offered here. The name is the opposite: it is how
+ * everybody else reads this person on a roster lane, and its owner is the one
+ * who knows what it should say.
+ *
+ * The session carries a stale name until it next refreshes. That is cosmetic —
+ * nothing is authorised by the name — and the alternative, ending the session
+ * on a rename the way a password change does, would be a sign-out as the price
+ * of fixing a typo.
+ */
+export async function updateOwnName(userId: string, nameInput: unknown): Promise<{ name: string }> {
+  const name = assertFullName(nameInput);
+  const [row] = await db
+    .update(users)
+    .set({ fullName: name, updatedAt: new Date() })
+    .where(eq(users.id, userId))
+    .returning({ name: users.fullName });
+  if (!row) throw domainError('E_NOT_FOUND', 'No such person.');
+  return { name: row.name };
+}
+
+/**
+ * Reset somebody's password, for the person who has lost theirs.
+ *
+ * This issues a one-time setup link rather than a password. It is the same
+ * mechanism `createUser` uses for an invitation, and it is the mechanism
+ * because of what the alternative costs: a password an admin types is a
+ * password two people know, and it has to be said out loud or typed into a chat
+ * window to be delivered at all. A link delivers itself, and the password the
+ * person ends up with was never known to anybody else.
+ *
+ * Two writes, and both matter:
+ *
+ *   - `user_password_hash` is set to null. The old password stops working the
+ *     moment the reset is issued. Anything else leaves a lost or shared
+ *     credential live alongside a fresh link, which is two ways in where the
+ *     admin believes there is one.
+ *   - `user_must_change_password` comes down. It means "you hold a password
+ *     somebody else chose", and after this the account holds no password at
+ *     all; leaving it up would send the claimed account straight back to the
+ *     change-password page it has just come through.
+ *
+ * The cost, stated because it is real: between the reset and the claim the
+ * account cannot sign in, and if the link is lost the only way forward is
+ * another reset. That is recoverable by any admin of their projects, which is
+ * the point of scoping it that way.
+ *
+ * Three refusals stand in front of it, all in `admin-rules.ts`: the install
+ * account, yourself, and anybody you share no administered project with.
+ */
+export async function issuePasswordReset(
+  actingUserId: string,
+  targetUserId: string,
+): Promise<{ token: string; expiresAt: Date }> {
+  const [target] = await db
+    .select({ id: users.id, email: users.email })
+    .from(users)
+    .where(eq(users.id, targetUserId))
+    .limit(1);
+  if (!target) throw domainError('E_NOT_FOUND', 'No such person.');
+
+  assertNotProtectedReset(target.email);
+  assertResetIsNotSelf(target.id, actingUserId);
+
+  /*
+   * How many projects the caller administers that this person is also on.
+   *
+   * One project is enough, at the owner's instruction (2026-09-08). Deletion
+   * asks for more — `deleteUser` refuses unless the caller administers *every*
+   * project the target holds — and the two are deliberately not the same test:
+   *
+   *   - deletion is irreversible and takes the person off projects the caller
+   *     has no standing over, so it asks for standing over all of them;
+   *   - a reset is the everyday act of somebody who has lost their password,
+   *     and the stricter rule made it unusable: on an install where people sit
+   *     on several projects, only an admin of all of them could help, which in
+   *     practice means one person for the whole company.
+   *
+   * What it costs, for whoever reads this next: an admin of project A can hand
+   * a login link to somebody who is also on project B, and that link opens B
+   * too. The mitigation is that it is not silent — the old password stops
+   * working, so the person finds out the moment they next sign in.
+   */
+  const rows = await rawQuery<{ actor_is_admin: boolean }>(
+    `SELECT (am.member_role = 'admin') AS actor_is_admin
+       FROM pmt_project_members tm
+       LEFT JOIN pmt_project_members am
+              ON am.member_project_id = tm.member_project_id
+             AND am.member_user_id    = $2
+      WHERE tm.member_user_id = $1`,
+    [targetUserId, actingUserId],
+  );
+
+  assertSharesAnAdministeredProject(rows.filter((r) => r.actor_is_admin).length);
+
+  // A fresh token every time, which replaces any token already outstanding —
+  // an earlier link that still worked would be a second way in that whoever
+  // issued this one does not know about.
+  const token = randomBytes(24).toString('base64url');
+  const expiresAt = new Date(Date.now() + 7 * 24 * 3600 * 1000);
+
+  await rawQuery(
+    `UPDATE pmt_users
+        SET user_password_hash = NULL,
+            user_must_change_password = false,
+            user_setup_token = $2,
+            user_setup_expires_at = $3,
+            user_updated_at = now()
+      WHERE user_id = $1`,
+    [targetUserId, token, expiresAt],
+  );
+
+  return { token, expiresAt };
 }
 
 /** Which projects a person may administer — used to scope the settings page. */

@@ -9,6 +9,46 @@
  *   - nothing eases; state changes are a two-frame step at 90ms
  */
 
+/*
+ * The base pair — indigo on white, pinned by the user on 2026-09-08.
+ *
+ * These are not in `tokens.css` because that file is generated from DESIGN.md
+ * and describes the paper world. This is the chrome: the shell the paper is
+ * read inside. It began as the sign-in panel's field colour and is now the one
+ * base the whole product answers to, so it is declared once here and consumed
+ * by every sheet rather than retyped as a hex in six of them.
+ *
+ * What indigo is allowed to be: a filled primary button, the brand mark, an
+ * active state, a focus ring, a selection wash, the tint under a hairline.
+ *
+ * What it is NOT, and this is the part that costs something to keep:
+ *
+ *   - it is not vermilion's job. Out of closure stays `--color-vermilion` and
+ *     stays the only thing that means it (DESIGN.md § Colors rule 1).
+ *   - it is not a module hue. The six `tab-` colours say whose work it is;
+ *     indigo says nothing about the work at all.
+ *   - it is not the ink in a cell. Graphite means a human entered the value and
+ *     blue-black means the system derived it — that pair is the audit trail,
+ *     and `--color-ink-blue` (#24384F) is deliberately NOT this indigo. They
+ *     are close enough to confuse if either is ever used where the other
+ *     belongs, which is exactly why the value ink is left alone.
+ */
+:root {
+  --brand: #2B3A8F;
+  /* Pressed and hover. Darker rather than lighter: a primary button that
+     lightens under the pointer reads as going away. */
+  --brand-deep: #222E73;
+  --brand-ink: #ffffff;
+  /* The pale ground and the hairline, both drawn from the brand's own hue so
+     the quiet parts of a page belong to it instead of sitting on neutral grey
+     with a blue button dropped on top. */
+  --brand-wash: #EEF0FA;
+  --brand-line: #DBE0F2;
+  /* Focus rings and selection: the brand at low alpha, so it works over both
+     white and the wash without a second token per surface. */
+  --brand-glow: rgba(43, 58, 143, 0.16);
+}
+
 *,
 *::before,
 *::after { box-sizing: border-box; }
@@ -70,14 +110,14 @@ a { color: inherit; }
   align-items: center;
   height: 30px;
   padding: 0 12px;
-  border: 1px solid var(--color-ink-graphite);
+  border: 1px solid var(--brand);
   background: none;
-  color: var(--color-ink-graphite);
+  color: var(--brand);
   text-decoration: none;
   white-space: nowrap;
   cursor: pointer;
 }
-.shelf-button:hover { background: var(--color-ink-graphite); color: var(--color-page); }
+.shelf-button:hover { background: var(--brand); color: var(--brand-ink); }
 
 button, input, select, textarea {
   font: inherit;
@@ -85,15 +125,19 @@ button, input, select, textarea {
   border-radius: var(--radius-none);
 }
 
-/* Square, high contrast, always visible. This grid is keyboard-operated. */
+/* Square, high contrast, always visible. This grid is keyboard-operated.
+   Indigo rather than graphite: the ring is chrome, and it is the one piece of
+   chrome that has to be findable on every surface the product has. */
 :focus-visible {
-  outline: 2px solid var(--color-ink-graphite);
+  outline: 2px solid var(--brand);
   outline-offset: 1px;
 }
 
+/* Selection was vermilion-washed, which spent the one colour that means out of
+   closure on the most ordinary gesture there is. The base takes it back. */
 ::selection {
-  background: var(--color-vermilion-wash);
-  color: var(--color-ink-graphite);
+  background: var(--brand-wash);
+  color: var(--brand);
 }
 
 @media (prefers-reduced-motion: reduce) {
