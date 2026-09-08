@@ -15,11 +15,13 @@ export default async function ProjectTimeline({ params }: { params: Promise<{ sl
     const { project, role, rows, holidays } = await loadLedger(userId, slug);
     return (
       <TimelineView
+        projectId={project.id}
         projectName={project.name}
         slug={project.slug}
         rows={rows}
         holidays={holidays}
         canEdit={can(role, 'node.editDates')}
+        isAdmin={can(role, 'field.define')}
       />
     );
   } catch (err) {

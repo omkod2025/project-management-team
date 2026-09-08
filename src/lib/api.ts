@@ -2,6 +2,7 @@ import 'server-only';
 import { NextResponse } from 'next/server';
 import { currentUserId } from '@/auth';
 import { DomainError } from '@/lib/errors';
+import { mustChangePassword } from '@/lib/admin';
 
 /**
  * The shape every admin route shares: resolve the caller, run the work, and
@@ -17,6 +18,16 @@ export async function handle<T>(
   const userId = await currentUserId();
   if (!userId) {
     return NextResponse.json({ code: 'E_FORBIDDEN', message: 'Sign in first.' }, { status: 401 });
+  }
+  // An account still holding a password its admin chose can do exactly one
+  // thing, and this is not it. `proxy.ts` turns the pages away for the sake of
+  // the user; this turns the API away for the sake of the account, because a
+  // proxy matcher is a list that a new route can fall off.
+  if (await mustChangePassword(userId)) {
+    return NextResponse.json(
+      { code: 'E_FORBIDDEN', message: 'Change your password before you do anything else.' },
+      { status: 403 },
+    );
   }
   try {
     return NextResponse.json((await work(userId)) ?? { ok: true });

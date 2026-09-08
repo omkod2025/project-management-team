@@ -19,6 +19,24 @@ Email + password via Auth.js v5, using a **Credentials provider over `pmt_users`
 
 Out of scope for phase one: SSO, OAuth providers, two-factor, password policy beyond a length minimum.
 
+### 1b. Starting passwords, and the change they force
+
+**Added 2026-09-08, at the owner's instruction and against the recommendation above.** An Admin may now create an account with a starting password instead of a setup link, because a link is no use to somebody who will be told their password across a bench. What it costs is stated here so nobody has to rediscover it: **a password an admin chose is known to two people, and is therefore a way in once, not a credential.** `pmt_users.user_must_change_password` is what pays that cost.
+
+- The API takes the **plain** password and hashes it on the server, exactly as `/set-password` does. A hash is never accepted from a caller: a hash taken at the boundary *is* the credential, and anyone who could read it out of the database could sign in with it directly without ever breaking it.
+- Creating with a password raises `user_must_change_password` and issues **no** setup token — there is nothing to claim. Inviting without one is unchanged and never raises the flag, because nobody but the owner ever knows that password.
+- While the flag is up the account can sign in and reach **`/change-password` and nothing else**. Every page redirects there; every API call is refused with 403.
+- Changing the password requires the current one even though the caller is already signed in. A session cookie proves a session, not knowledge of the credential — without this, a borrowed laptop is enough to lock the owner out of their own account. The replacement may not equal the password it replaces, compared after Unicode normalisation, since scrypt normalises before hashing.
+- A successful change **ends the session**: the flag is carried in the JWT and a token already issued cannot be edited, so a surviving session would keep being redirected back to the page it just finished with. The user signs in again with the password only they now know.
+
+Enforcement is in three places on purpose, and only two of them matter:
+
+| Where | What it does |
+|---|---|
+| `authorize()` in `src/lib/permissions.ts` | Refuses every capability check. The choke point every mutation passes through, including the node routes that do not use `handle`. |
+| `handle()` in `src/lib/api.ts` | Refuses every admin route, including `POST /api/projects`, which has no project to authorise against. |
+| `src/proxy.ts` | Redirects pages to `/change-password`. **A convenience, not the lock** — a proxy matcher is a list a new route can silently fall off, which is why the two above read the column itself. Delete this file and the product is still safe, merely baffling. |
+
 ---
 
 ## 2. Roles
@@ -44,6 +62,28 @@ Held in `pmt_project_members(member_project_id, member_user_id, member_role)`. A
 | Rename or archive the project | ● | | |
 | Edit the holiday calendar | ● | | |
 | Create users | ● | | |
+
+Roles are surfaced in two places, which are the same data asked from opposite ends:
+
+| Surface | Question it answers |
+|---|---|
+| `/p/<slug>/settings` § People | Who is on **this project**, and as what |
+| `/people` | Which projects can **this person** reach, and as what |
+
+`/people` (added 2026-09-08) draws a grid of people × projects, one role select per cell, with "no access" as a value of the same control rather than a separate Remove button. It is **scoped to the projects the acting user administers** — a user who admins one project of five sees one column. It grants nothing itself: every change goes through `POST`/`DELETE /api/projects/:id/members`, which runs the same `authorize(..., 'member.manage')` check, so the last-admin rule and the role whitelist are enforced in exactly one place. Inviting from that page is two requests, `POST /api/users` then the membership grant, because creating an account and granting access are two different capabilities.
+
+### 2b. Deleting an account
+
+**Added 2026-09-08 at the owner's instruction.** `DELETE /api/users/:id`, offered as the Account column on `/people`. It is the destructive twin of deactivation and they are not interchangeable: `user_is_active = false` keeps the row, so `node_created_by` still names who filed each task; deleting removes the row, cascades away every membership, and — because `pmt_nodes.node_created_by` is `ON DELETE SET NULL` — **strips the author from every task that person ever created, permanently and install-wide.** There is no undo. Prefer deactivation unless the account was created in error.
+
+Four refusals stand in front of it, all pure functions in `admin-rules.ts`:
+
+| Refusal | Why it is not merely a nicety |
+|---|---|
+| `admin@cit.com` (`PROTECTED_EMAIL`) | The seeded install account — the way back in when every other route has been lost. A constant, not a `user_is_protected` column, precisely because a column can be cleared. |
+| Not yourself | Your memberships cascade with the row; the request would succeed and leave a live session pointing at a user that no longer exists. |
+| Not the last admin of any project | Membership cascades, so deletion is otherwise a back door into exactly the adminless project `assertKeepsAnAdmin` refuses to create. |
+| Only somebody whose every project you administer | There is no workspace superuser, so admin of one project is no standing to destroy access to four others. |
 
 **There is no workspace-wide superuser.** Admin is per project. Creating the first project and the first user is a seeding operation, documented as a script, not a UI.
 
@@ -105,4 +145,4 @@ WHERE m.member_user_id = $1
 | Per-field visibility (`is_private`) | Considered and rejected: it must be enforced in the API, the grid, filters, sorts, and exports, and a single miss leaks budget figures to the wrong reader. Irreversible if it fails. |
 | Audit log of who changed what | Not required by any phase-one feature. `node_actual_source_*` covers the one history question that matters. |
 | Workspace-level roles | One organisation per install. |
-| Invitation flow with email | Admin creates users directly in phase one. |
+| Invitation flow with email | Admin creates the account and hands over the setup link themselves. `/people` does this in one gesture, but nothing is posted. |

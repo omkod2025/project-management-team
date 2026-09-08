@@ -13,7 +13,7 @@
 import 'server-only';
 import { and, eq } from 'drizzle-orm';
 import { db } from '@/db/client';
-import { projectMembers } from '@/db/schema';
+import { projectMembers, users } from '@/db/schema';
 import { domainError } from '@/lib/errors';
 
 export type Role = 'admin' | 'member' | 'viewer';
@@ -72,12 +72,29 @@ export async function requireProjectRole(
   return row.role;
 }
 
-/** Resolve the role and assert one capability in a single step. */
+/**
+ * Resolve the role and assert one capability in a single step.
+ *
+ * An account still holding a password its admin chose is refused here whatever
+ * its role, and it is refused at the capability check rather than at the
+ * membership one so the reason it hears is the true one. This is the choke
+ * point every mutation passes through, including the node routes that do not
+ * go by way of `handle`.
+ */
 export async function authorize(
   userId: string,
   projectId: string,
   action: Action,
 ): Promise<Role> {
+  const [account] = await db
+    .select({ must: users.mustChangePassword })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  if (account?.must) {
+    throw domainError('E_FORBIDDEN', 'Change your password before you do anything else.');
+  }
+
   const isRead = (ACTIONS[action] as readonly Role[]).includes('viewer');
   const role = await requireProjectRole(userId, projectId, isRead ? 'read' : 'write');
 

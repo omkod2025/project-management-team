@@ -96,6 +96,48 @@ describe('columns', () => {
   });
 });
 
+/* =============================================================== renaming */
+
+describe('renaming the project', () => {
+  test('an admin renames it, and the name is trimmed', async () => {
+    const res = await call(admin, 'PATCH', `/api/projects/${fx.projectId}`, {
+      name: '  Renamed by the suite  ',
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.body?.name, 'Renamed by the suite');
+  });
+
+  test('the root node follows, so the breadcrumb does not show the old name', async () => {
+    const { rows } = await fx.client.query(
+      `SELECT node_name FROM pmt_nodes WHERE node_project_id = $1 AND node_depth = 1`,
+      [fx.projectId],
+    );
+    assert.equal(rows[0].node_name, 'Renamed by the suite');
+  });
+
+  test('the slug does not follow — every link already handed out still works', async () => {
+    const { rows } = await fx.client.query(
+      'SELECT project_slug FROM pmt_projects WHERE project_id = $1', [fx.projectId],
+    );
+    assert.match(String(rows[0].project_slug), /^e2e-/, 'the address is where it was');
+  });
+
+  test('an empty name is refused, rather than saved as a blank shelf entry', async () => {
+    const res = await call(admin, 'PATCH', `/api/projects/${fx.projectId}`, { name: '   ' });
+    assert.equal(res.status, 422);
+
+    const { rows } = await fx.client.query(
+      'SELECT project_name FROM pmt_projects WHERE project_id = $1', [fx.projectId],
+    );
+    assert.equal(rows[0].project_name, 'Renamed by the suite', 'and nothing changed');
+  });
+
+  test('a viewer cannot rename it', async () => {
+    const res = await call(viewer, 'PATCH', `/api/projects/${fx.projectId}`, { name: 'Viewer was here' });
+    assert.equal(res.status, 403);
+  });
+});
+
 /* ========================================================== status column */
 
 describe('the status column (D-35)', () => {

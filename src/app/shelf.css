@@ -1,0 +1,548 @@
+/*
+ * The shelf.
+ *
+ * Laid out to the dashboard reference the user pinned on 2026-09-08
+ * (`download (2).jpg`): a soft grey ground, one white shell, a fixed index rail
+ * on the left, and the run broken into headed blocks with a count beside each
+ * heading. It continues the departure `list.css` already made on the project
+ * sheet by instruction — the two pages either side of one link now speak the
+ * same language — and the departures are named here rather than discovered:
+ *
+ *   - grey ground and a rounded white shell, not paper edge to edge
+ *   - 6–14px radii on the shell, the blocks, the tiles and the chips
+ *   - a soft hover ground on rows, which the field-book sheet refused
+ *   - generous space; the density law belongs to the run of 174 tasks, not to
+ *     a shelf of six projects, and applying it here only made the page small
+ *
+ * What is NOT imported from the reference, because it would cost something the
+ * product owns:
+ *
+ *   - vermilion still means out of closure and nothing else. It appears on this
+ *     page only when a project cannot be created, and never as an accent.
+ *   - hue still says *whose*, never how it is going: the tile and the lit
+ *     segments carry the project's identity, and no row is ever tinted by a
+ *     verdict. As in `list.css` the hue is mixed into the ground rather than
+ *     laid on raw, which keeps `tab-1` clear of vermilion.
+ *   - figures stay in Martian Mono. They are counts of rows, and the reference's
+ *     percentage badge is the one thing on it that states a claim nobody made.
+ *
+ * `tokens.css` is generated from DESIGN.md and is untouched, so the Timeline,
+ * Report and Settings still read as the field book.
+ */
+
+.sh {
+  --sh-ground: #f1f2f5;
+  --sh-panel: #ffffff;
+  --sh-panel-soft: #fafbfc;
+  --sh-line: #e6e8ec;
+  --sh-line-soft: #eef0f3;
+  --sh-ink: #1e2229;
+  --sh-ink-soft: #6a717c;
+  --sh-ink-faint: #9aa1ac;
+  --sh-hover: #f7f8fa;
+  --sh-chip: #eef0f3;
+
+  --sh-r-shell: 14px;
+  --sh-r-block: 10px;
+  --sh-r: 6px;
+
+  /* One gutter, obeyed by the head, the block heads and every cell, so the
+     title, the block names and the first project name sit on one line. */
+  --sh-pad: 28px;
+  --sh-measure: 1240px;
+  --sh-gutter: max(var(--sh-pad), (100% - var(--sh-measure)) / 2);
+
+  display: grid;
+  grid-template-columns: 264px minmax(0, 1fr);
+  height: 100vh;
+  height: 100dvh;
+  margin: 0;
+  padding: 14px;
+  gap: 0;
+  background: var(--sh-ground);
+  color: var(--sh-ink);
+  font-family: var(--font-read), system-ui, sans-serif;
+}
+
+/* One shell, two halves: the rail draws the left rounding, the work the right,
+   and the seam between them is a single rule. */
+.sh-rail,
+.sh-work {
+  border: 1px solid var(--sh-line);
+  min-height: 0;
+}
+.sh-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 18px 14px;
+  background: var(--sh-panel);
+  border-right: 0;
+  border-radius: var(--sh-r-shell) 0 0 var(--sh-r-shell);
+}
+.sh-work {
+  display: flex;
+  flex-direction: column;
+  background: var(--sh-panel-soft);
+  border-radius: 0 var(--sh-r-shell) var(--sh-r-shell) 0;
+  overflow: hidden;
+}
+
+/* ---- the rail ---- */
+
+.sh-brand { display: flex; align-items: center; gap: 10px; padding: 4px 8px 0; }
+
+/* The one mark in the system: the punched hole from the field book's selected
+   row, at brand size. DESIGN.md allows exactly one curve and this is it. */
+.sh-mark {
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  border-radius: 50%;
+  background: var(--color-ink-graphite);
+  box-shadow: inset 0 0 0 6px var(--sh-panel), inset 0 0 0 7px var(--color-ink-graphite);
+}
+.sh-brand-name {
+  font-family: var(--font-struct), sans-serif;
+  font-size: 15.5px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+
+.sh-account {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  min-width: 0;
+  background: var(--sh-panel-soft);
+  border: 1px solid var(--sh-line);
+  border-radius: var(--sh-r-block);
+}
+.sh-account-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.sh-account-label {
+  font-family: var(--font-struct), sans-serif;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--sh-ink-faint);
+}
+.sh-account-name {
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sh-nav { display: flex; flex-direction: column; gap: 2px; }
+.sh-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 36px;
+  padding: 0 10px;
+  border-radius: var(--sh-r);
+  color: var(--sh-ink-soft);
+  text-decoration: none;
+  font-size: 13.5px;
+  font-weight: 500;
+  transition: background 120ms ease, color 120ms ease;
+}
+.sh-nav-item svg { flex: 0 0 16px; color: var(--sh-ink-faint); }
+.sh-nav-item:hover { background: var(--sh-hover); color: var(--sh-ink); }
+.sh-nav-item:hover svg { color: var(--sh-ink-soft); }
+
+/* Current is stated by ground and weight, not by a coloured left border — the
+   reference's own move, and the one this system would have refused anyway. */
+.sh-nav-item[aria-current='page'] {
+  background: var(--sh-chip);
+  color: var(--sh-ink);
+  font-weight: 600;
+}
+.sh-nav-item[aria-current='page'] svg { color: var(--color-ink-blue); }
+.sh-nav-count {
+  margin-left: auto;
+  color: var(--sh-ink-soft);
+  font-size: 11px;
+}
+
+.sh-rail-foot { margin-top: auto; }
+.sh-rail-foot form { display: block; }
+.sh-rail-foot .sh-btn { width: 100%; justify-content: center; }
+
+/* ---- buttons ---- */
+
+.sh-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--sh-line);
+  border-radius: var(--sh-r);
+  background: var(--sh-panel);
+  color: var(--sh-ink-soft);
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: var(--font-read), system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+.sh-btn:hover { background: var(--sh-hover); color: var(--sh-ink); border-color: #dcdfe4; }
+.sh-btn:disabled { color: var(--sh-ink-faint); background: var(--sh-panel); cursor: default; }
+
+/* The primary action inverts to graphite ground rather than taking a blue fill.
+   DESIGN.md § Components: there is no filled accent button in this system, and
+   the reference's accent is the one part of it that is pure category habit. */
+.sh-btn-primary {
+  background: var(--color-ink-graphite);
+  border-color: var(--color-ink-graphite);
+  color: #fff;
+  font-weight: 600;
+}
+.sh-btn-primary:hover { background: #17140f; border-color: #17140f; color: #fff; }
+.sh-btn-primary:disabled { background: #b9b5ae; border-color: #b9b5ae; color: #fff; }
+
+.sh-btn-quiet { background: transparent; }
+
+/* ---- the work head ---- */
+
+.sh-work-head {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+  /* Centred past the measure, as the run is: the head's title and the first
+     project name stay on one line at every width. */
+  padding: 22px var(--sh-gutter) 18px;
+  background: var(--sh-panel);
+  border-bottom: 1px solid var(--sh-line);
+}
+.sh-work-title { min-width: 0; margin-right: auto; }
+.sh-work-head h1 {
+  margin: 0;
+  font-family: var(--font-struct), sans-serif;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+.sh-work-sub { margin: 5px 0 0; color: var(--sh-ink-soft); font-size: 13px; }
+.sh-work-sub .figure { color: var(--color-ink-blue); font-size: 12.5px; font-weight: 400; }
+
+/* ---- the blocks ---- */
+
+.sh-work-body { flex: 1; min-height: 0; overflow: auto; padding: 22px var(--sh-gutter) 40px; }
+
+.sh-block + .sh-block { margin-top: 30px; }
+
+.sh-block-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.sh-block-head h2 {
+  margin: 0;
+  font-family: var(--font-struct), sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+
+/* The reference's coloured block marker. Role, not module: these three are the
+   only fixed vocabulary on the page, so they take three greys of increasing
+   quiet rather than three of the six hues, which are spoken for. */
+.sh-block-bar { width: 3px; height: 15px; border-radius: 2px; background: var(--sh-ink-faint); }
+.sh-role-admin { background: var(--color-ink-graphite); }
+.sh-role-member { background: var(--color-ink-blue); }
+.sh-role-viewer { background: var(--sh-ink-faint); }
+
+.sh-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: var(--sh-r);
+  background: var(--sh-chip);
+  color: var(--sh-ink-soft);
+  font-size: 11px;
+}
+.sh-block-note {
+  margin: 0;
+  color: var(--sh-ink-faint);
+  font-size: 12px;
+}
+
+/* ---- the run ---- */
+
+table.sh-run {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: var(--sh-panel);
+  border: 1px solid var(--sh-line);
+  border-radius: var(--sh-r-block);
+  /* So the first and last rows' grounds are clipped to the block's corners
+     rather than squaring them off on hover. */
+  overflow: hidden;
+}
+
+.sh-run thead th {
+  height: 34px;
+  padding: 0 14px;
+  text-align: left;
+  white-space: nowrap;
+  background: var(--sh-panel-soft);
+  color: var(--sh-ink-soft);
+  border-bottom: 1px solid var(--sh-line);
+  font-family: var(--font-read), system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
+}
+.sh-run tbody td {
+  height: 56px;
+  padding: 0 14px;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--sh-line-soft);
+}
+.sh-run tbody tr:last-child td { border-bottom: 0; }
+.sh-run tbody tr:hover td { background: var(--sh-hover); }
+
+.sh-run th:first-child, .sh-run td:first-child { padding-left: 16px; }
+.sh-run th:last-child, .sh-run td:last-child { padding-right: 16px; }
+
+/* The name takes the slack, so the three facts about a project are given all
+   the width they can use before it does — otherwise a five-row shelf on a wide
+   monitor puts a hand's width of nothing between a project and its counts. */
+.sh-col-num { width: 110px; text-align: right; }
+.sh-run thead th.sh-col-num { text-align: right; }
+.sh-col-meter { width: 230px; }
+.sh-col-crew { width: 190px; }
+
+.sh-col-num .figure { color: var(--color-ink-blue); font-size: 12.5px; }
+.sh-dash { color: var(--sh-ink-faint); }
+
+/* ---- the project cell ---- */
+
+.sh-project {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+}
+.sh-project-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.sh-project-name {
+  font-size: 14px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sh-project:hover .sh-project-name { text-decoration: underline; text-underline-offset: 2px; }
+.sh-project-slug {
+  color: var(--sh-ink-faint);
+  font-family: var(--font-figure), monospace;
+  font-size: 10.5px;
+  letter-spacing: -0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The reference's app tile, carrying the project's own hue — mixed into the
+   ground, never laid on raw, and identical to the hue that project takes on the
+   roster, so one project is one colour across the shelf. */
+.sh-tile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--hue) 15%, #fff);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--hue) 26%, #fff);
+  color: color-mix(in srgb, var(--hue) 72%, var(--color-ink-graphite));
+  font-family: var(--font-struct), sans-serif;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+/* ---- the team ---- */
+
+.sh-crew { display: inline-flex; align-items: center; }
+.sh-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  border-radius: 50%;
+  background: var(--sh-chip);
+  box-shadow: 0 0 0 2px var(--sh-panel);
+  color: var(--sh-ink-soft);
+  font-family: var(--font-struct), sans-serif;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+.sh-crew .sh-avatar + .sh-avatar { margin-left: -7px; }
+.sh-run tbody tr:hover .sh-avatar { box-shadow: 0 0 0 2px var(--sh-hover); }
+.sh-avatar-rest { background: var(--sh-panel-soft); color: var(--sh-ink-faint); }
+.sh-avatar-lg {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  border-radius: var(--sh-r);
+  box-shadow: none;
+  background: var(--color-ink-graphite);
+  color: #fff;
+  font-size: 12px;
+}
+
+/* ---- the meter ----
+
+   Counted, never entered: twelve discrete segments, because the figure behind
+   it is a count of rows. A continuous bar would read as a percentage somebody
+   typed, and this product does not have one (PRODUCT.md). */
+
+.sh-meter { display: inline-flex; align-items: center; gap: 14px; }
+.sh-meter-track { display: inline-flex; align-items: flex-end; gap: 2px; height: 16px; }
+.sh-seg {
+  width: 4px;
+  height: 10px;
+  border-radius: 1px;
+  background: var(--sh-chip);
+}
+.sh-seg-lit {
+  height: 16px;
+  background: color-mix(in srgb, var(--hue) 62%, var(--color-ink-graphite));
+}
+.sh-meter-figure { color: var(--sh-ink-soft); font-size: 11px; }
+
+/* ---- new project, inline in the head ---- */
+
+.sh-form { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sh-field {
+  height: 34px;
+  min-width: 260px;
+  padding: 0 12px;
+  background: var(--sh-panel);
+  border: 1px solid var(--sh-line);
+  border-radius: var(--sh-r);
+  color: var(--sh-ink);
+  font-family: var(--font-read), sans-serif;
+  font-size: 13.5px;
+  letter-spacing: normal;
+  text-transform: none;
+}
+.sh-field::placeholder { color: var(--sh-ink-faint); }
+.sh-field:focus { border-color: var(--color-ink-blue); outline: none; }
+
+/* The errata slip from the sheet, in line: same wash, same ink, still the only
+   red on the page and still only ever a failure. */
+.sh-error {
+  padding: 5px 10px;
+  border-radius: var(--sh-r);
+  background: var(--color-vermilion-wash);
+  color: var(--color-vermilion);
+  font-family: var(--font-figure), monospace;
+  font-size: 11px;
+}
+
+/* ---- the blank leaf ---- */
+
+.sh-blank {
+  padding: 40px 24px;
+  background: var(--sh-panel);
+  border: 1px solid var(--sh-line);
+  border-radius: var(--sh-r-block);
+}
+.sh-blank-line {
+  margin: 0;
+  font-family: var(--font-struct), sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+}
+.sh-blank-note { margin: 6px 0 0; max-width: 52ch; color: var(--sh-ink-soft); font-size: 13px; }
+
+/* ---- focus, throughout ---- */
+
+.sh a:focus-visible,
+.sh button:focus-visible,
+.sh input:focus-visible {
+  outline: 2px solid var(--color-ink-graphite);
+  outline-offset: 2px;
+  border-radius: var(--sh-r);
+}
+
+.sh-sr {
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sh * { transition: none !important; }
+}
+
+/* ---- narrower ---- */
+
+@media (max-width: 1180px) {
+  .sh { grid-template-columns: 216px minmax(0, 1fr); --sh-pad: 20px; }
+  .sh-col-crew { display: none; }
+}
+
+/* The rail becomes a top bar rather than a drawer: three destinations do not
+   earn a hamburger, and a drawer would hide the only way off this page. */
+@media (max-width: 820px) {
+  .sh {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    height: auto;
+    min-height: 100dvh;
+    padding: 10px;
+  }
+  .sh-rail {
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 12px;
+    border-right: 1px solid var(--sh-line);
+    border-bottom: 0;
+    border-radius: var(--sh-r-shell) var(--sh-r-shell) 0 0;
+  }
+  .sh-account { display: none; }
+  .sh-nav { flex-direction: row; flex-wrap: wrap; }
+  .sh-rail-foot { margin-top: 0; margin-left: auto; }
+  .sh-work { border-radius: 0 0 var(--sh-r-shell) var(--sh-r-shell); }
+  .sh-work-body { overflow: visible; }
+}
+
+@media (max-width: 620px) {
+  .sh { padding: 0; }
+  .sh-rail, .sh-work { border-radius: 0; border-left: 0; border-right: 0; }
+  .sh-col-meter { width: auto; }
+  .sh-meter-track { display: none; }
+  .sh-work-head { padding: 16px var(--sh-pad); }
+  .sh-form { width: 100%; }
+  .sh-field { min-width: 0; flex: 1; }
+}

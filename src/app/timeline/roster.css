@@ -1,0 +1,321 @@
+/*
+ * The roster timeline — one lane per person, across every project.
+ *
+ * This sheet borrows its chrome from `list.css` (the ClickUp-reference
+ * language adopted 2026-09-08) and its field from `timeline.css` (the field
+ * book, unchanged). That split is not indecision: the chrome is furniture and
+ * follows the rest of the app, while the field carries the plan-versus-record
+ * grammar the product exists for, and that grammar is not up for restyling.
+ *
+ * What is imported from timeline.css and must keep meaning here:
+ *   .bar.est  — hatched pencil, the plan, always above
+ *   .bar.act  — solid ink, the record, always below
+ *   .datum    — today
+ *   .band     — non-working days
+ *
+ * Vermilion appears in exactly one place on this page: `.rs-late` / `.rs-slip`,
+ * where a record ran past its plan. Overload — a person holding four things at
+ * once — is NOT vermilion. It is a fact about a schedule, not a measurement
+ * that failed a check, and colouring it red would make the page cry wolf on
+ * the one hue the product cannot afford to spend.
+ */
+
+/* ---- the party column ---- */
+
+/* One number for the party column's width: the column itself is sticky at the
+   left edge of the scroller, so anything else that sticks there has to clear
+   it or be filed underneath it. */
+.book { --names-w: 260px; }
+
+.rs-names {
+  width: var(--names-w);
+  min-width: var(--names-w);
+}
+
+.rs-name {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--cu-line);
+  cursor: pointer;
+  overflow: hidden;
+  position: relative;
+}
+.rs-name:hover { background: var(--cu-hover); }
+.rs-name:focus-visible {
+  outline: 2px solid var(--cu-ink);
+  outline-offset: -2px;
+}
+
+/* Soloing is a state of the whole page, so the name that caused it is marked
+   structurally — a filled left edge — rather than by a wash that would read as
+   mere hover. */
+.rs-name.soloed { background: var(--cu-hover); }
+.rs-name.soloed::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--cu-ink);
+}
+
+.rs-person {
+  font-family: var(--font-read), system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
+  line-height: 1.5;
+  color: var(--cu-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Work nobody holds is still work. It is set in the same face as a person's
+   name — not smaller, not italic — because the point of keeping the lane is
+   that it is read, and it is pinned last so it never competes for the top. */
+.rs-name.unassigned .rs-person {
+  color: var(--cu-ink-soft);
+  font-style: italic;
+}
+
+.rs-tally {
+  font-size: 11px;
+  color: var(--cu-ink-soft);
+  white-space: nowrap;
+}
+.rs-undated {
+  font-family: var(--font-read), system-ui, sans-serif;
+  font-size: 11px;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--cu-ink-faint);
+}
+
+.rs-more {
+  position: absolute;
+  right: 10px;
+  bottom: 4px;
+  color: var(--cu-ink-faint);
+  font-family: var(--font-read), system-ui, sans-serif;
+  font-size: 11px;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+/* ---- the lanes ---- */
+
+.rs-lane {
+  position: relative;
+  border-bottom: 1px solid var(--cu-line);
+}
+
+.rs-sub { position: absolute; left: 0; right: 0; }
+
+.rs-item {
+  display: block;
+  position: absolute;
+  inset: 0;
+  text-decoration: none;
+  pointer-events: none;
+}
+/* Only the bars take the pointer; the item box spans the whole sub-row so its
+   bars can be positioned in one coordinate space, and an invisible full-width
+   link would swallow every click on the lane beneath it. */
+.rs-item .bar,
+.rs-item .mile { pointer-events: auto; cursor: pointer; }
+.rs-item .bar { position: absolute; display: block; }
+.rs-item:hover .bar { outline: 1px solid var(--color-ink-graphite); outline-offset: 1px; }
+.rs-item:focus-visible .bar { outline: 2px solid var(--color-ink-graphite); outline-offset: 1px; }
+
+/* A record that ran past its plan, stated on the bar's trailing edge. The bar
+   keeps its project hue — the hue says whose work it is — and only the overrun
+   edge is vermilion, exactly as the parent bracket draws its overhang. */
+.rs-item .bar.act.rs-late { box-shadow: inset -3px 0 0 var(--color-vermilion); }
+
+.rs-label {
+  position: absolute;
+  top: 3px;
+  max-width: 46ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-read), system-ui, sans-serif;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--cu-ink);
+  pointer-events: none;
+}
+.rs-slip {
+  margin-left: 8px;
+  padding: 1px 5px;
+  background: var(--color-vermilion-wash);
+  color: var(--color-vermilion);
+  font-size: 11px;
+}
+
+/* ---- contention ----
+
+   Days where this person is holding three or more things at once. A rule along
+   the foot of the lane, in graphite: the lane's own height already says how
+   much is stacked, and this says exactly where. Deliberately not a fill, not a
+   tint, and not red. */
+.rs-contended {
+  position: absolute;
+  /* Clear of the lane's own rule by 2px. Sitting on it, the mark reads as
+     ruling that happened to darken rather than as a statement. */
+  bottom: 2px;
+  height: 3px;
+  background: var(--color-ink-graphite);
+  opacity: 0.62;
+  z-index: 1;
+}
+
+.rs-idle {
+  position: sticky;
+  left: calc(var(--names-w) + 12px);
+  display: inline-block;
+  width: max-content;
+  padding-top: 6px;
+  color: var(--cu-ink-faint);
+  font-family: var(--font-read), system-ui, sans-serif;
+  font-size: 11.5px;
+  letter-spacing: normal;
+  text-transform: none;
+  z-index: 2;
+}
+
+/* ---- the project key, which is also the project filter ---- */
+
+.proj-filter { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+
+.proj-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 9px;
+  border: 1px solid var(--cu-line);
+  border-radius: var(--cu-r);
+  background: var(--cu-ground);
+  color: var(--cu-ink-faint);
+  cursor: pointer;
+  font-family: var(--font-read), system-ui, sans-serif;
+  font-size: 12px;
+  letter-spacing: normal;
+  text-transform: none;
+  max-width: 180px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.proj-chip:hover { background: var(--cu-hover); }
+.proj-chip[aria-pressed='true'] { color: var(--cu-ink); }
+.proj-chip .proj-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  background: var(--chip-hue);
+}
+/* An excluded project keeps its name and loses its colour: the row of chips
+   has to stay a legible key whether or not it is filtering. */
+.proj-chip[aria-pressed='false'] .proj-dot {
+  background: none;
+  box-shadow: inset 0 0 0 1px var(--cu-ink-faint);
+}
+
+.toolbar .count { margin-left: auto; white-space: nowrap; }
+
+.clear-who {
+  height: 24px;
+  padding: 0 9px;
+  border: 1px solid var(--cu-line);
+  border-radius: var(--cu-r);
+  background: var(--cu-ground);
+  color: var(--cu-ink-soft);
+  cursor: pointer;
+  font-family: var(--font-read), system-ui, sans-serif;
+  font-size: 12px;
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: nowrap;
+}
+.clear-who:hover { background: var(--cu-hover); color: var(--cu-ink); }
+
+@media (max-width: 900px) {
+  .book { --names-w: 172px; }
+  .proj-filter { display: none; }
+}
+
+/* The party column runs to the foot of the sheet whether or not the lanes
+   fill it — a ruled page that stops halfway down reads as a page that failed
+   to load. */
+.tl.rs { min-height: 100%; }
+
+/* The unassigned lane is soloable like any person's, so it keeps the pointer;
+   what it loses is only the claim to be somebody. */
+.rs-name.unassigned:hover { background: var(--cu-hover); }
+
+/* A soloed row states where the work lives as well as what it is: across five
+   projects a task name alone does not say which book it came out of. */
+.rs-where {
+  margin-left: 10px;
+  color: var(--cu-ink-faint);
+  font-size: 11.5px;
+}
+
+/* The person's name holds the top of the sheet while their lane scrolls under
+   it. A soloed lane can be seventy rows deep, and a label that has scrolled
+   away is a page that no longer says whose it is. */
+.rs-name > :not(.rs-more) { position: sticky; top: 4px; }
+.rs-name.tall { justify-content: flex-start; padding-top: 8px; }
+
+/* ---- the project's colour, on this page only ----
+
+   `timeline.css` mixes both bars against `--color-page`, the field book's
+   paper, and holds the hue share low: inside one project the six hues separate
+   six modules on a beige ground, and restraint is right there because module
+   identity is a secondary read.
+
+   Here it is the primary read. This page exists to answer "who is holding
+   what, across which projects", and at the low share five projects arrived as
+   five near-identical washes. So the share is raised — which is also what the
+   project chips in the filter bar already promise, and a bar that does not
+   match its own chip is worse than no colour at all.
+
+   The share stays above the project field's own (26% / 62%) rather than beside
+   it. Both fields now mix against the same white ground, so the difference
+   between them is entirely the difference in what the hue is doing: secondary
+   there, load-bearing here.
+
+   Unchanged, because it is the grammar and not the styling: plan above in
+   pencil hatch, record below in solid ink, the two separated by position and
+   height before they are separated by hue; and vermilion still only on the
+   overrun edge. */
+
+.tl.rs .bar.est {
+  border-color: color-mix(in srgb, var(--bar-hue) 62%, var(--color-ink-graphite-soft));
+  background-color: color-mix(in srgb, var(--bar-hue) 36%, var(--cu-canvas));
+}
+/* The record bar's ceiling is not a matter of taste. `--color-tab-1` is a brick
+   red, and a filled bar is a far larger area of it than the chip that teaches
+   it; past roughly 70% toward the ink, a tab-1 bar closes on vermilion and the
+   one hue that carries a verdict stops meaning one thing. Acceptance test A8
+   reads this ratio out of this file and does the arithmetic. */
+.tl.rs .bar.act {
+  background: color-mix(in srgb, var(--bar-hue) 66%, var(--color-ink-blue));
+  border-color: color-mix(in srgb, var(--bar-hue) 58%, var(--color-ink-blue));
+}
+.tl.rs .mile {
+  border-color: color-mix(in srgb, var(--bar-hue) 62%, var(--color-ink-graphite-soft));
+  background: color-mix(in srgb, var(--bar-hue) 36%, var(--cu-canvas));
+}
+.tl.rs .mile.act {
+  background: color-mix(in srgb, var(--bar-hue) 66%, var(--color-ink-blue));
+  border-color: color-mix(in srgb, var(--bar-hue) 58%, var(--color-ink-blue));
+}

@@ -27,7 +27,13 @@ Visual rules come from [`../../DESIGN.md`](../../DESIGN.md). Domain rules refere
 
 **Left of the field** the name column repeats the List's name column at the same 320px width, with the same indentation, brackets, punched-hole selection, and expansion triangles. Switching views changes the instrument, not the subject.
 
+**And it carries the module's colour**, as a mark on the module row and a 2px hairline in the indent of every row beneath it — the same hue index and the same CSS as the List. (On 2026-09-08 the module row's mark here became the block spine described below; the List keeps the 3px chip. The hue and its index are shared, the mark is not.) `DESIGN.md` § Colors rule 3 names four places the hue appears: the fore-edge tab, the module row's chip, the indent hairline, and both Timeline bars. This view implemented the bars and nothing else, so the half of it you actually read *names* in was the half that could not say what a row belonged to — worst under a flat sort, where the indent has been thrown away and `.rowmodule` was doing the job alone in text. The hue is assigned by filed position, not per view, precisely so it survives the switch; drawing it in only one view spent that property for nothing.
+
+**A module row draws as a block** (changed 2026-09-08, to the pinned roadmap reference). It takes a 9% wash of its own hue and a 3px full-height spine at the column's left edge, replacing the chip — the chip and the spine are the same hue stated twice in the same 14px. The wash and hairline spine are deliberate over a filled block: the module hue at full strength across a whole row competes with the bars, and this column indexes the field rather than out-shouting it. The block is stated in the name column only; the field's own module row keeps its ground clear, because a row background there paints above the period grid and the non-working bands and would erase both.
+
 **The field** is the ruled date area. It scrolls horizontally; the name column and date scale stay pinned.
+
+**The field's palette followed the sheet on 2026-09-08.** The chrome around it — the head, the toolbar, the scroller — moved to the ClickUp/roadmap reference language with the List, and until this change the field alone still drew the field book's paper, so a beige ground was pinned inside a white sheet with the seam down the middle of the view. The ground, rules, bands and controls are now the sheet's own palette, bars carry a 3px radius, and the segmented and ruled buttons match the toolbar they sit in. Everything §2 requires is untouched: plan above in pencil hatch, record below in solid ink, distinguished by position and height before hue; vermilion on the overhang and the misclosure figure and nowhere else; figures in Martian Mono. The reference draws a task's name beside its bar and this view still does not — it has a pinned name column the reference lacks, and printing every name twice would fill the field with the one thing already readable without scrolling.
 
 ---
 
@@ -96,9 +102,13 @@ A parent with no dated descendants shows only its baseline bracket. A parent wit
 
 Zoom is `D · W · M` in label caps beside the mode toggle, plus `Cmd/Ctrl + scroll` over the field. Zoom anchors on the pointer position, or on the selected node when driven from the keyboard.
 
+**Month boundaries are ruled down the field** (added 2026-09-08). The header names each month once; a 1px rule continues that boundary the full height of the run, behind every bar and band. Without it a bar six months out is measured by counting, which is what a scale is for — and it is what makes week and month zoom readable at all, since the day numbers are dropped there and the month rule is then the only scale left. The rules are drawn from the same walk over the day list that produces the header labels, so the label above and the rule below can never disagree about where a month starts.
+
 **Non-working days** (D-40) are drawn as `page-edge` vertical bands running the full height of the run, behind every bar. Bars **cross them visibly and unbroken** — the product stores calendar dates and treats working days as a lens for arithmetic (D-15, D-43), so a bar that broke into segments would misrepresent the stored data. At week and month zoom the bands are omitted, since they are no longer resolvable.
 
-**Today** is a 1px `datum` vertical rule spanning the full run height, with the date in label caps at its head. It is the only green in the view.
+**Today** is a 1px `datum` vertical rule spanning the full run height, with the date in label caps at its head, and **today's own day number in the scale set in `datum` ink**. The rule marks the column but it is one pixel among seven hundred and thirty, and the cap sits above the numbers rather than among them — so the one date somebody scans the scale for was the one the scale did not distinguish. The number changes ink and nothing else; it is not a filled marker. Green remains the only green in the view.
+
+**A `Today` control returns the field to it.** The view opens centred on today, and until 2026-09-07 that was the only moment it was ever centred there — scroll a month out to read a run and the way back was to drag the scrollbar by eye against a 19,000px field. A datum you cannot return to is not a datum. It is an ordinary square ruled button, not the inverted primary.
 
 **The window** always spans **a year either side of today**, widened further if the project itself reaches past that. A fixed year of runway means a date can always be dragged forward without the field ending, and a year of history keeps finished work visible instead of falling off the left edge.
 

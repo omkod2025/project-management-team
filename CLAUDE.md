@@ -17,12 +17,16 @@ Project management for software delivery. Plan and reality are recorded separate
 | [`docs/spec/06-clickup-migration.md`](docs/spec/06-clickup-migration.md) | Extraction and import |
 | [`docs/spec/07-extraction-findings.md`](docs/spec/07-extraction-findings.md) | What the captured data actually contains |
 | [`docs/spec/08-operations.md`](docs/spec/08-operations.md) | Backup, restore, deployment shape |
+| [`docs/spec/09-roster.md`](docs/spec/09-roster.md) | Roster timeline — one lane per person, across projects |
 | [`db/schema.sql`](db/schema.sql) | Executable DDL — verified against PostgreSQL 18.4 |
 | [`db/tests.sql`](db/tests.sql) | Schema test suite, 13 groups, runs in a rolled-back transaction |
-| [`tests/node-rules.test.ts`](tests/node-rules.test.ts) | 38 domain rule tests, each naming the `D-nn` it defends |
-| [`tests/e2e/api.test.ts`](tests/e2e/api.test.ts) | 25 end-to-end tests: auth, dates, capture, snapping, validation |
-| [`tests/e2e/tree.test.ts`](tests/e2e/tree.test.ts) | 17 end-to-end tests: create, move, archive, restore |
-| [`tests/e2e/admin.test.ts`](tests/e2e/admin.test.ts) | 24 end-to-end tests: columns, options, members, calendar, invitations |
+| [`tests/node-rules.test.ts`](tests/node-rules.test.ts) | 46 domain rule tests, each naming the `D-nn` it defends |
+| [`tests/e2e/api.test.ts`](tests/e2e/api.test.ts) | 29 end-to-end tests: auth, dates, capture, snapping, validation |
+| [`tests/e2e/tree.test.ts`](tests/e2e/tree.test.ts) | 20 end-to-end tests: create, move, archive, restore |
+| [`tests/e2e/admin.test.ts`](tests/e2e/admin.test.ts) | 29 end-to-end tests: columns, options, members, calendar, invitations, renaming |
+| [`tests/e2e/password.test.ts`](tests/e2e/password.test.ts) | 13 end-to-end tests: admin-set passwords and the change they force |
+| [`tests/e2e/roster.test.ts`](tests/e2e/roster.test.ts) | 12 end-to-end tests: assignment, the membership boundary, read-only |
+| [`tests/roster-pack.test.ts`](tests/roster-pack.test.ts) | 23 tests: lane packing, occupancy, contention |
 | [`docs/TASKS.md`](docs/TASKS.md) | Build plan T0–T9 with per-task checklists |
 | [`docs/wireframes/index.html`](docs/wireframes/index.html) | Rendered wireframes for both views |
 
@@ -49,9 +53,9 @@ npm run db:seed -- <email> <password>
 
 ```bash
 npm run check      # typecheck + domain tests — the pre-commit bar
-npm test           # 38 domain rule tests, no database needed
+npm test           # 94 domain rule tests (nodes, admin, timeline sort), no database needed
 npm run db:test    # 13 SQL groups, rolled back
-npm run test:e2e   # 66 API tests — REQUIRES `npm run dev` in another terminal
+npm run test:e2e   # 91 API tests — REQUIRES `npm run dev` in another terminal
 npm run test:acceptance  # 15 acceptance criteria, same requirement
 ```
 
@@ -59,7 +63,7 @@ Three layers, each covering what the one below cannot:
 
 | Suite | Covers | Needs |
 |---|---|---|
-| `tests/node-rules.test.ts`, `tests/admin-rules.test.ts` | the decisions: D-1 to D-3, D-10 to D-17, D-31 to D-35 | nothing |
+| `tests/node-rules.test.ts`, `tests/admin-rules.test.ts`, `tests/roster-pack.test.ts` | the decisions: D-1 to D-3, D-10 to D-17, D-31 to D-35, and the roster's claim that lane height is occupancy | nothing |
 | `db/tests.sql` | working-day arithmetic, roll-up, closure, subtree procedures | a database |
 | `tests/e2e/*.test.ts` | sign-in, roles, the JSON boundary, snapping against the real calendar, and every tree operation | a database **and** a running dev server |
 

@@ -22,6 +22,32 @@ export const FIELD_KINDS: FieldKind[] = [
 export const STAGES = ['notStarted', 'inProgress', 'done'] as const;
 export type Stage = (typeof STAGES)[number];
 
+/* -------------------------------------------------------------- projects */
+
+export function assertProjectName(name: unknown): string {
+  const trimmed = typeof name === 'string' ? name.trim() : '';
+  if (!trimmed) throw domainError('E_UNKNOWN_FIELD', 'A project needs a name.');
+  if (trimmed.length > 120) throw domainError('E_UNKNOWN_FIELD', 'That project name is too long.');
+  return trimmed;
+}
+
+/**
+ * A slug for the URL, derived from the name.
+ *
+ * Content is Thai, and Thai does not survive a Latin slugifier — so anything
+ * outside `a-z0-9` is dropped and a name that reduces to nothing gets no slug
+ * at all. The caller supplies the fallback, because uniqueness is a database
+ * question and this function has no database.
+ */
+export function slugFromName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48)
+    .replace(/-+$/g, '');
+}
+
 /* ----------------------------------------------------------- definitions */
 
 export function assertFieldKind(kind: unknown): FieldKind {
@@ -166,6 +192,82 @@ export function assertEmail(email: unknown): string {
   return s;
 }
 
+/* ------------------------------------------------------- deleting a user */
+
+/**
+ * The one account that cannot be deleted, at the owner's instruction
+ * (2026-09-08).
+ *
+ * It is the seeded install admin: the account that exists before any project
+ * does, and the one somebody signs in as when every other route in has been
+ * lost. Compared case-insensitively because `assertEmail` lowercases on the
+ * way in but this address may be typed by hand anywhere.
+ *
+ * A constant rather than a column. A `user_is_protected` flag would be a
+ * better long-term shape — but a flag can be cleared, and the whole point of
+ * this rule is that it cannot be. When the install grows a second protected
+ * account, that is the moment to move it into the schema.
+ */
+export const PROTECTED_EMAIL = 'admin@cit.com';
+
+export function assertNotProtectedAccount(email: string): void {
+  if (email.trim().toLowerCase() === PROTECTED_EMAIL) {
+    throw domainError(
+      'E_FORBIDDEN',
+      `${PROTECTED_EMAIL} is the install account and cannot be deleted.`,
+    );
+  }
+}
+
+/**
+ * Nobody deletes themselves.
+ *
+ * Not paternalism: the acting user's own membership rows cascade away with the
+ * account, so the request would succeed and then leave a live session pointing
+ * at a user that no longer exists. Deactivation is the reversible thing; this
+ * is not.
+ */
+export function assertNotSelf(targetUserId: string, actingUserId: string): void {
+  if (targetUserId === actingUserId) {
+    throw domainError('E_FORBIDDEN', 'You cannot delete your own account.');
+  }
+}
+
+/**
+ * Deleting a user must not leave a project with no admin.
+ *
+ * `pmt_project_members.member_user_id` cascades on delete, so removing an
+ * account silently removes every membership it held — which makes deletion a
+ * back door to exactly the state `assertKeepsAnAdmin` exists to prevent. The
+ * role select refuses to demote the last admin; this refuses to delete them.
+ */
+export function assertLeavesNoProjectAdminless(orphanedProjectNames: string[]): void {
+  if (orphanedProjectNames.length > 0) {
+    throw domainError(
+      'E_FORBIDDEN',
+      `They are the only admin of ${orphanedProjectNames.join(', ')}. `
+      + 'Promote someone else there first.',
+      { projects: orphanedProjectNames },
+    );
+  }
+}
+
+/**
+ * You may only delete somebody whose every project you administer.
+ *
+ * There is no workspace-wide superuser (spec 05 §2), so an admin of one
+ * project has no standing to destroy that person's access to four others.
+ */
+export function assertAdminsEveryProjectOf(unadministeredCount: number): void {
+  if (unadministeredCount > 0) {
+    throw domainError(
+      'E_FORBIDDEN',
+      'They belong to projects you do not administer, so you cannot delete them.',
+      { projects: unadministeredCount },
+    );
+  }
+}
+
 /**
  * The only password rule: length.
  *
@@ -191,4 +293,21 @@ export function assertPassword(password: unknown): string {
     );
   }
   return s;
+}
+
+/**
+ * A replacement password may not be the one being replaced.
+ *
+ * This exists for the forced change after an admit-set starting password. The
+ * whole point of that change is that the password stops being one two people
+ * know — re-entering the same string would clear the flag while leaving the
+ * admin holding a working credential, which is worse than not asking at all
+ * because the record would then say the account was secured.
+ */
+export function assertNewPassword(current: unknown, next: unknown): string {
+  const fresh = assertPassword(next);
+  if (typeof current === 'string' && current.normalize('NFKC') === fresh.normalize('NFKC')) {
+    throw domainError('E_UNKNOWN_FIELD', 'Choose a password you have not been given.');
+  }
+  return fresh;
 }

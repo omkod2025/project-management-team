@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Settings } from '@/lib/admin';
 import { FIELD_KINDS, STAGES } from '@/lib/admin-rules';
 import '../list.css';
@@ -58,8 +58,14 @@ export default function SettingsView({ settings: initial, slug }: Props) {
 
   return (
     <div className="book">
-      <div className="sheet">
+      <div className="sheet plain">
         <header className="head">
+          {/* Up a level, to the shelf. Deliberately not in the view nav
+              beside List / Timeline / Report: those are views *of this
+              project* and this is the way out of it — filing a level change
+              among sibling views because the two sit near each other is the
+              grouping-by-adjacency this page has been unpicking. */}
+          <a className="shelf label" href="/">‹ Field Book</a>
           <h1>{s.project.name}</h1>
           <div className="views label">
             <a href={`/p/${slug}`}>List</a>
@@ -73,6 +79,7 @@ export default function SettingsView({ settings: initial, slug }: Props) {
         {error && <div className="errata">{error}</div>}
 
         <div className="settings" aria-busy={busy}>
+          <Project s={s} send={send} />
           <Columns s={s} send={send} />
           <Members s={s} send={send} />
           <Calendar s={s} send={send} />
@@ -83,6 +90,50 @@ export default function SettingsView({ settings: initial, slug }: Props) {
 }
 
 type Send = (url: string, method: string, body?: unknown) => Promise<unknown>;
+
+/* ================================================================ project */
+
+function Project({ s, send }: { s: Settings; send: Send }) {
+  const [name, setName] = useState(s.project.name);
+
+  // The saved name is the truth. If a reload brings back something different
+  // from what is in the box — somebody else renamed it, or the server trimmed
+  // what was typed — the box follows rather than arguing.
+  useEffect(() => { setName(s.project.name); }, [s.project.name]);
+
+  const dirty = name.trim() !== s.project.name && name.trim().length > 0;
+
+  return (
+    <section>
+      <h2 className="label">Project</h2>
+
+      <form
+        className="settings-row"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (!dirty) return;
+          void send(`/api/projects/${s.project.id}`, 'PATCH', { name });
+        }}
+      >
+        <input
+          className="field-input name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          maxLength={120}
+          aria-label="Project name"
+        />
+        <button type="submit" className="label primary" disabled={!dirty}>Rename</button>
+      </form>
+
+      <p className="aside">
+        A rename changes the label, not where the project lives — the address
+        stays as it is, so a link somebody pasted into a chat last month still
+        opens it.
+        <code>/p/{s.project.slug}</code>
+      </p>
+    </section>
+  );
+}
 
 /* ================================================================ columns */
 

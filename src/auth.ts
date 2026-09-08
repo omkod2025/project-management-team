@@ -53,11 +53,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       // waiting for the 30-day session to expire.
       if (token.uid) {
         const [row] = await db
-          .select({ isActive: users.isActive })
+          .select({ isActive: users.isActive, mustChange: users.mustChangePassword })
           .from(users)
           .where(eq(users.id, token.uid as string))
           .limit(1);
         if (!row?.isActive) return null;
+        // Carried in the token so `proxy.ts` can turn pages away without a
+        // query. It is a redirect, not the enforcement: the enforcement is in
+        // `authorize` and `handle`, which read the column itself. A raised flag
+        // therefore takes hold at the next refresh at the latest, and a lowered
+        // one never lingers, because changing a password ends the session.
+        token.mustChangePassword = row.mustChange;
       }
       return token;
     },

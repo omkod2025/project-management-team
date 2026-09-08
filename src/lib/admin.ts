@@ -6,11 +6,13 @@ import { fieldDefinitions, fieldOptions, holidays, projectMembers, projects, use
 import { domainError } from '@/lib/errors';
 import {
   assertColorIndex, assertEmail, assertFieldKind, assertFieldName, assertHolidayDate,
-  assertHolidayName, assertKeepsADoneStage, assertKeepsAnAdmin, assertKindUnchanged,
-  assertOptionLabel, assertPassword, assertRole, assertStage, assertStatusFieldKind,
+  assertAdminsEveryProjectOf, assertHolidayName, assertKeepsADoneStage, assertKeepsAnAdmin,
+  assertKindUnchanged, assertLeavesNoProjectAdminless, assertNotProtectedAccount, assertNotSelf,
+  assertNewPassword, assertOptionLabel, assertPassword, assertProjectName, assertRole,
+  assertStage, assertStatusFieldKind, slugFromName,
   type Role, type Stage,
 } from '@/lib/admin-rules';
-import { hashPassword } from '@/lib/password';
+import { hashPassword, verifyPassword } from '@/lib/password';
 import type { FieldKind } from '@/lib/node-rules';
 
 /**
@@ -82,6 +84,85 @@ export async function loadSettings(projectId: string): Promise<Settings> {
     people,
     holidays: hols,
   };
+}
+
+/* -------------------------------------------------------------- projects */
+
+/**
+ * Create a project and make its creator the admin.
+ *
+ * Both rows in one statement pair rather than one, because a project with no
+ * membership row is not merely hidden from the shelf — it is absent from every
+ * scoped query (spec 05 §4), so a half-written create would strand it.
+ *
+ * The root node is written here too, and it is not optional. `pmt_projects` is
+ * the container; the tree lives in `pmt_nodes`, where depth 1 with no parent is
+ * the project row. A module is a child of that row — so a project without one
+ * has nothing for a module to hang off and cannot be added to at all.
+ *
+ * No status field is designated: D-35 says which column drives automatic
+ * actual dates, and that is a choice the admin makes in settings, not one this
+ * function guesses on their behalf.
+ */
+export async function createProject(
+  userId: string,
+  input: { name?: unknown },
+): Promise<{ id: string; slug: string }> {
+  const name = assertProjectName(input.name);
+
+  const base = slugFromName(name);
+  let slug = base || `p-${randomBytes(4).toString('hex')}`;
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const clash = await db.select({ id: projects.id }).from(projects)
+      .where(eq(projects.slug, slug)).limit(1);
+    if (!clash.length) break;
+    slug = `${base || 'p'}-${randomBytes(3).toString('hex')}`;
+  }
+
+  const [row] = await db.insert(projects).values({ name, slug })
+    .returning({ id: projects.id, slug: projects.slug });
+
+  await db.insert(projectMembers).values({ projectId: row!.id, userId, role: 'admin' });
+
+  await rawQuery(
+    `INSERT INTO pmt_nodes (node_project_id, node_parent_id, node_depth, node_name,
+                            node_sort_order, node_created_by)
+     VALUES ($1, NULL, 1, $2, 0, $3)`,
+    [row!.id, name, userId],
+  );
+
+  return { id: row!.id, slug: row!.slug };
+}
+
+/**
+ * Rename a project.
+ *
+ * Two rows change, because the name is displayed from two places: the project
+ * row titles the page, and the root node titles the breadcrumb in the detail
+ * panel. Renaming only the first leaves the old name showing above every task,
+ * which reads as a bug rather than as a distinction nobody asked for.
+ *
+ * **The slug does not follow.** It is in every link anybody has pasted into a
+ * chat, a ticket or a bookmark, and a rename is a change of label, not a move.
+ * A project renamed six times still answers on the URL it was created with.
+ */
+export async function renameProject(projectId: string, nameInput: unknown): Promise<{ name: string }> {
+  const name = assertProjectName(nameInput);
+
+  const [row] = await db
+    .update(projects)
+    .set({ name, updatedAt: new Date() })
+    .where(eq(projects.id, projectId))
+    .returning({ name: projects.name });
+  if (!row) throw domainError('E_NOT_FOUND', 'No such project.');
+
+  await rawQuery(
+    `UPDATE pmt_nodes SET node_name = $2, node_updated_at = now()
+      WHERE node_project_id = $1 AND node_depth = 1`,
+    [projectId, name],
+  );
+
+  return { name: row.name };
 }
 
 /* ----------------------------------------------------------- definitions */
@@ -283,6 +364,69 @@ export async function removeMember(projectId: string, userId: string): Promise<v
   );
 }
 
+/**
+ * Delete an account outright.
+ *
+ * The destructive counterpart to deactivation, and the two are not
+ * interchangeable — this is written down because the difference is the whole
+ * reason both exist:
+ *
+ *   - `user_is_active = false` blocks sign-in and keeps the row, so
+ *     `node_created_by` still names who filed each task (spec 05 §1).
+ *   - deleting removes the row. `pmt_project_members` cascades away with it,
+ *     and `pmt_nodes.node_created_by` is `ON DELETE SET NULL` — so every task
+ *     they ever created loses its author, permanently and for the whole
+ *     install. Nothing here restores that.
+ *
+ * Four refusals stand in front of it, each in `admin-rules.ts` where a test can
+ * reach it without a database. The order matters: identity first, then
+ * standing, then consequences.
+ */
+export async function deleteUser(actingUserId: string, targetUserId: string): Promise<void> {
+  const [target] = await db
+    .select({ id: users.id, email: users.email })
+    .from(users)
+    .where(eq(users.id, targetUserId))
+    .limit(1);
+  if (!target) throw domainError('E_NOT_FOUND', 'No such person.');
+
+  assertNotProtectedAccount(target.email);
+  assertNotSelf(target.id, actingUserId);
+
+  /*
+   * Every project the target belongs to, answered in one pass: how many admins
+   * it has, whether the target is one of them, and whether the acting user is
+   * one of them. Three separate queries would have to be reconciled afterwards
+   * and could disagree with each other under concurrent edits.
+   */
+  const rows = await rawQuery<{
+    project_name: string;
+    target_is_only_admin: boolean;
+    actor_is_admin: boolean;
+  }>(
+    `SELECT p.project_name,
+            (tm.member_role = 'admin'
+              AND (SELECT count(*) FROM pmt_project_members a
+                    WHERE a.member_project_id = p.project_id
+                      AND a.member_role = 'admin') = 1)          AS target_is_only_admin,
+            (am.member_role = 'admin')                           AS actor_is_admin
+       FROM pmt_project_members tm
+       JOIN pmt_projects p        ON p.project_id = tm.member_project_id
+       LEFT JOIN pmt_project_members am
+              ON am.member_project_id = p.project_id
+             AND am.member_user_id    = $2
+      WHERE tm.member_user_id = $1`,
+    [targetUserId, actingUserId],
+  );
+
+  assertAdminsEveryProjectOf(rows.filter((r) => !r.actor_is_admin).length);
+  assertLeavesNoProjectAdminless(
+    rows.filter((r) => r.target_is_only_admin).map((r) => r.project_name),
+  );
+
+  await db.delete(users).where(eq(users.id, targetUserId));
+}
+
 /* -------------------------------------------------------------- calendar */
 
 export async function addHoliday(dateInput: unknown, nameInput: unknown): Promise<void> {
@@ -302,24 +446,49 @@ export async function removeHoliday(dateInput: unknown): Promise<void> {
 /* ----------------------------------------------------------------- users */
 
 /**
- * Create a person and return a one-time setup link token.
+ * Create a person, either by invitation or with a starting password.
  *
- * The admin never sets anybody's password: they hand over the token, and the
- * new user chooses their own. That is why `user_password_hash` is left null —
- * an account with no hash cannot sign in at all (see `auth.ts`).
+ * Two ways in, and they are not equivalent:
+ *
+ *   - **no password given** — `user_password_hash` stays null and a one-time
+ *     token is issued. An account with no hash cannot sign in at all, so an
+ *     unclaimed invitation is inert rather than a weak credential, and the
+ *     password the person ends up with was never known to anybody else.
+ *   - **a password given** — the admin chose it, so two people know it. It is
+ *     hashed like any other (never stored or transmitted as the admin typed
+ *     it), but `user_must_change_password` is raised with it: the account can
+ *     reach the change-password page and nothing else until the person has
+ *     replaced it. No token is issued, because there is nothing to claim.
+ *
+ * The plain string is accepted here and hashed here. A caller may not pass a
+ * hash: a hash accepted at the boundary *is* the password, and anyone reading
+ * it out of the database could sign in with it directly.
  */
 export async function createUser(
   emailInput: unknown,
   nameInput: unknown,
-): Promise<{ id: string; token: string; expiresAt: Date }> {
+  passwordInput?: unknown,
+): Promise<{ id: string; token: string | null; expiresAt: Date | null; mustChangePassword: boolean }> {
   const email = assertEmail(emailInput);
   const name = String(nameInput ?? '').trim() || email.split('@')[0]!;
+  const wantsPassword = typeof passwordInput === 'string' && passwordInput.length > 0;
 
   const existing = await rawQuery<{ user_id: string }>(
     `SELECT user_id FROM pmt_users WHERE lower(user_email) = $1`,
     [email],
   );
   if (existing.length) throw domainError('E_UNKNOWN_FIELD', 'Someone already has that address.');
+
+  if (wantsPassword) {
+    const [row] = await db.insert(users).values({
+      email,
+      fullName: name,
+      passwordHash: await hashPassword(assertPassword(passwordInput)),
+      mustChangePassword: true,
+    }).returning({ id: users.id });
+
+    return { id: row!.id, token: null, expiresAt: null, mustChangePassword: true };
+  }
 
   const token = randomBytes(24).toString('base64url');
   const expiresAt = new Date(Date.now() + 7 * 24 * 3600 * 1000);
@@ -328,7 +497,57 @@ export async function createUser(
     email, fullName: name, setupToken: token, setupExpiresAt: expiresAt,
   }).returning({ id: users.id });
 
-  return { id: row!.id, token, expiresAt };
+  return { id: row!.id, token, expiresAt, mustChangePassword: false };
+}
+
+/**
+ * Replace your own password, which is the only way the forced-change flag ever
+ * comes down.
+ *
+ * The current password is required even though the caller is already signed
+ * in. A session cookie is not proof of the credential — a borrowed laptop is
+ * enough for one — and without this a walk-up attacker could lock the owner
+ * out of their own account.
+ */
+export async function changeOwnPassword(
+  userId: string,
+  currentInput: unknown,
+  nextInput: unknown,
+): Promise<void> {
+  const [user] = await db
+    .select({ hash: users.passwordHash })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  if (!user) throw domainError('E_NOT_FOUND', 'No such person.');
+
+  const current = typeof currentInput === 'string' ? currentInput : '';
+  if (!(await verifyPassword(current, user.hash))) {
+    throw domainError('E_FORBIDDEN', 'That is not your current password.');
+  }
+
+  const next = assertNewPassword(current, nextInput);
+
+  await rawQuery(
+    `UPDATE pmt_users
+        SET user_password_hash = $2,
+            user_must_change_password = false,
+            user_setup_token = NULL,
+            user_setup_expires_at = NULL,
+            user_updated_at = now()
+      WHERE user_id = $1`,
+    [userId, await hashPassword(next)],
+  );
+}
+
+/** Whether this account is holding a password somebody else chose. */
+export async function mustChangePassword(userId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ must: users.mustChangePassword })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  return row?.must === true;
 }
 
 /** Which projects a person may administer — used to scope the settings page. */

@@ -1,5 +1,7 @@
 'use client';
 
+import type { ReactNode } from 'react';
+
 import type { LedgerRow } from '@/db/schema';
 import type { FieldDef, Person } from '@/lib/ledger';
 
@@ -114,12 +116,32 @@ function sourceNote(
 const signed = (n: number | null) => (n === null ? null : n === 0 ? '0' : `${n > 0 ? '+' : '−'}${Math.abs(n)}d`);
 const inkFor = (n: number | null) => (n !== null && n !== 0 ? 'vermilion' : 'computed');
 
-function display(f: FieldDef, raw: unknown, people: Person[]): string | null {
+const TAB_HUE = (i: number) => `var(--color-tab-${((i - 1) % 6) + 1})`;
+
+/** The same chip the grid draws — the facing page shows the value, not a
+ *  paraphrase of it, so a status that is amber in the run is amber here too. */
+const Chip = ({ label, colorIndex }: { label: string; colorIndex: number }) => (
+  <span className="pill" style={{ ['--opt-hue' as string]: TAB_HUE(colorIndex) }}>{label}</span>
+);
+
+function display(f: FieldDef, raw: unknown, people: Person[]): ReactNode {
   if (raw === null || raw === undefined) return null;
   switch (f.kind) {
-    case 'select': return f.options.find((o) => o.id === raw)?.label ?? null;
-    case 'multi_select':
-      return (raw as string[]).map((id) => f.options.find((o) => o.id === id)?.label ?? '?').join(', ') || null;
+    case 'select': {
+      const o = f.options.find((x) => x.id === raw);
+      return o ? <Chip label={o.label} colorIndex={o.colorIndex} /> : null;
+    }
+    case 'multi_select': {
+      const chips = (raw as string[])
+        .map((id) => f.options.find((x) => x.id === id))
+        .filter((o): o is NonNullable<typeof o> => !!o);
+      if (!chips.length) return null;
+      return (
+        <span style={{ display: 'inline-flex', gap: 4, flexWrap: 'wrap' }}>
+          {chips.map((o) => <Chip key={o.id} label={o.label} colorIndex={o.colorIndex} />)}
+        </span>
+      );
+    }
     case 'people':
       return (raw as string[]).map((id) => people.find((p) => p.id === id)?.name ?? '?').join(', ') || null;
     case 'money': {
@@ -144,7 +166,7 @@ function Line({
   label, value, ink, note,
 }: {
   label: string;
-  value: string | number | null;
+  value: ReactNode;
   ink: 'entered' | 'computed' | 'vermilion';
   note?: string;
 }) {
@@ -154,7 +176,7 @@ function Line({
       <span className={ink === 'vermilion' ? 'slip' : ink}>
         {value ?? <span className="empty">—</span>}
       </span>
-      {note && value !== null && <span className="facing-note">{note}</span>}
+      {note && value !== null && value !== undefined && <span className="facing-note">{note}</span>}
     </div>
   );
 }

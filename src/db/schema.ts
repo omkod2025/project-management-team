@@ -39,6 +39,8 @@ export const users = pgTable('pmt_users', {
   passwordHash: text('user_password_hash'),
   setupToken: text('user_setup_token'),
   setupExpiresAt: timestamp('user_setup_expires_at', { withTimezone: true }),
+  /** True while the current password was chosen by somebody other than its owner. */
+  mustChangePassword: boolean('user_must_change_password').notNull().default(false),
   isActive: boolean('user_is_active').notNull().default(true),
   createdAt: timestamp('user_created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('user_updated_at', { withTimezone: true }).notNull().defaultNow(),

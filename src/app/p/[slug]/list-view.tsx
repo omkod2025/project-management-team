@@ -5,6 +5,7 @@ import type { LedgerRow, MoneyValue } from '@/db/schema';
 import type { FieldDef, Person } from '@/lib/ledger';
 import { MAX_DEPTH } from '@/lib/constants';
 import DetailPanel from './detail-panel';
+import ProjectTitle from './project-title';
 import ConfirmArchive from './confirm-archive';
 import {
   loadSet, saveSet, selectedFromUrl, writeSelectedToUrl, siblingHref,
@@ -34,6 +35,8 @@ type Props = {
   statusFieldId: string | null;
   canEdit: boolean;
   isAdmin: boolean;
+  /** Rendered on the server: signing out is a server action. */
+  signOut: React.ReactNode;
 };
 
 type Column = {
@@ -42,12 +45,27 @@ type Column = {
   width: number;
   align?: 'right';
   kind: 'name' | 'date' | 'computed' | 'closed' | 'misclosure' | 'gutter' | 'field';
+  /** Which band this column sits under. Consecutive columns sharing a group
+   *  are spanned by one label in the header's upper row. */
+  group?: 'estimate' | 'actual' | 'variance' | 'progress';
   field?: FieldDef;
   dateKey?: 'estimateStart' | 'estimateEnd' | 'actualStart' | 'actualEnd';
 };
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const TAB_HUE = (i: number) => `var(--color-tab-${((i - 1) % 6) + 1})`;
+
+/** Read by the band above the heads and by each head's accessible name. */
+const GROUP_NAMES: Record<'estimate' | 'actual' | 'variance' | 'progress', string> = {
+  estimate: 'Estimate',
+  actual: 'Actual',
+  variance: 'Variance',
+  /* Counted, never entered (D-24b) — and not a variance. It rode under the
+     Variance band for one revision because it sat next to Slip, which is
+     grouping by adjacency rather than by meaning: the exact habit the bands
+     were added to break. */
+  progress: 'Progress',
+};
 const isThai = (s: string) => /[฀-๿]/.test(s);
 
 /** Dates are stored as dates, not timestamps, so there is nothing to convert. */
@@ -58,6 +76,7 @@ function fmtDate(iso: string | null): string | null {
 
 export default function ListView({
   projectId, projectName, slug, rows: initialRows, fields, people, statusFieldId, canEdit, isAdmin,
+  signOut,
 }: Props) {
   const [rows, setRows] = useState(initialRows);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -103,17 +122,36 @@ export default function ListView({
     const rest = live.filter((f) => f.id !== statusFieldId);
 
     return [
-      { key: 'name', label: 'Name', width: 320, kind: 'name' },
+      /* 440px, not 320. Fixed layout means this number is now obeyed rather
+         than overridden by the longest name in the project, so it has to be
+         chosen: 440 is the widest the name can be while Status, both date
+         groups, Slip and Closed all still land inside a 1,400px window — the
+         set somebody triaging actually reads. Custom columns scroll. */
+      { key: 'name', label: 'Name', width: 440, kind: 'name' },
       ...(status ? [{ key: status.id, label: status.name, width: 150, kind: 'field' as const, field: status }] : []),
-      { key: 'est_start', label: 'Est start', width: 92, kind: 'date', dateKey: 'estimateStart' },
-      { key: 'est_end', label: 'Est end', width: 92, kind: 'date', dateKey: 'estimateEnd' },
-      { key: 'act_start', label: 'Act start', width: 92, kind: 'date', dateKey: 'actualStart' },
-      { key: 'act_end', label: 'Act end', width: 92, kind: 'date', dateKey: 'actualEnd' },
-      { key: 'est_d', label: 'Est d', width: 58, align: 'right', kind: 'computed' },
-      { key: 'act_d', label: 'Act d', width: 58, align: 'right', kind: 'computed' },
-      { key: 'closed', label: 'Closed', width: 74, align: 'right', kind: 'closed' },
-      { key: 'gutter', label: '', width: 20, kind: 'gutter' },
-      { key: 'mis', label: 'Misclosure', width: 96, align: 'right', kind: 'misclosure' },
+      /*
+       * The plan, then the record, then the verdict — each a closed group
+       * behind its own seam.
+       *
+       * These six columns used to run as equal siblings in the order
+       * est/est/act/act/est-d/act-d, which put each duration two columns from
+       * the pair it measures and left nothing on the page to say which half
+       * was the plan. The product exists to hold those two apart (PRODUCT.md
+       * principle 1); the grid where triage actually happens was the one
+       * surface not saying so.
+       */
+      { key: 'gap_est', label: '', width: 14, kind: 'gutter' },
+      { key: 'est_start', label: 'Start', width: 92, kind: 'date', dateKey: 'estimateStart', group: 'estimate' },
+      { key: 'est_end', label: 'End', width: 92, kind: 'date', dateKey: 'estimateEnd', group: 'estimate' },
+      { key: 'est_d', label: 'Days', width: 58, align: 'right', kind: 'computed', group: 'estimate' },
+      { key: 'gap_act', label: '', width: 14, kind: 'gutter' },
+      { key: 'act_start', label: 'Start', width: 92, kind: 'date', dateKey: 'actualStart', group: 'actual' },
+      { key: 'act_end', label: 'End', width: 92, kind: 'date', dateKey: 'actualEnd', group: 'actual' },
+      { key: 'act_d', label: 'Days', width: 58, align: 'right', kind: 'computed', group: 'actual' },
+      { key: 'gap_var', label: '', width: 14, kind: 'gutter' },
+      { key: 'mis', label: 'Slip', width: 96, align: 'right', kind: 'misclosure', group: 'variance' },
+      { key: 'gap_prog', label: '', width: 14, kind: 'gutter' },
+      { key: 'closed', label: 'Closed', width: 74, align: 'right', kind: 'closed', group: 'progress' },
       ...rest.map((f) => ({
         key: f.id,
         label: f.name,
@@ -191,7 +229,7 @@ export default function ListView({
     return keep;
   }, [query, rows, byId]);
 
-  type VisibleRow = { row: LedgerRow; kind: 'node' } | { row: LedgerRow; kind: 'add' };
+  type VisibleRow = { row: LedgerRow; kind: 'node' | 'add' | 'addmodule' | 'grouphead' };
 
   const visible = useMemo<VisibleRow[]>(() => {
     const out: VisibleRow[] = [];
@@ -200,12 +238,22 @@ export default function ListView({
         if (matches && !matches.has(r.led_node_id)) continue;
         out.push({ row: r, kind: 'node' });
         const open = matches ? true : expanded.has(r.led_node_id);
+        // Each module block reprints the column heads under its own header, as
+        // the reference does — a module's run can be long enough that the
+        // sticky header at the top of the page is the only thing naming these
+        // columns, and inside a block the eye wants the names again.
+        if (r.led_depth === 2 && open) out.push({ row: r, kind: 'grouphead' });
         if (open) walk(r.led_node_id);
         // Every module block closes with a way to add to it.
         if (r.led_depth === 2 && open && canEdit && !matches) out.push({ row: r, kind: 'add' });
       }
     };
     walk(root?.led_node_id ?? null);
+    // And the run as a whole closes with a way to add to it. A module is a
+    // child of the project row, which the grid never prints — so this is the
+    // one add that cannot hang off a row the reader can see, and it belongs at
+    // the foot of the last module rather than inside it.
+    if (root && canEdit && !matches) out.push({ row: root, kind: 'addmodule' });
     return out;
   }, [byParent, expanded, root, matches, canEdit]);
 
@@ -439,8 +487,10 @@ export default function ListView({
       const moveFocus = (dr: number, dc: number) => {
         e.preventDefault();
         let row = Math.max(0, Math.min(visible.length - 1, focus.row + dr));
-        // Skip the add-task rows when arrowing; they are click targets, not cells.
-        while (visible[row]?.kind === 'add' && row > 0 && row < visible.length - 1) row += dr || 1;
+        // Skip anything that is not a data row when arrowing: the add-task row
+        // is a click target and the repeated head strip is furniture.
+        while (visible[row] && visible[row]!.kind !== 'node'
+               && row > 0 && row < visible.length - 1) row += dr || 1;
         const col = Math.max(0, Math.min(columns.length - 1, focus.col + dc));
         setFocus({ row, col });
         setSelected(visible[row]?.row.led_node_id ?? null);
@@ -490,7 +540,14 @@ export default function ListView({
           break;
 
         case 'n': case 'N': {
-          if (!canEdit || !node) break;
+          if (!canEdit) break;
+          if (!node) {
+            // Nothing selected: `n` starts a module, which is what the add row
+            // at the foot of the run offers and the only thing there is to add
+            // when no row is in hand.
+            if (root) { e.preventDefault(); void create(root.led_node_id, null); }
+            break;
+          }
           e.preventDefault();
           if (e.shiftKey) {
             // a child of the focused row
@@ -517,7 +574,7 @@ export default function ListView({
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [focus, visible, nodeRows, columns, editing, canEdit, isAdmin, detail, selected, slug,
+  }, [focus, visible, nodeRows, columns, editing, canEdit, isAdmin, detail, selected, slug, root,
       create, move, archive, descendantCount]);
 
   /* -------------------------------------------------------- detail data */
@@ -559,7 +616,13 @@ export default function ListView({
 
       <div className="sheet">
         <header className="head">
-          <h1>{projectName}</h1>
+          {/* Up a level, to the shelf. Deliberately not in the view nav
+              beside List / Timeline / Report: those are views *of this
+              project* and this is the way out of it — filing a level change
+              among sibling views because the two sit near each other is the
+              grouping-by-adjacency this page has been unpicking. */}
+          <a className="shelf label" href="/">‹ Field Book</a>
+          <ProjectTitle projectId={projectId} name={projectName} canRename={isAdmin} />
           <div className="views label">
             <span aria-current="page">List</span>
             <span style={{ color: 'var(--color-rule)' }}>·</span>
@@ -573,6 +636,11 @@ export default function ListView({
               </>
             )}
           </div>
+          {/* Sits after the view nav rather than beside the shelf link, so the
+              one control that ends the session is not adjacent to the one a
+              hand reaches for constantly. Same reasoning as the shelf link's:
+              it changes level, so it is not in the view nav. */}
+          {signOut}
         </header>
 
         <div className="toolbar label">
@@ -586,11 +654,19 @@ export default function ListView({
             onKeyDown={(e) => { if (e.key === 'Escape') { setQuery(''); e.currentTarget.blur(); } }}
             aria-label="Search tasks"
           />
-          <span>{nodeRows.length} of {rows.length - 1}</span>
-          {!canEdit && <span>· read only</span>}
-          <span className="hint">
-            ↑↓ move · Enter edit · E detail · N new · Alt←→ outdent/indent · G T timeline
+          <span className="count-of">
+            <strong className="figure">{nodeRows.length}</strong> of {rows.length - 1}
           </span>
+          {!canEdit && <span>· read only</span>}
+          {/* The add row at the foot of the run is where a module is added in
+              the flow of reading it. This is the same act reached from the top
+              of the page — a long run puts that row a scroll away, and a
+              search hides it entirely. */}
+          {canEdit && root && (
+            <button type="button" className="toolbar-add" onClick={() => void create(root.led_node_id, null)}>
+              + Module
+            </button>
+          )}
         </div>
 
         {failure && <div className="errata">{failure.message}</div>}
@@ -609,22 +685,36 @@ export default function ListView({
         <div className="pagebody">
           <div className="scroller">
             {rows.length <= 1 ? (
-              <EmptyRun columns={columns} message="No modules yet. An admin adds the first one." />
+              <EmptyRun
+                columns={columns}
+                message={canEdit ? 'No modules yet.' : 'No modules yet. An admin adds the first one.'}
+                action={canEdit && root
+                  ? { label: '+ Add module', onClick: () => void create(root.led_node_id, null) }
+                  : undefined}
+              />
             ) : nodeRows.length === 0 ? (
               <EmptyRun columns={columns} message={`Nothing matches “${query}”.`} />
             ) : (
               <table className="run">
                 <colgroup>{columns.map((c) => <col key={c.key} style={{ width: c.width }} />)}</colgroup>
                 <thead>
-                  <tr className="label">
+                  <GroupBand columns={columns} />
+                  <tr className="label heads">
                     {columns.map((c) => (
                       <th
                         key={c.key}
                         scope="col"
+                        /* The band is the eye's disambiguator, and it is
+                           aria-hidden so it is not announced twice. Three
+                           columns now read "Start" and three read "Days", so
+                           the accessible name has to carry the group the label
+                           dropped — otherwise a screen reader hears the same
+                           header six times and can tell nothing apart. */
+                        aria-label={c.group ? `${GROUP_NAMES[c.group]} ${c.label.toLowerCase()}` : undefined}
                         className={[
                           c.kind === 'name' ? 'nm' : '',
                           c.align === 'right' ? 'num' : '',
-                          c.key === 'gutter' ? 'gutter' : '',
+                          c.kind === 'gutter' ? 'gutter' : '',
                         ].join(' ')}
                       >
                         {c.label}
@@ -634,8 +724,45 @@ export default function ListView({
                 </thead>
                 <tbody>
                   {visible.map((v, rowIdx) =>
-                    v.kind === 'add' ? (
-                      <tr className="add-row" key={`add-${v.row.led_node_id}`}>
+                    v.kind === 'grouphead' ? (
+                      <tr className="grouphead" key={`heads-${v.row.led_node_id}`} aria-hidden="true">
+                        {columns.map((c) => (
+                          /* No `scope` and the row is aria-hidden: the real
+                             column heads are in the <thead> and already
+                             associated. This strip is a visual reprint. */
+                          <th
+                            key={c.key}
+                            className={[
+                              c.kind === 'name' ? 'nm' : '',
+                              c.align === 'right' ? 'num' : '',
+                              c.kind === 'gutter' ? 'gutter' : '',
+                            ].join(' ')}
+                          >
+                            {c.label}
+                          </th>
+                        ))}
+                      </tr>
+                    ) : v.kind === 'addmodule' ? (
+                      /* No `--row-hue`: this row belongs to no module, and the
+                         hue of the module it would inherit from would be a lie
+                         about what it creates. */
+                      <tr className="add-row module-add" key="add-module">
+                        <td className="nm" onClick={() => void create(v.row.led_node_id, null)}>
+                          <div className="nm-inner">
+                            <span className="hole" />+ Add module
+                          </div>
+                        </td>
+                        <td colSpan={columns.length - 1} />
+                      </tr>
+                    ) : v.kind === 'add' ? (
+                      /* The add row closes its module's run, so it carries the
+                         module's hue too and the spine down the indent does not
+                         stop one row short of the bottom. */
+                      <tr
+                        className="add-row"
+                        key={`add-${v.row.led_node_id}`}
+                        style={{ ['--row-hue' as string]: TAB_HUE(moduleIndex.get(v.row.led_node_id) ?? 1) }}
+                      >
                         <td className="nm" onClick={() => void create(v.row.led_node_id, null)}>
                           <div className="nm-inner" style={{ paddingLeft: 20 }}>
                             <span className="hole" />+ Add task
@@ -674,6 +801,10 @@ export default function ListView({
                               onCommit={(body) => { setEditing(false); void patch(v.row, body, cellKey); }}
                               onCancel={() => setEditing(false)}
                               canArchive={isAdmin}
+                              canAddChild={v.row.led_depth < MAX_DEPTH}
+                              /* `create` opens the parent and selects the new
+                                 row itself, so there is nothing to do here. */
+                              onAddChild={() => void create(v.row.led_node_id, null)}
                               renaming={renamingId === v.row.led_node_id}
                               onStartRename={() => setRenamingId(v.row.led_node_id)}
                               onCancelRename={() => setRenamingId(null)}
@@ -710,18 +841,37 @@ export default function ListView({
             />
           )}
         </div>
+
+        {/* The keys sat in the toolbar, one line under the search box, on every
+            page load forever — permanent teaching content in the position the
+            page's primary controls should hold, and at narrow widths it wrapped
+            onto a second line and pushed the run down. It belongs at the foot:
+            always there when a hand goes looking, never in the way of the work. */}
+        <div className="keys label" role="note">
+          <kbd>↑↓</kbd> move
+          <kbd>Enter</kbd> edit
+          <kbd>E</kbd> detail
+          <kbd>N</kbd> new
+          <kbd>Shift N</kbd> subtask
+          <kbd>Alt ←→</kbd> outdent / indent
+          <kbd>G T</kbd> timeline
+        </div>
       </div>
     </div>
   );
 }
 
 /** A ruled page with its columns drawn and no rows. Never an illustration. */
-function EmptyRun({ columns, message }: { columns: Column[]; message: string }) {
+function EmptyRun(
+  { columns, message, action }:
+  { columns: Column[]; message: string; action?: { label: string; onClick: () => void } },
+) {
   return (
     <table className="run">
       <colgroup>{columns.map((c) => <col key={c.key} style={{ width: c.width }} />)}</colgroup>
       <thead>
-        <tr className="label">
+        <GroupBand columns={columns} />
+        <tr className="label heads">
           {columns.map((c) => (
             <th key={c.key} scope="col" className={c.kind === 'name' ? 'nm' : ''}>{c.label}</th>
           ))}
@@ -729,7 +879,17 @@ function EmptyRun({ columns, message }: { columns: Column[]; message: string }) 
       </thead>
       <tbody>
         <tr>
-          <td className="nm empty" colSpan={columns.length}>{message}</td>
+          <td className="nm empty" colSpan={columns.length}>
+            {message}
+            {action && (
+              <>
+                {' '}
+                <button type="button" className="empty-add" onClick={action.onClick}>
+                  {action.label}
+                </button>
+              </>
+            )}
+          </td>
         </tr>
       </tbody>
     </table>
@@ -756,6 +916,10 @@ type CellProps = {
   onCommit: (body: Record<string, unknown>) => void;
   onCancel: () => void;
   canArchive: boolean;
+  /** False on a row already at the depth ceiling (D-1), so the control is
+   *  absent rather than present and guaranteed to fail. */
+  canAddChild: boolean;
+  onAddChild: () => void;
   renaming: boolean;
   onStartRename: () => void;
   onCancelRename: () => void;
@@ -782,7 +946,7 @@ function Cell(p: CellProps) {
       className={[
         c.kind === 'name' ? 'nm' : '',
         c.align === 'right' ? 'num' : '',
-        c.key === 'gutter' ? 'gutter' : '',
+        c.kind === 'gutter' ? 'gutter' : '',
         p.editing ? 'editing' : '',
         p.saving ? 'saving' : '',
         p.failed ? 'failed' : '',
@@ -805,6 +969,41 @@ function Cell(p: CellProps) {
 }
 
 const Dash = () => <span className="empty">—</span>;
+
+/**
+ * The band above the column heads.
+ *
+ * It exists to make one distinction structural instead of remembered: which
+ * half of the grid is the plan and which is what happened. Consecutive columns
+ * carrying the same `group` are spanned by a single label; everything else
+ * spans blank, because a band that labels every column is just a second header.
+ */
+function GroupBand({ columns }: { columns: Column[] }) {
+  const runs: { group?: Column['group']; span: number; name?: boolean }[] = [];
+  for (const c of columns) {
+    const last = runs[runs.length - 1];
+    // The name column never merges into a run: it is sticky-left, and a cell
+    // spanning past it could not pin to the same edge.
+    if (c.kind === 'name') runs.push({ group: c.group, span: 1, name: true });
+    else if (last && !last.name && last.group === c.group) last.span += 1;
+    else runs.push({ group: c.group, span: 1 });
+  }
+
+  return (
+    <tr className="label band" aria-hidden="true">
+      {runs.map((r, i) => (
+        <th
+          key={i}
+          colSpan={r.span}
+          scope="colgroup"
+          className={[r.group ? `band-${r.group}` : 'band-blank', r.name ? 'nm' : ''].join(' ')}
+        >
+          {r.group ? GROUP_NAMES[r.group] : ''}
+        </th>
+      ))}
+    </tr>
+  );
+}
 
 function NameCell(p: CellProps) {
   const { row: r } = p;
@@ -846,7 +1045,9 @@ function NameCell(p: CellProps) {
           rows carry the same hue in a hairline down the indent, so a task is
           traceable to its module without reading back up the page. */}
       {r.led_depth === 2 && <span className="modchip" aria-hidden="true" />}
-      <span className="name-text" lang={isThai(r.led_name) ? 'th' : 'en'}>{r.led_name}</span>
+      {/* Names ellipse at 440px, so the full text has to stay reachable without
+          opening the row. */}
+      <span className="name-text" title={r.led_name} lang={isThai(r.led_name) ? 'th' : 'en'}>{r.led_name}</span>
       {r.led_depth === 2 && <span className="count figure">{p.childCount}</span>}
 
       {/* Drawn rather than borrowed: 1px strokes with square ends and no
@@ -854,6 +1055,24 @@ function NameCell(p: CellProps) {
           icon set would be the one imported voice in the whole interface. */}
       {(
         <span className="rowacts">
+          {/* Add a subtask under this row. The module block's "+ Add task" foot
+              only ever files at module level; this is the way to file *under*
+              the row the cursor is on, and it is the same operation Shift-N
+              already performs from the keyboard. */}
+          {p.canEdit && p.canAddChild && (
+            <button
+              className="rowact"
+              aria-label={`Add a subtask under ${r.led_name}`}
+              title="Add subtask  ·  Shift N"
+              onClick={(e) => { e.stopPropagation(); p.onAddChild(); }}
+            >
+              {/* a plus, drawn in the same 1px hand as the other two */}
+              <svg viewBox="0 0 14 14" aria-hidden="true">
+                <path d="M7 2.6 V11.4" />
+                <path d="M2.6 7 H11.4" />
+              </svg>
+            </button>
+          )}
           {p.canEdit && (
             <button
               className="rowact"
@@ -1021,7 +1240,17 @@ function FieldEditor(p: CellProps & { field: FieldDef; value: unknown }) {
         : f.options.filter((o) => !o.archived);
 
     return (
-      <div className="leaf" role="listbox">
+      /*
+       * The click must not reach the cell.
+       *
+       * `onCommit` sets `editing` to false, but the same click then bubbled to
+       * the `<td>`, whose handler reads "already focused, so open the editor"
+       * and set it straight back to true — so picking an option closed the
+       * list and reopened it in the same frame, which looked like it had never
+       * closed at all. Stopping the click here is what makes the choice the
+       * last thing that happens.
+       */
+      <div className="leaf" role="listbox" onClick={(e) => e.stopPropagation()}>
         <button onClick={() => commit(null)}><span className="empty">Clear</span></button>
         {items.map((o) => (
           <button
@@ -1049,7 +1278,10 @@ function FieldEditor(p: CellProps & { field: FieldDef; value: unknown }) {
 
   if (f.kind === 'checkbox') {
     return (
+      /* Same reason as the option list: the commit closes the editor and the
+         click must not travel on to the cell and reopen it. */
       <input className="cell-input" type="checkbox" defaultChecked={p.value === true} autoFocus
+             onClick={(e) => e.stopPropagation()}
              onChange={(e) => commit(e.target.checked)} />
     );
   }

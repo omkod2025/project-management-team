@@ -1,0 +1,314 @@
+/*
+ * The access board.
+ *
+ * Field-book styling, not the ClickUp language the List view now speaks: this
+ * page sits beside the shelf and project Settings, which are the surfaces it
+ * is read with. See DESIGN.md — square corners, ruled rather than boxed, no
+ * zebra striping, and the one hard 2px shadow at the fore edge.
+ */
+
+.people {
+  background: var(--color-page);
+  min-height: 100vh;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 22px 20px 60px;
+  box-shadow: 2px 0 0 rgba(0, 0, 0, 0.25);
+}
+
+.people-head { display: flex; align-items: center; gap: 20px; }
+.people-out { margin-left: auto; }
+.people-head h1 {
+  margin: 0;
+  font-family: var(--font-struct), sans-serif;
+  font-size: var(--type-headline-size);
+  font-weight: var(--type-headline-weight);
+}
+
+.shelf-link {
+  display: inline-flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--color-ink-graphite);
+  color: var(--color-ink-graphite);
+  text-decoration: none;
+  font-family: var(--font-struct), sans-serif;
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+  letter-spacing: var(--type-label-tracking);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.shelf-link:hover { background: var(--color-ink-graphite); color: var(--color-page); }
+
+.people-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 18px 0 10px;
+  color: var(--color-ink-graphite-soft);
+  font-size: 12px;
+}
+.people-search {
+  height: 26px;
+  width: 220px;
+  padding: 0 8px;
+  background: var(--color-page);
+  border: 1px solid var(--color-rule);
+  font-size: 12px;
+}
+.people-search:focus { border-color: var(--color-ink-graphite); outline: none; }
+.people-count strong { color: var(--color-ink-graphite); font-weight: 400; }
+
+.people-errata {
+  margin: 0 0 10px;
+  padding: 6px 10px;
+  background: var(--color-vermilion-wash);
+  color: var(--color-vermilion);
+  font-family: var(--font-figure), monospace;
+  font-size: 11px;
+}
+
+.people-empty {
+  margin-top: 24px;
+  max-width: 56ch;
+  color: var(--color-ink-graphite-soft);
+}
+
+/* ---- the grid ---- */
+
+.people-scroll { overflow-x: auto; }
+
+table.board {
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+  min-width: 100%;
+}
+
+.board thead th {
+  height: 28px;
+  padding: 0 10px;
+  text-align: left;
+  white-space: nowrap;
+  background: var(--color-page);
+  color: var(--color-ink-graphite-soft);
+  font-family: var(--font-struct), sans-serif;
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+  letter-spacing: var(--type-label-tracking);
+  text-transform: uppercase;
+  /* the signature double rule, once on the page */
+  box-shadow: inset 0 -1px 0 var(--color-rule-major), 0 2px 0 -1px var(--color-rule-major);
+}
+.board thead th a { color: var(--color-ink-graphite); text-decoration: none; }
+.board thead th a:hover { text-decoration: underline; }
+
+/* The person column is the one that must stay readable while the projects
+   scroll under it, so it pins and carries the fore-edge offset. */
+.board th.who {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--color-page);
+  box-shadow: 2px 0 0 rgba(42, 38, 34, 0.16);
+}
+.board thead th.who {
+  z-index: 3;
+  box-shadow:
+    inset 0 -1px 0 var(--color-rule-major),
+    0 2px 0 -1px var(--color-rule-major),
+    2px 0 0 rgba(42, 38, 34, 0.16);
+}
+
+.board tbody th.who {
+  display: table-cell;
+  height: 46px;
+  padding: 6px 10px;
+  text-align: left;
+  font-weight: 400;
+  border-bottom: 1px solid var(--color-rule);
+}
+.who-name { display: block; font-size: 13.5px; }
+.who-mail { display: block; color: var(--color-ink-graphite-soft); font-size: 11px; }
+
+.you {
+  margin-left: 6px;
+  padding: 0 4px;
+  background: var(--color-page-edge);
+  color: var(--color-ink-graphite-soft);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* An unclaimed invitation and a deactivated account both mean "cannot sign
+   in", and they are drawn differently because only one of them is a problem. */
+.who-state { display: inline-block; margin-top: 2px; font-size: 10px; letter-spacing: 0.06em; }
+.who-state.pending { color: var(--color-ink-blue-soft); }
+.who-state.off { color: var(--color-vermilion); }
+
+.board tbody td {
+  height: 46px;
+  padding: 0 6px;
+  border-bottom: 1px solid var(--color-rule);
+  border-left: 1px solid var(--color-rule);
+  background: var(--color-page);
+}
+.board tbody tr:hover td { border-bottom-color: var(--color-rule-major); }
+
+.role {
+  width: 100%;
+  height: 26px;
+  padding: 0 6px;
+  background: var(--color-page);
+  border: 1px solid var(--color-rule);
+  font-size: 12.5px;
+}
+.role:focus { border-color: var(--color-ink-graphite); outline: none; }
+.role:disabled { color: var(--color-ink-graphite-soft); }
+
+/* A held role is stated in ink weight, not in colour. The six tab hues mean
+   module identity everywhere else in this system and cannot be borrowed to
+   mean a permission level (DESIGN.md § Colors). No access is the quiet state,
+   because most cells on a real install are empty. */
+.board td.none .role { color: var(--color-ink-graphite-soft); border-color: var(--color-page-edge); }
+.board td.has .role { color: var(--color-ink-graphite); }
+.board td.role-admin .role { font-weight: 600; box-shadow: inset 2px 0 0 var(--color-ink-graphite); }
+.board td.role-viewer .role { font-style: italic; }
+
+/* ---- the account column ----
+
+   Vermilion appears on the armed confirm and nowhere else in this column. That
+   is inside the colour law rather than an exception to it: an armed delete is
+   a state out of tolerance, which is the one thing vermilion is allowed to
+   mean (DESIGN.md § Colors rule 1). The resting Delete is graphite, because a
+   row that has not been armed is not in trouble. */
+
+.board td.acct, .board th.acct { padding: 0 10px; }
+.board th.acct { text-align: right; }
+.board td.acct { text-align: right; white-space: nowrap; }
+
+.acct-locked {
+  color: var(--color-ink-graphite-soft);
+  font-size: 11px;
+  font-style: italic;
+}
+
+.acct-del {
+  height: 24px;
+  padding: 0 10px;
+  border: 1px solid var(--color-rule);
+  background: none;
+  color: var(--color-ink-graphite-soft);
+  cursor: pointer;
+  font-size: 12px;
+}
+.acct-del:hover { border-color: var(--color-vermilion); color: var(--color-vermilion); }
+
+.acct-armed { display: inline-flex; gap: 6px; }
+.acct-armed button { height: 24px; padding: 0 8px; cursor: pointer; font-size: 12px; }
+.acct-yes {
+  border: 1px solid var(--color-vermilion);
+  background: var(--color-vermilion);
+  color: var(--color-page);
+}
+.acct-no {
+  border: 1px solid var(--color-rule);
+  background: none;
+  color: var(--color-ink-graphite);
+}
+.acct-no:hover { border-color: var(--color-ink-graphite); }
+
+/* ---- invite ---- */
+
+.invite { margin-top: 32px; max-width: 900px; }
+.invite h2 {
+  margin: 0 0 10px;
+  padding-bottom: 6px;
+  color: var(--color-ink-graphite-soft);
+  font-family: var(--font-struct), sans-serif;
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+  letter-spacing: var(--type-label-tracking);
+  text-transform: uppercase;
+  box-shadow: inset 0 -1px 0 var(--color-rule-major), 0 2px 0 -1px var(--color-rule-major);
+}
+.invite-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.invite-row input,
+.invite-row select {
+  height: 30px;
+  padding: 0 8px;
+  background: var(--color-page);
+  border: 1px solid var(--color-rule);
+  font-size: 13px;
+}
+.invite-row input { min-width: 200px; flex: 1 1 200px; }
+.invite-row input:focus,
+.invite-row select:focus { border-color: var(--color-ink-graphite); outline: none; }
+.invite-row button {
+  height: 30px;
+  padding: 0 16px;
+  border: 1px solid var(--color-ink-graphite);
+  background: var(--color-ink-graphite);
+  color: var(--color-page);
+  cursor: pointer;
+  font-family: var(--font-struct), sans-serif;
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+  letter-spacing: var(--type-label-tracking);
+  text-transform: uppercase;
+}
+.invite-row button:disabled { opacity: 0.5; cursor: default; }
+.invite-note { margin: 10px 0 0; max-width: 62ch; color: var(--color-ink-graphite-soft); font-size: 12px; }
+
+/* The choice between the two ways in. A checkbox rather than a pair of radios:
+   one of the two is the default and the other is the exception, and radios
+   would present them as equals. */
+.invite-choice {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 12px;
+  color: var(--color-ink-graphite-soft);
+  font-size: 12px;
+}
+.invite-choice input { accent-color: var(--color-ink-graphite); }
+
+.people-token {
+  margin-top: 14px;
+  max-width: 62ch;
+  padding: 10px 12px;
+  background: var(--color-page-edge);
+  border-top: 1px solid var(--color-rule-major);
+  border-bottom: 1px solid var(--color-rule-major);
+  font-size: 12.5px;
+}
+.people-token code {
+  display: block;
+  margin-top: 8px;
+  font-family: var(--font-figure), monospace;
+  font-size: 11px;
+  word-break: break-all;
+}
+
+/* ---- legend ---- */
+
+.legend {
+  margin: 32px 0 0;
+  max-width: 760px;
+  border-top: 1px solid var(--color-rule);
+  font-size: 12.5px;
+}
+.legend > div {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-rule);
+}
+.legend dt { color: var(--color-ink-graphite); }
+.legend dt.role-admin { font-weight: 600; }
+.legend dt.role-viewer { font-style: italic; }
+.legend dd { margin: 0; color: var(--color-ink-graphite-soft); }

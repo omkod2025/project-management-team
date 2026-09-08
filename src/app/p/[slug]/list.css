@@ -1,206 +1,485 @@
 /*
- * The ruled page. See DESIGN.md § Layout and § Components.
+ * The List view, restyled to the ClickUp reference
+ * (`examples/Screenshot 2026-09-07 182429.png`), by explicit instruction on
+ * 2026-09-08: "เลียนแบบทั้งหมดรวมสไตล์".
  *
- * Three things this sheet is careful about, because they are the ones that
- * quietly turn a field book back into a SaaS table:
- *   - no zebra striping, no row background changes, ever
- *   - depth is indent and bracket, never tint
- *   - the double rule under the column heads appears nowhere else
+ * This file therefore departs from DESIGN.md on purpose, and the departures
+ * are named here rather than left to be discovered:
+ *
+ *   - white ground and cool grey rules, not paper and terracotta
+ *   - 4px radius on tags, chips and buttons, not square corners
+ *   - filled, full-strength module and option colour, not a wash
+ *   - a soft hover ground on rows, which the field-book sheet refused
+ *
+ * What is deliberately NOT imported from the reference, because it would cost
+ * information the product exists to hold:
+ *
+ *   - vermilion still means out of closure and nothing else (`.slip`,
+ *     `.failed`, `.errata`). Acceptance test A8 reads this file and asserts it.
+ *   - the Estimate / Actual / Variance band above the column heads stays. The
+ *     reference has no such thing because ClickUp has no plan-versus-reality
+ *     split to state.
+ *   - graphite ink for entered values, blue-black for derived, unchanged.
+ *
+ * Scope is this sheet only. `tokens.css` is generated from DESIGN.md and is
+ * untouched, so the Timeline, Report and Settings still read as the field book.
  */
 
 .book {
+  /* The reference palette, kept local to this sheet. */
+  --cu-ground: #ffffff;
+  --cu-canvas: #ffffff;
+  --cu-line: #e8eaed;
+  --cu-line-soft: #f1f2f4;
+  --cu-ink: #292d34;
+  --cu-ink-soft: #7c828d;
+  --cu-ink-faint: #a5abb5;
+  --cu-hover: #f9fafb;
+  --cu-chip: #f1f2f4;
+  --cu-r: 4px;
+  --cu-r-lg: 6px;
+
   display: flex;
-  min-height: 100vh;
-  max-width: 1440px;
-  margin: 0 auto;
-  background: var(--color-page);
-  box-shadow: 2px 0 0 rgba(0, 0, 0, 0.25);
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  max-width: none;
+  margin: 0;
+  background: var(--cu-ground);
+  color: var(--cu-ink);
+  box-shadow: none;
 }
 
-/* ---- fore-edge tab rail ---- */
+/* ---- the module rail ----
+
+   The reference has no fore-edge rail; it has a sidebar. The rail is kept
+   because it is how a module is reached without scrolling, but it is redrawn
+   in the reference's language: a flat grey strip, hue as a filled dot rather
+   than a printed tab edge. */
 
 .rail {
-  width: 30px;
-  flex: 0 0 30px;
-  background: var(--color-page-edge);
-  border-right: 1px solid var(--color-rule);
+  width: 44px;
+  flex: 0 0 44px;
+  background: var(--cu-ground);
+  border-right: 1px solid var(--cu-line);
   display: flex;
   flex-direction: column;
-  padding-top: 64px;
+  padding-top: 56px;
+  overflow: hidden;
+}
+.rail:hover,
+.rail:focus-within {
+  width: 208px;
+  flex-basis: 208px;
 }
 
 .tab {
   position: relative;
-  writing-mode: vertical-rl;
-  text-orientation: mixed;
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-  min-height: 44px;
-  padding: 12px 0 12px 8px;
+  gap: 10px;
+  min-height: 40px;
+  padding: 0 10px 0 14px;
   border: 0;
-  border-bottom: 1px solid var(--color-rule);
-  background: var(--color-page-edge);
-  color: var(--color-ink-graphite-soft);
+  background: none;
+  color: transparent;
   cursor: pointer;
-  /* A long module name must not spill past the rail; it clips like a printed
-     tab does, and the title attribute carries the full text. */
+  text-align: left;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  /* Sentence case, not the field book's tracked caps: the reference sets tags
+     and labels in ordinary type, and half these names are Thai. */
+  font-family: var(--font-read), system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
+  transition: color 120ms ease, background 120ms ease;
 }
+.rail:hover .tab,
+.rail:focus-within .tab { color: var(--cu-ink-soft); }
+.rail:hover .tab:hover,
+.rail:focus-within .tab:hover { background: var(--cu-hover); color: var(--cu-ink); }
+.rail:hover .tab[aria-current='true'],
+.rail:focus-within .tab[aria-current='true'] { color: var(--cu-ink); font-weight: 600; }
+
+/* The hue is a dot, always at full strength — the one thing the rail still
+   shows when it is closed. */
 .tab::before {
   content: '';
   position: absolute;
-  inset: 0 auto 0 0;
-  width: 4px;
+  left: 15px;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  margin-top: -4px;
+  border-radius: 50%;
   background: var(--tab-hue);
 }
-.tab[aria-current='true'] {
-  background: var(--color-page);
-  color: var(--color-ink-graphite);
-  width: 34px;
-  margin-right: -4px;
-  z-index: 2;
+.rail:hover .tab,
+.rail:focus-within .tab { padding-left: 32px; }
+.tab[aria-current='true'] { background: var(--cu-hover); }
+
+@media (prefers-reduced-motion: reduce) {
+  .tab { transition: none; }
 }
 
-.sheet { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.sheet { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--cu-canvas); }
+.sheet.plain { display: block; overflow-y: auto; }
 
 /* ---- head ---- */
 
 .head {
   display: flex;
-  align-items: baseline;
-  gap: 20px;
-  padding: 22px 20px 10px;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px 10px;
+  border-bottom: 1px solid var(--cu-line);
 }
 .head h1 {
   margin: 0;
   font-family: var(--font-struct), sans-serif;
-  font-size: var(--type-headline-size);
-  font-weight: var(--type-headline-weight);
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
-.views { margin-left: auto; display: flex; gap: 10px; align-items: center; }
-.views a, .views span { color: var(--color-ink-graphite-soft); text-decoration: none; }
-.views [aria-current='page'] { color: var(--color-ink-graphite); }
+
+/* ---- the title, and the pencil that edits it ---- */
+
+.title-holder { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+
+/* Hidden until the pointer is in the head or the button itself has focus.
+   `visibility` rather than `display`, so the title does not shift sideways
+   when the pencil arrives. */
+.title-edit-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid transparent;
+  background: none;
+  color: var(--cu-ink-faint);
+  cursor: pointer;
+  visibility: hidden;
+}
+.head:hover .title-edit-btn,
+.title-edit-btn:focus-visible { visibility: visible; }
+.title-edit-btn:hover { border-color: var(--cu-line); color: var(--cu-ink); background: var(--cu-hover); }
+
+/* Sits exactly where the h1 sat: renaming should look like typing over the
+   title, not like a form opening on top of it. */
+.title-edit {
+  height: 28px;
+  padding: 0 6px;
+  min-width: 240px;
+  background: var(--cu-canvas);
+  border: 1px solid var(--cu-ink-faint);
+  color: var(--cu-ink);
+  font-family: var(--font-struct), sans-serif;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.title-edit:focus { border-color: var(--cu-ink); outline: none; }
+
+.title-error {
+  padding: 2px 8px;
+  background: var(--color-vermilion-wash);
+  color: var(--color-vermilion);
+  font-family: var(--font-figure), monospace;
+  font-size: 11px;
+}
+
+.shelf {
+  align-self: center;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--cu-line);
+  border-radius: var(--cu-r);
+  background: var(--cu-ground);
+  color: var(--cu-ink-soft);
+  text-decoration: none;
+  white-space: nowrap;
+  font-family: var(--font-read), system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
+}
+.shelf:hover { background: var(--cu-hover); color: var(--cu-ink); }
+
+/* The view switcher as the reference draws it: a row of tabs with an
+   underline on the current one, not a full-stop-separated list. */
+.views {
+  margin-left: auto;
+  display: flex;
+  gap: 2px;
+  align-items: center;
+  font-family: var(--font-read), system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
+}
+.views a,
+.views span {
+  display: inline-flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: var(--cu-r);
+  color: var(--cu-ink-soft);
+  text-decoration: none;
+}
+.views a:hover { background: var(--cu-hover); color: var(--cu-ink); }
+.views [aria-current='page'] {
+  color: var(--cu-ink);
+  font-weight: 600;
+  box-shadow: inset 0 -2px 0 var(--cu-ink);
+  border-radius: 0;
+}
 
 .toolbar {
   display: flex;
-  gap: 14px;
+  gap: 12px;
   align-items: center;
-  padding: 0 20px 10px;
-  color: var(--color-ink-graphite-soft);
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--cu-line);
+  color: var(--cu-ink-soft);
+  font-family: var(--font-read), system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
 }
+
+/* Square, ruled, no fill — the same offer the add row makes, made from the top
+   of the page. Pushed to the far edge so it does not read as part of the
+   search-and-count group it sits beside. */
+.toolbar-add {
+  height: 24px;
+  margin-left: auto;
+  padding: 0 10px;
+  background: transparent;
+  border: 1px solid var(--cu-line);
+  color: var(--cu-ink-soft);
+  cursor: pointer;
+  font-size: 12px;
+}
+.toolbar-add:hover { background: var(--cu-hover); color: var(--cu-ink); }
 
 /* ---- the run ---- */
 
-.scroller { flex: 1; overflow: auto; }
+.scroller { flex: 1; min-height: 0; overflow: auto; background: var(--cu-canvas); }
 
-table.run { border-collapse: separate; border-spacing: 0; width: 100%; }
+table.run {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+  table-layout: fixed;
+}
 
 .run thead th {
   position: sticky;
-  top: 0;
   z-index: 5;
-  height: 26px;
   padding: 0 10px;
   text-align: left;
   white-space: nowrap;
-  background: var(--color-page);
-  color: var(--color-ink-graphite-soft);
-  border-right: 1px solid var(--color-rule);
-  /* the signature double rule */
-  box-shadow: inset 0 -1px 0 var(--color-rule-major), 0 2px 0 -1px var(--color-rule-major);
+  background: var(--cu-ground);
+  color: var(--cu-ink-soft);
+  font-family: var(--font-read), system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+/* ---- the band ----
+
+   Kept from the field book. The reference has one header row because ClickUp
+   has one kind of date; this grid has a plan and a record, and the band is the
+   only thing on the page that says which is which. It is drawn quietly here so
+   it reads as a caption over the heads rather than a second header. */
+.run thead tr.band th {
+  top: 0;
+  height: 18px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.run thead tr.band .band-estimate { color: var(--color-ink-graphite); }
+.run thead tr.band .band-actual { color: var(--color-ink-blue); }
+.run thead tr.band .band-variance,
+.run thead tr.band .band-progress { color: var(--cu-ink-faint); }
+.run thead tr.band th:not(.band-blank) { box-shadow: inset 0 -1px 0 var(--cu-line-soft); }
+
+.run thead tr.heads th {
+  top: 18px;
+  height: 32px;
+  box-shadow: inset 0 -1px 0 var(--cu-line);
 }
 .run th.num, .run td.num { text-align: right; }
 
-/* ---- the locked name column ----
-   Two things keep it a column rather than a hole. It is opaque, so the cells
-   sliding under it are covered; and it is raised above them, so they cannot
-   paint over it.
+/* ---- the locked name column ---- */
 
-   The raising is not optional. Every body cell is `position: relative` (for
-   the in-flight save tick), which makes them all positioned with `z-index:
-   auto` — and positioned siblings at the same level paint in DOM order, so
-   every column to the right would draw on top of the sticky one that comes
-   first. */
 .run th.nm, .run td.nm {
   position: sticky;
   left: 0;
   z-index: 3;
-  background: var(--color-page);
-  width: 320px;
-  min-width: 320px;
-  /* The one shadow in the system (DESIGN.md § Elevation): a hard 2px offset,
-     no blur, where the current leaf sits above the leaves beneath. Here the
-     leaves beneath are the columns scrolling under it. */
-  box-shadow: 2px 0 0 rgba(42, 38, 34, 0.16);
+  background: var(--cu-ground);
+  width: 440px;
+  min-width: 440px;
+  box-shadow: 1px 0 0 var(--cu-line);
 }
-
-/* The head is above the body it scrolls under, and carries both marks: the
-   double rule that closes the column heads, and the fore-edge offset. */
-.run thead th.nm {
-  z-index: 6;
-  box-shadow:
-    inset 0 -1px 0 var(--color-rule-major),
-    0 2px 0 -1px var(--color-rule-major),
-    2px 0 0 rgba(42, 38, 34, 0.16);
-}
-
-/* A module row keeps its top rule as well as the offset — box-shadow does not
-   merge, so both have to be restated together or one of them is lost. */
-.run tr.module td.nm {
-  box-shadow:
-    inset 0 1px 0 var(--color-rule-major),
-    2px 0 0 rgba(42, 38, 34, 0.16);
-}
+.run thead th.nm { z-index: 6; }
+.run thead tr.band th.nm { box-shadow: 1px 0 0 var(--cu-line); }
+.run thead tr.heads th.nm { box-shadow: inset 0 -1px 0 var(--cu-line), 1px 0 0 var(--cu-line); }
 
 .run tbody td {
-  height: var(--space-row);
+  height: 40px;
   padding: 0 10px;
   white-space: nowrap;
   vertical-align: middle;
-  border-bottom: 1px solid var(--color-rule);
-  border-right: 1px solid var(--color-rule);
+  border-bottom: 1px solid var(--cu-line-soft);
+  border-right: 1px solid var(--cu-line-soft);
+  background: var(--cu-ground);
 }
 
-/* Hover raises the rule. It does NOT change the background. */
-.run tbody tr:hover td { border-bottom-color: var(--color-rule-major); }
+/* The reference tints the whole row on hover. The field book refused this; the
+   instruction was to follow the reference. */
+.run tbody tr:hover td { background: var(--cu-hover); }
+.run tbody tr[aria-selected='true'] td { background: #f2f7fd; }
 
-/* A module row doubles as its group head. */
+/* ---- the module group header ----
+
+   The reference's defining move: each module is a block, opened by a filled
+   coloured tag carrying the module name and the count beside it. Here that
+   header row is also a real row — it keeps its own baseline dates, which
+   ClickUp's group header has nothing to hold. */
+
 .run tr.module td {
   height: 44px;
-  padding-top: 12px;
-  box-shadow: inset 0 1px 0 var(--color-rule-major);
+  padding-top: 10px;
+  background: var(--cu-ground);
+  border-bottom: 1px solid var(--cu-line);
+  box-shadow: inset 0 8px 0 var(--cu-canvas), inset 0 9px 0 var(--cu-line-soft);
 }
-.run tr.module .name-text { font-family: var(--font-struct), sans-serif; font-weight: 600; }
+.run tr.module:hover td { background: var(--cu-ground); }
 
-.gutter { width: 20px; min-width: 20px; border-right: 0 !important; }
+.run tr.module .name-text {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 9px;
+  border-radius: var(--cu-r);
+  background: var(--row-hue);
+  color: #fff;
+  font-family: var(--font-struct), sans-serif;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  max-width: 100%;
+}
+.run tr.module .count {
+  color: var(--cu-ink-soft);
+  font-family: var(--font-read), system-ui, sans-serif;
+  font-size: 12px;
+  letter-spacing: normal;
+}
+
+/* The repeated column-head strip the reference prints inside every group. It is
+   drawn lighter than the sticky header above so the two do not read as a
+   doubled row. */
+.run tr.grouphead th {
+  height: 28px;
+  padding: 0 10px;
+  text-align: left;
+  white-space: nowrap;
+  background: var(--cu-ground);
+  color: var(--cu-ink-faint);
+  border-bottom: 1px solid var(--cu-line);
+  font-family: var(--font-read), system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
+}
+.run tr.grouphead th.nm {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  background: var(--cu-ground);
+  box-shadow: 1px 0 0 var(--cu-line);
+}
+.run tr.grouphead:hover th { background: var(--cu-ground); }
+
+/* The add row closes its block, as in the reference: no rule, faint ink. */
+.run tr.add-row td {
+  background: var(--cu-ground);
+  border-bottom: 1px solid var(--cu-line);
+  border-right: 0;
+  color: var(--cu-ink-faint);
+  cursor: pointer;
+  font-size: 13px;
+}
+.run tr.add-row td.nm { background: var(--cu-ground); }
+.run tr.add-row:hover td { background: var(--cu-hover); color: var(--cu-ink-soft); }
+
+/* Adding a module is a level up from adding a task, so it takes the same
+   breathing gap above it that a module row takes — otherwise it reads as the
+   last line of the block it follows rather than an action on the run. */
+.run tr.add-row.module-add td {
+  height: 40px;
+  padding-top: 8px;
+  box-shadow: inset 0 8px 0 var(--cu-canvas), inset 0 9px 0 var(--cu-line-soft);
+}
+
+.gutter {
+  width: 14px;
+  min-width: 14px;
+  padding: 0 !important;
+  border-right: 0 !important;
+}
 
 /* ---- name cell ---- */
 
 .nm-inner { display: flex; align-items: center; gap: 6px; min-width: 0; }
 
+/* The punched hole becomes the reference's row-select dot. */
 .hole {
-  width: 9px; height: 9px; flex: 0 0 9px;
-  border-radius: var(--radius-hole);
+  width: 10px; height: 10px; flex: 0 0 10px;
+  border-radius: 50%;
   background: transparent;
+  box-shadow: inset 0 0 0 1px transparent;
 }
-tr[aria-selected='true'] .hole { background: rgba(42, 38, 34, 0.3); }
+tr:hover .hole { box-shadow: inset 0 0 0 1px var(--cu-ink-faint); }
+tr[aria-selected='true'] .hole { background: #4169e1; box-shadow: none; }
 
+/* A filled triangle is the field book's hand. The reference uses the same
+   shape, so it survives unchanged apart from its colour. */
 .twist {
-  width: 12px; height: 12px; flex: 0 0 12px;
+  width: 14px; height: 14px; flex: 0 0 14px;
   border: 0; padding: 0; background: none; cursor: pointer;
-  color: var(--color-ink-graphite);
+  color: var(--cu-ink-faint);
+  border-radius: var(--cu-r);
 }
+.twist:hover { background: var(--cu-chip); color: var(--cu-ink); }
 .twist::before {
   content: '';
   display: block;
+  margin: 3px auto;
   width: 0; height: 0;
   border-left: 5px solid currentColor;
   border-top: 4px solid transparent;
   border-bottom: 4px solid transparent;
-  transition: transform 90ms steps(2);
+  transition: transform 120ms ease;
 }
 .twist[aria-expanded='true']::before { transform: rotate(90deg) translateX(1px); }
 .twist.leaf { visibility: hidden; }
@@ -209,35 +488,43 @@ tr[aria-selected='true'] .hole { background: rgba(42, 38, 34, 0.3); }
   flex: 0 0 12px;
   width: 12px; height: 12px;
   margin-top: -6px;
-  border-left: 1px solid var(--color-ink-graphite-soft);
-  border-bottom: 1px solid var(--color-ink-graphite-soft);
+  border-left: 1px solid var(--cu-line);
+  border-bottom: 1px solid var(--cu-line);
 }
 
-.name-text { overflow: hidden; text-overflow: ellipsis; }
-.count { color: var(--color-ink-graphite-soft); font-size: 11px; }
+.name-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--cu-ink);
+}
+.count {
+  color: var(--cu-ink-faint);
+  font-size: 11px;
+  font-family: var(--font-read), system-ui, sans-serif;
+  letter-spacing: normal;
+}
 
 /* ---- values ---- */
 
+/* The ink law survives the restyle: monospace figures, graphite for what a
+   person entered, blue-black for what the system derived. It is the audit
+   trail and the reference has no equivalent to replace it with. */
 .computed { font-family: var(--font-figure), monospace; font-size: 12px; color: var(--color-ink-blue); font-variant-numeric: tabular-nums; }
 .entered  { font-family: var(--font-figure), monospace; font-size: 12px; color: var(--color-ink-graphite); font-variant-numeric: tabular-nums; }
-.empty    { color: var(--color-ink-graphite-soft); }
+.empty    { color: var(--cu-ink-faint); }
 
-/* A select value is a square and a label. Never a pill. */
 .opt { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
-.swatch { width: 6px; height: 6px; flex: 0 0 6px; background: var(--opt-hue); }
+.swatch { width: 10px; height: 10px; flex: 0 0 10px; border-radius: 50%; background: var(--opt-hue); }
 .opt-archived { text-decoration: line-through; }
-.arch { color: var(--color-ink-graphite-soft); font-size: 9px; letter-spacing: 0.1em; }
+.arch { color: var(--cu-ink-faint); font-size: 9px; letter-spacing: 0.08em; }
 
-/* ---- a chosen option, stated in its own colour ----
+/* ---- the option chip ----
 
-   The colour is mixed against the page rather than laid over it, so the chip
-   sits *in* the paper like a stamp instead of floating above it as a sticker.
-   Square corners, no shadow, and a 2px bar of the full hue on the leading edge
-   — the same leading edge the Timeline bars carry, and the thing that still
-   distinguishes two options in a greyscale print.
-
-   The label darkens toward graphite rather than using the raw hue: three of
-   the six tab colours are too light to read at 13px on their own wash. */
+   The reference's status and category tags: a solid fill of the option's own
+   colour, white label, 4px radius. Not the field book's wash-and-leading-edge
+   stamp. */
 
 .pill {
   display: inline-flex;
@@ -245,112 +532,127 @@ tr[aria-selected='true'] .hole { background: rgba(42, 38, 34, 0.3); }
   gap: 6px;
   min-width: 0;
   max-width: 100%;
-  height: 20px;
-  padding: 0 8px;
-  background: color-mix(in srgb, var(--opt-hue) 17%, var(--color-page));
-  box-shadow: inset 2px 0 0 var(--opt-hue);
-  color: color-mix(in srgb, var(--opt-hue) 42%, var(--color-ink-graphite));
-  font-size: 13px;
+  height: 22px;
+  padding: 0 9px;
+  border-radius: var(--cu-r);
+  background: var(--opt-hue);
+  color: #fff;
+  box-shadow: none;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.pill .arch { color: rgba(255, 255, 255, 0.75); }
 
-/* ---- the module's colour in the name column ----
-
-   A 3px stripe, not a filled tag. A filled tag would compete with the status
-   chip two columns to the right, and only one of the two is a value somebody
-   chose. */
+/* The module's colour on a task row: the reference's small grey-slot tag,
+   filled with the module hue. */
+/* On a module row the whole name is already a filled tag of the hue, so the
+   dot would be the same fact stated twice. */
+.run tr.module .modchip { display: none; }
 
 .modchip {
-  width: 3px;
-  height: 15px;
-  flex: 0 0 3px;
-  margin-right: 7px;
+  width: 8px;
+  height: 8px;
+  flex: 0 0 8px;
+  margin-right: 4px;
+  border-radius: 50%;
   background: var(--row-hue);
 }
 
-/* Every row beneath a module carries the same hue as a hairline in the
-   gutter its indent already reserves. It costs no width and it means a task
-   scrolled far from its module heading is still attributable. */
+/* The hue hairline down the indent, kept: it is the only thing that makes a
+   task scrolled away from its group header still attributable. */
 .run tbody tr td.nm .nm-inner { position: relative; }
 .run tbody tr:not(.module) td.nm .nm-inner::before {
   content: '';
   position: absolute;
-  left: 12px;
+  left: 14px;
   top: -1px;
   bottom: -1px;
   width: 2px;
-  background: color-mix(in srgb, var(--row-hue) 40%, transparent);
+  border-radius: 1px;
+  background: color-mix(in srgb, var(--row-hue) 35%, transparent);
 }
 
-/* The errata slip: inset within the cell, never filling it edge to edge. */
+/* Vermilion, unchanged and still reserved. */
 .slip {
   display: inline-block;
-  padding: 2px 6px;
-  line-height: 1.2;
+  padding: 2px 7px;
+  border-radius: var(--cu-r);
+  line-height: 1.3;
   background: var(--color-vermilion-wash);
   color: var(--color-vermilion);
   font-family: var(--font-figure), monospace;
   font-size: 11px;
 }
 
-/* ---- editing: a clear leaf laid over one cell, never a lifted row ---- */
+/* ---- editing ---- */
 
-td.editing { background: #F6F1E4; box-shadow: inset 0 0 0 1px var(--color-ink-graphite); }
+td.editing { background: #fff; box-shadow: inset 0 0 0 2px #4169e1; border-radius: var(--cu-r); }
 td.saving::after {
   content: '';
   position: absolute;
-  right: 3px; top: 50%;
-  width: 2px; height: 10px;
-  margin-top: -5px;
-  background: var(--color-ink-graphite);
+  right: 4px; top: 50%;
+  width: 6px; height: 6px;
+  margin-top: -3px;
+  border-radius: 50%;
+  background: var(--cu-ink-faint);
 }
-td.failed { box-shadow: inset 0 0 0 1px var(--color-vermilion); }
+td.failed { box-shadow: inset 0 0 0 2px var(--color-vermilion); }
 .run tbody td { position: relative; }
 
 .cell-input {
   width: 100%;
-  height: 24px;
+  height: 26px;
   padding: 0;
   border: 0;
   background: transparent;
   outline: none;
   font: inherit;
+  font-size: 13.5px;
 }
 .cell-input.fig { font-family: var(--font-figure), monospace; font-size: 12px; }
 
-/* Hinged leaf: 1px rule all round, flat on the page, no blur. */
+/* The dropdown, as the reference draws it: white, 6px radius, a soft shadow. */
 .leaf {
   position: absolute;
   z-index: 20;
-  min-width: 180px;
-  max-height: 280px;
+  min-width: 200px;
+  max-height: 290px;
   overflow: auto;
-  background: var(--color-page);
-  border: 1px solid var(--color-ink-graphite);
+  padding: 4px;
+  background: #fff;
+  border: 1px solid var(--cu-line);
+  border-radius: var(--cu-r-lg);
+  box-shadow: 0 6px 20px rgba(41, 45, 52, 0.14);
 }
 .leaf button {
   display: flex;
   align-items: center;
   gap: 8px;
   width: 100%;
-  padding: 0 10px;
-  height: 28px;
+  padding: 0 8px;
+  height: 30px;
   border: 0;
-  border-bottom: 1px solid var(--color-rule);
+  border-radius: var(--cu-r);
   background: none;
   text-align: left;
   cursor: pointer;
+  font-size: 13px;
 }
-.leaf button:last-child { border-bottom: 0; }
-.leaf button:hover { background: #F6F1E4; }
-.leaf .stage { margin-left: auto; color: var(--color-ink-graphite-soft); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; }
-
-.add-row td { color: var(--color-ink-graphite-soft); border-right: 0; }
+.leaf button:hover { background: var(--cu-hover); }
+.leaf .stage {
+  margin-left: auto;
+  color: var(--cu-ink-faint);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
 
 .errata {
-  padding: 6px 20px;
+  padding: 8px 16px;
   background: var(--color-vermilion-wash);
   color: var(--color-vermilion);
   font-family: var(--font-figure), monospace;
@@ -358,98 +660,142 @@ td.failed { box-shadow: inset 0 0 0 1px var(--color-vermilion); }
 }
 
 @media (max-width: 900px) {
-  .run th.nm, .run td.nm { width: 200px; min-width: 200px; }
+  .run th.nm, .run td.nm,
+  .run tr.grouphead th.nm { width: 220px; min-width: 220px; }
 }
 
 /* ---- toolbar search ---- */
 
 .search {
-  height: 24px;
-  width: 200px;
-  padding: 0 8px;
-  background: var(--color-page);
-  border: 1px solid var(--color-rule);
+  height: 30px;
+  width: 240px;
+  padding: 0 10px;
+  background: var(--cu-ground);
+  border: 1px solid var(--cu-line);
+  border-radius: var(--cu-r);
   font-family: var(--font-read), sans-serif;
-  font-size: 12px;
+  font-size: 13px;
   letter-spacing: normal;
   text-transform: none;
 }
-.search:focus { border-color: var(--color-ink-graphite); }
-.hint { margin-left: auto; color: var(--color-ink-graphite-soft); }
+.search:focus { border-color: #4169e1; outline: none; }
 
-/* ---- the facing page ----
-   A panel, not a modal: the grid stays visible and scrollable beside it,
-   because the reason to open a task is usually to compare it with another. */
+.keys {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
+  padding: 8px 16px;
+  border-top: 1px solid var(--cu-line);
+  color: var(--cu-ink-faint);
+  font-family: var(--font-read), system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
+}
+.keys kbd {
+  font-family: var(--font-figure), monospace;
+  font-size: 10px;
+  letter-spacing: 0;
+  color: var(--cu-ink-soft);
+  padding: 2px 5px;
+  margin-right: 4px;
+  border-radius: 3px;
+  background: var(--cu-chip);
+}
+
+.count-of { color: var(--cu-ink-soft); }
+.count-of .figure { color: var(--cu-ink); font-weight: 500; font-size: 12px; }
+
+/* ---- the facing panel ---- */
 
 .pagebody { flex: 1; display: flex; min-height: 0; }
 .pagebody .scroller { flex: 1; min-width: 0; }
 
 .facing {
-  width: 340px;
-  flex: 0 0 340px;
+  width: 360px;
+  flex: 0 0 360px;
   overflow: auto;
-  padding: 18px 20px 40px;
-  background: var(--color-page);
-  border-left: 1px solid var(--color-rule-major);   /* the spine */
+  padding: 16px 18px 40px;
+  background: var(--cu-ground);
+  border-left: 1px solid var(--cu-line);
 }
-.facing-head { display: flex; align-items: baseline; gap: 12px; }
+.facing-head { display: flex; align-items: center; gap: 12px; }
 .facing-head button {
   margin-left: auto;
-  border: 1px solid var(--color-ink-graphite);
+  border: 1px solid var(--cu-line);
+  border-radius: var(--cu-r);
   background: none;
-  padding: 3px 8px;
+  padding: 4px 10px;
   cursor: pointer;
+  color: var(--cu-ink-soft);
 }
-.crumb { color: var(--color-ink-graphite-soft); display: flex; gap: 6px; flex-wrap: wrap; }
-.crumb span::after { content: ' ›'; }
+.facing-head button:hover { background: var(--cu-hover); color: var(--cu-ink); }
+.crumb { color: var(--cu-ink-faint); display: flex; gap: 6px; flex-wrap: wrap; }
+.crumb span::after { content: ' /'; }
 .crumb span:last-child::after { content: ''; }
 
 .facing h2 {
   margin: 10px 0 4px;
   font-family: var(--font-struct), sans-serif;
-  font-size: var(--type-headline-size);
-  font-weight: var(--type-headline-weight);
+  font-size: 18px;
+  font-weight: 600;
 }
 
 .facing-section { margin-top: 20px; }
 .facing-section h3 {
-  margin: 0 0 6px;
-  color: var(--color-ink-graphite-soft);
-  box-shadow: inset 0 -1px 0 var(--color-rule-major), 0 2px 0 -1px var(--color-rule-major);
+  margin: 0 0 8px;
   padding-bottom: 6px;
+  color: var(--cu-ink-soft);
+  border-bottom: 1px solid var(--cu-line);
+  box-shadow: none;
 }
 .facing-line {
   display: grid;
-  grid-template-columns: 96px 1fr;
+  grid-template-columns: 104px 1fr;
   gap: 8px;
-  align-items: baseline;
-  padding: 6px 0;
-  border-bottom: 1px solid var(--color-rule);
+  align-items: center;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--cu-line-soft);
 }
-.facing-line > .label { color: var(--color-ink-graphite-soft); }
-.facing-note {
-  grid-column: 2;
-  color: var(--color-ink-graphite-soft);
-  font-size: 11px;
-  font-style: italic;
+.facing-line > .label {
+  color: var(--cu-ink-faint);
+  font-family: var(--font-read), system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
 }
+.facing-note { grid-column: 2; color: var(--cu-ink-faint); font-size: 11px; }
 
-/* ---- empty run: the columns are drawn, the page is simply blank ---- */
+.run tbody td.empty { color: var(--cu-ink-faint); font-style: normal; }
 
-.run tbody td.empty {
-  color: var(--color-ink-graphite-soft);
-  font-style: italic;
+/* The one action offered to an empty run. Square, ruled, no fill: it is the
+   same offer as the add row, made where there is no row to make it on. */
+.run tbody td.empty .empty-add {
+  height: 24px;
+  margin-left: 6px;
+  padding: 0 10px;
+  background: transparent;
+  border: 1px solid var(--cu-line);
+  color: var(--cu-ink-soft);
+  cursor: pointer;
+  font-size: 13px;
 }
+.run tbody td.empty .empty-add:hover { background: var(--cu-hover); color: var(--cu-ink); }
 
 @media (max-width: 900px) {
   .facing { position: absolute; right: 0; top: 0; bottom: 0; z-index: 30; }
-  .hint { display: none; }
+  .keys { display: none; }
+  .rail:hover,
+  .rail:focus-within { width: 44px; flex-basis: 44px; padding-left: 0; }
+  .rail:hover .tab,
+  .rail:focus-within .tab { color: transparent; padding-left: 14px; }
 }
 
-/* ---- row actions ----
-   A pencil and a bin, drawn in the same hand as the rules on the page: 1px
-   strokes, square ends, no rounded corners, no fill. An imported icon set
-   would be the single borrowed voice in the interface. */
+/* ---- row actions ---- */
 
 .rowacts {
   display: flex;
@@ -461,12 +807,13 @@ td.failed { box-shadow: inset 0 0 0 1px var(--color-vermilion); }
 }
 
 .rowact {
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   padding: 0;
   border: 0;
+  border-radius: var(--cu-r);
   background: none;
-  color: var(--color-ink-graphite-soft);
+  color: var(--cu-ink-faint);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -477,52 +824,40 @@ td.failed { box-shadow: inset 0 0 0 1px var(--color-vermilion); }
   height: 14px;
   fill: none;
   stroke: currentColor;
-  stroke-width: 1;
-  stroke-linecap: square;
-  stroke-linejoin: miter;
-  shape-rendering: crispEdges;
+  stroke-width: 1.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
-.rowact:hover { color: var(--color-ink-graphite); }
-.rowact:focus-visible { outline: 2px solid var(--color-ink-graphite); outline-offset: 0; }
+.rowact:hover { background: var(--cu-chip); color: var(--cu-ink); }
+.rowact:focus-visible { outline: 2px solid #4169e1; outline-offset: 0; }
 
-/* Hidden until the row is wanted: two controls repeated down 174 rows is
-   clutter, and F2 and Delete reach the same actions without them. An armed
-   row stays visible, because a question has to be readable to be answered. */
 .rowacts { visibility: hidden; }
 tr:hover .rowacts,
 tr[aria-selected='true'] .rowacts,
 .rowacts:focus-within { visibility: visible; }
 
-/* ---- undo ----
-   Archiving is reversible, and this is the reversal rather than a countdown
-   before a delete. It reads as an errata slip because that is what it is: a
-   note about something already written down. */
+/* ---- undo ---- */
+
 .undo {
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 7px 20px;
-  background: var(--color-page-edge);
-  border-top: 1px solid var(--color-rule-major);
-  border-bottom: 1px solid var(--color-rule-major);
-  font-size: 12.5px;
+  padding: 9px 16px;
+  background: #fbf7e8;
+  border-bottom: 1px solid var(--cu-line);
+  font-size: 13px;
 }
 .undo button {
-  border: 1px solid var(--color-ink-graphite);
-  background: none;
-  padding: 3px 10px;
+  border: 1px solid var(--cu-line);
+  border-radius: var(--cu-r);
+  background: #fff;
+  padding: 4px 12px;
   cursor: pointer;
 }
-.undo .dismiss { margin-left: auto; border: 0; font-size: 14px; }
+.undo button:hover { background: var(--cu-hover); }
+.undo .dismiss { margin-left: auto; border: 0; background: none; font-size: 15px; }
 
-/* ---- the archive question ----
-   A leaf laid over the page, not a card floating above it: page ground, one
-   1px graphite rule, square corners. No blur, no radius, no drop shadow — the
-   only shadow this system has is the hard fore-edge offset, and it is used
-   here for the same reason, to say this sheet sits on top of the others.
-
-   The backdrop is a flat wash of the board colour: the desk showing through,
-   rather than the frosted glass every other product reaches for. */
+/* ---- the archive dialog ---- */
 
 .sheetover {
   position: fixed;
@@ -531,23 +866,26 @@ tr[aria-selected='true'] .rowacts,
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(59, 58, 51, 0.42);
+  background: rgba(41, 45, 52, 0.4);
 }
 
 .overleaf {
-  width: 420px;
+  width: 440px;
   max-width: calc(100vw - 40px);
-  padding: 20px 22px 18px;
-  background: var(--color-page);
-  border: 1px solid var(--color-ink-graphite);
-  box-shadow: 2px 2px 0 rgba(42, 38, 34, 0.25);
+  padding: 22px 24px 18px;
+  background: #fff;
+  border: 0;
+  border-radius: 8px;
+  box-shadow: 0 16px 48px rgba(41, 45, 52, 0.28);
 }
 
 .overleaf h2 {
   margin: 0 0 10px;
-  padding-bottom: 8px;
-  color: var(--color-ink-graphite-soft);
-  box-shadow: inset 0 -1px 0 var(--color-rule-major), 0 2px 0 -1px var(--color-rule-major);
+  padding-bottom: 10px;
+  color: var(--cu-ink);
+  font-size: 15px;
+  border-bottom: 1px solid var(--cu-line);
+  box-shadow: none;
 }
 
 .overleaf-name {
@@ -564,8 +902,8 @@ tr[aria-selected='true'] .rowacts,
 .overleaf-note {
   margin: 0;
   padding-top: 10px;
-  border-top: 1px solid var(--color-rule);
-  color: var(--color-ink-graphite-soft);
+  border-top: 1px solid var(--cu-line-soft);
+  color: var(--cu-ink-faint);
   font-size: 12px;
 }
 
@@ -573,19 +911,26 @@ tr[aria-selected='true'] .rowacts,
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  margin-top: 18px;
+  margin-top: 20px;
 }
 .overleaf-actions button {
-  height: 30px;
-  padding: 0 14px;
-  border: 1px solid var(--color-ink-graphite);
-  background: none;
+  height: 32px;
+  padding: 0 16px;
+  border: 1px solid var(--cu-line);
+  border-radius: var(--cu-r);
+  background: #fff;
   cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
 }
-/* The primary action inverts. There is no filled accent button in this system,
-   and it is not red: vermilion means out of tolerance, and archiving is a
-   deliberate act rather than a mistake (DESIGN.md § Colors, rule 1). */
+.overleaf-actions button:hover { background: var(--cu-hover); }
+/* The destructive action is filled and red here, which is the reference's
+   convention. It is `#d33` rather than the vermilion token: vermilion means
+   out of closure, and borrowing it for a button would break the one colour
+   rule this restyle keeps. */
 .overleaf-actions .primary {
-  background: var(--color-ink-graphite);
-  color: var(--color-page);
+  background: #d33a2c;
+  border-color: #d33a2c;
+  color: #fff;
 }
+.overleaf-actions .primary:hover { background: #bc3125; }

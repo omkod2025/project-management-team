@@ -80,6 +80,10 @@ CREATE TABLE pmt_users (
     user_password_hash    text,
     user_setup_token      text,
     user_setup_expires_at timestamptz,
+    -- True while the current password was chosen by somebody other than its
+    -- owner, which is only ever an admin-set starting password. See
+    -- db/migrations/006_password_change_required.sql.
+    user_must_change_password boolean NOT NULL DEFAULT false,
     user_is_active   boolean     NOT NULL DEFAULT true,
     user_created_at  timestamptz NOT NULL DEFAULT now(),
     user_updated_at  timestamptz NOT NULL DEFAULT now()

@@ -13,7 +13,9 @@ import {
   assertFieldKind, assertKindUnchanged, assertFieldName, assertStatusFieldKind,
   assertStage, assertOptionLabel, assertColorIndex, assertKeepsADoneStage,
   assertRole, assertKeepsAnAdmin, assertHolidayDate, assertHolidayName, assertEmail,
-  assertPassword, MIN_PASSWORD_LENGTH,
+  assertPassword, assertNewPassword, MIN_PASSWORD_LENGTH,
+  assertNotProtectedAccount, assertNotSelf, assertLeavesNoProjectAdminless,
+  assertAdminsEveryProjectOf, PROTECTED_EMAIL,
 } from '../src/lib/admin-rules.ts';
 import { DomainError } from '../src/lib/errors.ts';
 
@@ -129,9 +131,73 @@ describe('passwords', () => {
     refuses('E_UNKNOWN_FIELD', () => assertPassword(''));
   });
 
+  test('a replacement may not be the password it replaces', () => {
+    // The forced change after an admin-set starting password: re-entering the
+    // same string would lower the flag while the admin still holds a working
+    // credential, which is worse than not asking.
+    assert.equal(assertNewPassword('Given12345', 'Chosen54321'), 'Chosen54321');
+    refuses('E_UNKNOWN_FIELD', () => assertNewPassword('Given12345', 'Given12345'));
+  });
+
+  test('sameness is judged after Unicode normalisation, as hashing is', () => {
+    // The two strings below are the same text in different normal forms. If
+    // this compared raw code units the rule would pass them as different and
+    // scrypt would then hash them to the same key — the admin's password back
+    // again, with the flag cleared.
+    const composed = 'ñabcdefghij'.normalize('NFC');
+    const decomposed = 'ñabcdefghij'.normalize('NFD');
+    assert.notEqual(composed, decomposed, 'the test is meaningless if these match');
+    refuses('E_UNKNOWN_FIELD', () => assertNewPassword(composed, decomposed));
+  });
+
+  test('a too-short replacement is refused before it is compared', () => {
+    refuses('E_UNKNOWN_FIELD', () => assertNewPassword('Given12345', 'short'));
+  });
+
   test('the constant is the single source of that rule', () => {
     // seed.mjs keeps its own copy because it runs without the bundler; if this
     // number moves, that copy has to move with it.
     assert.equal(MIN_PASSWORD_LENGTH, 10);
+  });
+});
+
+/* ================================================ deleting a user account */
+
+describe('deleting a user — the four refusals', () => {
+  test('the install account cannot be deleted, however the address is cased', () => {
+    assert.equal(PROTECTED_EMAIL, 'admin@cit.com');
+    refuses('E_FORBIDDEN', () => assertNotProtectedAccount('admin@cit.com'));
+    refuses('E_FORBIDDEN', () => assertNotProtectedAccount('Admin@CIT.com'));
+    refuses('E_FORBIDDEN', () => assertNotProtectedAccount('  admin@cit.com  '));
+  });
+
+  test('and any other address passes', () => {
+    assert.equal(assertNotProtectedAccount('someone@cit.com'), undefined);
+    // Near misses, so the guard is an equality test and not a substring one.
+    assert.equal(assertNotProtectedAccount('admin@cit.com.co'), undefined);
+    assert.equal(assertNotProtectedAccount('notadmin@cit.com'), undefined);
+  });
+
+  test('nobody deletes themselves — the session would outlive the row', () => {
+    refuses('E_FORBIDDEN', () => assertNotSelf('u1', 'u1'));
+    assert.equal(assertNotSelf('u1', 'u2'), undefined);
+  });
+
+  /*
+   * Membership cascades on delete, so removing an account removes every
+   * membership it held. Without this rule, deleting is a back door into
+   * exactly the adminless project `assertKeepsAnAdmin` refuses to create.
+   */
+  test('deleting the only admin of a project is refused, and the project is named', () => {
+    refuses('E_FORBIDDEN', () => assertLeavesNoProjectAdminless(['Bannayuu Next']));
+    refuses('E_FORBIDDEN', () => assertLeavesNoProjectAdminless(['A', 'B']));
+    assert.equal(assertLeavesNoProjectAdminless([]), undefined);
+  });
+
+  test('you cannot delete somebody whose projects you do not administer', () => {
+    // There is no workspace superuser (spec 05 §2), so admin of one project is
+    // no standing to destroy access to another.
+    refuses('E_FORBIDDEN', () => assertAdminsEveryProjectOf(1));
+    assert.equal(assertAdminsEveryProjectOf(0), undefined);
   });
 });

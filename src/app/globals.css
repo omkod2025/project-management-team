@@ -61,6 +61,24 @@ body {
 
 a { color: inherit; }
 
+/* The system's Button, as DESIGN.md § Components documents it: square, one 1px
+   graphite rule, page ground, label caps. Defined here rather than in a view's
+   stylesheet because the chrome controls that use it (sign out, the way back
+   to the shelf) appear on pages that own no stylesheet of their own. */
+.shelf-button {
+  display: inline-flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--color-ink-graphite);
+  background: none;
+  color: var(--color-ink-graphite);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.shelf-button:hover { background: var(--color-ink-graphite); color: var(--color-page); }
+
 button, input, select, textarea {
   font: inherit;
   color: inherit;

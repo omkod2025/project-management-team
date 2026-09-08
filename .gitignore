@@ -7,3 +7,4 @@ data/import/
 .next/
 dist/
 *.log
+/db

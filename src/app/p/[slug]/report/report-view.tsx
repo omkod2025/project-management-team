@@ -132,6 +132,12 @@ export default function ReportView({ projectName, slug, rows, fields, people, st
       {/* Everything in here is screen-only; the printed page starts below. */}
       <div className="report-controls no-print">
         <div className="head">
+          {/* Up a level, to the shelf. Deliberately not in the view nav
+              beside List / Timeline / Report: those are views *of this
+              project* and this is the way out of it — filing a level change
+              among sibling views because the two sit near each other is the
+              grouping-by-adjacency this page has been unpicking. */}
+          <a className="shelf label" href="/">‹ Field Book</a>
           <h1>{projectName}</h1>
           <div className="views label">
             <a href={`/p/${slug}`}>List</a>

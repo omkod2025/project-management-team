@@ -3,6 +3,7 @@ import { currentUserId } from '@/auth';
 import { loadLedger } from '@/lib/ledger';
 import { DomainError } from '@/lib/errors';
 import { can } from '@/lib/permissions';
+import SignOut from '../../sign-out';
 import ListView from './list-view';
 
 export default async function ProjectList({ params }: { params: Promise<{ slug: string }> }) {
@@ -24,6 +25,9 @@ export default async function ProjectList({ params }: { params: Promise<{ slug: 
         statusFieldId={project.statusFieldId}
         canEdit={can(role, 'node.editValues')}
         isAdmin={can(role, 'field.define')}
+        /* A server action, so it is rendered here and passed in — the List is
+           a client component and cannot declare one. */
+        signOut={<SignOut className="shelf" />}
       />
     );
   } catch (err) {

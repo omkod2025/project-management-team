@@ -388,22 +388,35 @@ describe('A8 — estimate and actual are distinguishable without colour', () => 
     const vermilion = rgb(hex('vermilion'));
     const inkBlue = hex('ink-blue');
 
-    // Read the mix ratio out of the stylesheet so the test tracks the CSS
-    // rather than restating a number that could drift away from it.
-    const css = readFileSync(join('src', 'app', 'p', '[slug]', 'timeline', 'timeline.css'), 'utf8');
-    const act = css.match(/\.bar\.act\s*\{([^}]*)\}/)?.[1] ?? '';
-    const ratio = act.match(/background:\s*color-mix\(in srgb, var\(--bar-hue\) (\d+)%/)?.[1];
-    assert.ok(ratio, 'the actual bar mixes its module hue toward the ink rather than using it raw');
+    // Read the mix ratios out of the stylesheets so the test tracks the CSS
+    // rather than restating numbers that could drift away from it.
+    //
+    // Both fields are checked, and the roster is the one that matters most:
+    // there the hue is let to the *project* rather than the module and is the
+    // page's primary read, so its share is deliberately the higher of the two.
+    // A ceiling that only binds on the lower one is not a ceiling.
+    const fields: Array<[string, string]> = [
+      ['timeline.css', readFileSync(join('src', 'app', 'p', '[slug]', 'timeline', 'timeline.css'), 'utf8')],
+      ['roster.css', readFileSync(join('src', 'app', 'timeline', 'roster.css'), 'utf8')],
+    ];
 
-    for (let i = 1; i <= 6; i++) {
-      const raw = hex(`tab-${i}`);
-      const drawn = mix(raw, inkBlue, Number(ratio) / 100);
-      const d = distance(drawn, vermilion);
-      assert.ok(
-        d > 60,
-        `tab-${i} (${raw}) draws as rgb(${drawn.map(Math.round)}), only ${d.toFixed(0)} from vermilion — ` +
-        'too close for a filled bar. Lower the mix ratio or move the hue.',
-      );
+    for (const [where, css] of fields) {
+      // `.bar.act {` in either file. `.bar.act.rs-late {` cannot match: the
+      // brace does not follow `.act` there, and that rule sets no fill anyway.
+      const act = css.match(/bar\.act\s*\{([^}]*)\}/)?.[1] ?? '';
+      const ratio = act.match(/background:\s*color-mix\(in srgb, var\(--bar-hue\) (\d+)%/)?.[1];
+      assert.ok(ratio, `${where}: the actual bar mixes its hue toward the ink rather than using it raw`);
+
+      for (let i = 1; i <= 6; i++) {
+        const raw = hex(`tab-${i}`);
+        const drawn = mix(raw, inkBlue, Number(ratio) / 100);
+        const d = distance(drawn, vermilion);
+        assert.ok(
+          d > 60,
+          `${where}: tab-${i} (${raw}) draws as rgb(${drawn.map(Math.round)}) at ${ratio}%, only ` +
+          `${d.toFixed(0)} from vermilion — too close for a filled bar. Lower the ratio or move the hue.`,
+        );
+      }
     }
   });
 });
@@ -421,11 +434,16 @@ describe('A9 — a second imported project does not disturb the first', () => {
       'and the row says what it is, so nobody has to rediscover it');
 
     // The views filter on project_archived_at, so it is gone from the shelf.
-    // Counted by slug rather than in total: this suite creates its own
-    // throwaway project, which is live for the length of the run.
+    //
+    // Asked of the two imported slugs only. This used to assert that
+    // `bannayuu-next` was the *sole* live project, which was true of a
+    // database that could only be filled by the importer; since projects can
+    // be started from the shelf, that assertion tested how much the team had
+    // done rather than what the import did with the sample data.
     const live = await sql<{ project_slug: string }>(
       `SELECT project_slug FROM pmt_projects
-        WHERE project_archived_at IS NULL AND project_slug NOT LIKE 'e2e-%'`,
+        WHERE project_archived_at IS NULL
+          AND project_slug IN ('bannayuu-next', 'bannayuu-task')`,
     );
     assert.deepEqual(live.map((r) => r.project_slug), ['bannayuu-next'],
       'the imported sample data is not on the shelf');

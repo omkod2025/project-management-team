@@ -17,7 +17,7 @@
     "clickup:load": "node scripts/clickup-load.mjs",
     "test": "node --test tests/*.test.ts",
     "check": "npm run typecheck && npm run test",
-    "test:e2e": "node --env-file=.env --test tests/e2e/api.test.ts tests/e2e/tree.test.ts tests/e2e/admin.test.ts",
+    "test:e2e": "node --env-file=.env --test tests/e2e/api.test.ts tests/e2e/tree.test.ts tests/e2e/admin.test.ts tests/e2e/password.test.ts tests/e2e/roster.test.ts",
     "test:acceptance": "node --env-file=.env --test tests/e2e/acceptance.test.ts",
     "clickup:diff": "node scripts/clickup-diff.mjs",
     "db:load": "node --env-file=.env scripts/psql.mjs"

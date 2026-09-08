@@ -211,7 +211,11 @@ Three faces, each with a job that no other could do.
 
 **Rhythm.** More space above a section head than below it: `20px` above, `8px` below. The only generous space in the layout is the top margin of the page (`32px`) and the gutter before the misclosure column (`20px`), which isolates the number that matters.
 
-**Responsive.** The fore-edge rail collapses to a 26px hue strip with the module name rotated, below 900px. Below 700px the List becomes one card-free record per screen with its columns as a two-column label/value run — still ruled, still no cards. The Timeline never reflows to vertical; it scrolls, with the date scale pinned.
+**The chrome holds the viewport; only the run scrolls.** `.book` is `100dvh` and the scrolling region is the run itself, so the project name, the search box, the view tabs, the column heads and the keys strip all stay on their edges at row 174. This was not true until 2026-09-07: the whole document scrolled, `overflow: auto` on the run only ever did horizontal work, and by row ninety every control had left the screen — on the surface whose primary scene is timed morning triage.
+
+**The grid is banded, not flat.** Two header rows: an upper band naming `Estimate`, `Actual` and `Variance`, and beneath it the column labels, with the signature double rule closing the pair rather than each row. The band's ink is the ink law doing structural work — the estimate reads graphite because a person entered it, the actual blue-black because the system captured it. The groups are parted by 14px seams of bare page and nothing else: the band already names them, and a rule there would state the same fact twice.
+
+**Responsive.** The fore-edge rail is a hue strip at rest and opens to a 200px index on hover or keyboard focus; below 900px it stops opening, because there is no hover on a touch screen and an index that covers a quarter of the run with no way back is worse than none — every module is also a row in the run. Module names are set horizontally at every width. They were once printed vertically, which failed the Thai half of them outright: rotated 90° the script's tone marks stop resolving, and this system already refuses caps and letter-spacing on Thai for the same reason. Below 700px the List becomes one card-free record per screen with its columns as a two-column label/value run — still ruled, still no cards. The Timeline never reflows to vertical; it scrolls, with the date scale pinned.
 
 ## Elevation & Depth
 
@@ -242,7 +246,7 @@ Everything else that another system would elevate is expressed by ply:
 
 **Cell (computed).** Blue-black, Martian Mono, right-aligned. Non-editable cells carry no lock icon; the ink color already says it.
 
-**Select field.** Not a pill. The option's label in graphite, preceded by a 6px square in the option's hue. The open menu is a hinged leaf listing options as ruled rows. Options carrying a `stage` marker show it as a small caps suffix (`NOT STARTED` / `RUNNING` / `CLOSED`) in `ink-graphite-soft`.
+**Select field.** A square-cornered chip: the option's hue mixed 17% into the page, a 2px bar of the full hue on the leading edge, label darkened toward graphite until it clears 4.5:1 (see § Colors rule 3b). Not a rounded pastel pill. The open menu is a hinged leaf listing options as ruled rows. Options carrying a `stage` marker show it as a small caps suffix (`NOT STARTED` / `RUNNING` / `CLOSED`) in `ink-graphite-soft`.
 
 **Column head.** Bai Jamjuree label caps in `ink-graphite-soft`, 26px tall, closed by a **double rule** in `rule-major` — 1px, 2px gap, 1px. This double rule is the signature mark of the page and appears nowhere else.
 

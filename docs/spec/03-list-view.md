@@ -29,7 +29,27 @@ Visual rules come from [`../../DESIGN.md`](../../DESIGN.md). This document cover
 
 **Column head.** 26px, label caps, closed by the signature double rule. Sticky to the top of the run.
 
-**The run.** 34px rows, continuous 1px rules, no zebra striping, no card. Name column sticky-left at 320px; everything right of it scrolls horizontally beneath it.
+**Every project surface carries a way back to the shelf.** `‹ Field Book`, the system's Button, set before the project name on the List, Timeline, Settings and Report. It is deliberately **not** filed beside `List · Timeline · Report · Settings`: those are views of this project and this is the way out of it, and putting a level change among sibling views because the two sit near each other is the same grouping-by-adjacency error as `Closed` under `Variance`.
+
+It is a word, not a house glyph — every icon here is drawn in the same 1px hand as the rules on the page, so a borrowed pictogram would be the one imported voice in the interface, and the word also says *which* home. On the Report it sits inside `.no-print`, so it never reaches the client's copy.
+
+**The page holds still; the run scrolls.** The book is one viewport tall and the run is the only scrolling region, so the search box, the view tabs, the column heads and the keys strip are all still there at row 174. Until 2026-09-07 the document scrolled instead, and by row ninety the toolbar had gone — on the one surface whose stated speed floor is timed morning triage.
+
+**The run.** 34px rows, continuous 1px rules, no zebra striping, no card. Name column sticky-left at 440px; everything right of it scrolls horizontally beneath it.
+
+**The table is `table-layout: fixed`, and this is load-bearing.** Every cell is `nowrap`, so under the default auto layout the browser sized each column to its longest string — one long Thai task name stretched the 320px name column to 707px and pushed `Slip` and `Closed` off the right edge. The columns somebody came to read were being sized by the longest name in the project. Under fixed layout the declared widths hold, names ellipse, and the full text stays reachable by `title` and in the facing page.
+
+440px is then a chosen number rather than an inherited one: it is the widest the name can be while Status, both date groups, `Slip` and `Closed` all still land inside a 1,400px window. Custom columns scroll; the triage set does not.
+
+**Rows group into module blocks.** A block is its module row, its tasks and its add row. Inside a block rows are parted by a hairline; between blocks by a 2px `rule-major` and a tonal shift — the add row takes the `page-edge` ground so the block visibly closes. Two intervals, deliberately, where there used to be one. Row height is untouched: separation between blocks costs a scroll, not a row.
+
+**The date columns are banded and reordered.** `Estimate start · end · days` ‖ `Actual start · end · days` ‖ `Variance: slip` ‖ `Progress: closed`, each group behind a 14px seam and under a spanning label.
+
+`Closed` is its own band, not part of Variance. It is counted progress (D-24b), not a divergence between plan and record; it shared the Variance label for one revision purely because it sat next to `Slip`, which is grouping by adjacency instead of meaning — the habit the bands exist to break.
+
+> They previously ran as six equal siblings ordered est / est / act / act / est-days / act-days, with no mark anywhere saying which half was the plan — and each duration two columns from the pair it measured. The product exists to hold plan and reality apart (PRODUCT.md principle 1) and the grid where triage actually happens was the one surface not saying so.
+>
+> Three columns now read `Start` and three read `Days`, so each head carries its group in `aria-label` (`Estimate start`, `Actual days`). The band itself is `aria-hidden` so nothing is announced twice.
 
 **Module colour reaches into the run.** A module row carries a 3px chip of its hue before its name; every row beneath it carries the same hue as a 2px hairline in the gutter its indent already reserves. The hue is assigned by the module's filed position and is **the same number the Timeline uses**, so a module keeps its colour across both views — otherwise it is decoration rather than an index.
 
@@ -120,6 +140,8 @@ This is the feature that decides whether the product beats the tool it replaces.
 
 Focus is a 2px square graphite outline offset 1px. It is always visible — no focus-invisible-until-keyboard behaviour, because this grid is primarily keyboard-operated.
 
+**The keys are printed at the foot of the sheet**, on the page's bottom rule, as a colophon line. They sat in the toolbar until 2026-09-07 — permanent teaching content occupying the position the page's primary controls should hold, and at narrow widths it wrapped to a second line and pushed the run down. At the foot it is always there for a hand that goes looking and never in the way of the work; below 900px it is dropped entirely, since there is no keyboard to teach.
+
 The triage path, measured against the goal: `↓ ↓ Enter r Enter` changes a status. Five keystrokes, no pointer, no modal, no reload.
 
 ---
@@ -142,6 +164,8 @@ Group by exactly one column. Default: module (the node's level-2 ancestor).
 - Grouping by a `select` field creates one group per option in `position` order, plus a trailing `—` group for empty. Archived options group only if rows still hold them.
 - Grouping by `multi_select`, `long_text`, or `people` is not offered — the first two have no sensible grouping and the third would duplicate rows.
 - Each group ends with an `+ Add task` row in graphite-soft. Clicking it inserts a row inline at the correct parent and level and puts the name cell straight into edit.
+- The project's name in the page head carries a pencil for anybody who may rename it (List and Timeline; the Report keeps a plain title, being a document rather than a workspace). It is hidden until the head is hovered or the button itself takes focus — the title is read far more often than it is changed — and editing follows the grid's rename: Enter saves, Escape abandons, leaving the field saves. Settings holds the same act with an explicit button, for the hand that is already there.
+- The run as a whole ends with an `+ Add module` row, and an empty run offers the same as its only action. A module's parent is the project row, which the grid never prints, so this is the one add that hangs off no visible row; it takes the gap above it that a module row takes, and no module hue, because the hue would name a module it is not part of. `N` with nothing selected does the same thing. The toolbar carries a `+ Module` button for the same act reached from the top of the page, since a long run puts the add row a scroll away and a search hides it.
 
 ---
 
@@ -229,5 +253,5 @@ Hard requirements:
 |---|---|
 | ≥ 1440px | `board` margin appears around the page |
 | 900–1440px | Full layout, fore-edge rail at 30px |
-| 700–900px | Rail collapses to a 26px hue strip with the module name rotated |
+| 700–900px | Name column narrows to 200px; the facing page becomes an overlay; the keys strip is dropped; the rail stops opening and stays a hue strip |
 | < 700px | One record per screen: name as `headline`, then a two-column ruled label/value run. Still ruled, still no cards. Row navigation by swipe or `↑`/`↓` |

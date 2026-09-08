@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { LedgerRow } from '@/db/schema';
 import { loadSet, saveSet, loadRecord, saveRecord, selectedFromUrl, writeSelectedToUrl, siblingHref } from '../view-state';
 import { SORTS, DEFAULT_SORT, orderRows, type SortKey } from './sort';
+import ProjectTitle from '../project-title';
 import '../list.css';
 import './timeline.css';
 
@@ -21,11 +22,13 @@ import './timeline.css';
  */
 
 type Props = {
+  projectId: string;
   projectName: string;
   slug: string;
   rows: LedgerRow[];
   holidays: string[];
   canEdit: boolean;
+  isAdmin: boolean;
 };
 
 type Zoom = 'day' | 'week' | 'month';
@@ -41,7 +44,9 @@ const toIso = (d: Date) => d.toISOString().slice(0, 10);
 const addDays = (iso: string, n: number) => toIso(new Date(toDate(iso).getTime() + n * MS));
 const diffDays = (a: string, b: string) => Math.round((toDate(b).getTime() - toDate(a).getTime()) / MS);
 
-export default function TimelineView({ projectName, slug, rows, holidays, canEdit }: Props) {
+export default function TimelineView({
+  projectId, projectName, slug, rows, holidays, canEdit, isAdmin,
+}: Props) {
   const [zoom, setZoom] = useState<Zoom>('day');
   const [mode, setMode] = useState<Mode>('both');
   const [sort, setSort] = useState<SortKey>(DEFAULT_SORT);
@@ -135,12 +140,14 @@ export default function TimelineView({ projectName, slug, rows, holidays, canEdi
    * Runs once per zoom change, not on every render: re-centring while somebody
    * is scrolling would fight them for control of the view.
    */
-  useEffect(() => {
+  const scrollToToday = useCallback(() => {
     const el = scrollerRef.current;
     if (!el) return;
     const target = diffDays(start, today) * dayW - el.clientWidth * 0.4 + 320;
     el.scrollLeft = Math.max(0, target);
   }, [start, dayW, today]);
+
+  useEffect(() => { scrollToToday(); }, [scrollToToday]);
 
   const dayList = useMemo(
     () => Array.from({ length: days }, (_, i) => addDays(start, i)),
@@ -321,6 +328,12 @@ export default function TimelineView({ projectName, slug, rows, holidays, canEdi
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
+      // `[` and `]` are ordinary characters in a project name, and the head
+      // now holds a field somebody can type one into. Without this, renaming a
+      // project to "Dev.JO [v2]" would nudge the selected bar by two days.
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
       if (!canEdit || !selected) return;
       if (e.key !== '[' && e.key !== ']') return;
       const row = live.find((r) => r.led_node_id === selected);
@@ -357,7 +370,13 @@ export default function TimelineView({ projectName, slug, rows, holidays, canEdi
     <div className="book">
       <div className="sheet">
         <header className="head">
-          <h1>{projectName}</h1>
+          {/* Up a level, to the shelf. Deliberately not in the view nav
+              beside List / Timeline / Report: those are views *of this
+              project* and this is the way out of it — filing a level change
+              among sibling views because the two sit near each other is the
+              grouping-by-adjacency this page has been unpicking. */}
+          <a className="shelf label" href="/">‹ Field Book</a>
+          <ProjectTitle projectId={projectId} name={projectName} canRename={isAdmin} />
           <div className="views label">
             <a href={siblingHref(`/p/${slug}`, selected)}>List</a>
             <span style={{ color: 'var(--color-rule)' }}>·</span>
@@ -366,6 +385,12 @@ export default function TimelineView({ projectName, slug, rows, holidays, canEdi
         </header>
 
         <div className="toolbar label">
+          {/* The field is a year either side of today — about 19,000px at day
+              zoom — and the view opens centred on today. Until now that was
+              the only time it was ever centred there: scroll a month out to
+              read a run and the way back was to drag the bar by eye. A datum
+              you cannot return to is not a datum. */}
+          <button className="today-jump label" onClick={scrollToToday}>Today</button>
           <div className="seg">
             {(['est', 'act', 'both'] as Mode[]).map((m) => (
               <button key={m} aria-pressed={mode === m} onClick={() => setMode(m)}>
@@ -426,8 +451,22 @@ export default function TimelineView({ projectName, slug, rows, holidays, canEdi
                   key={r.led_node_id}
                   className={`tl-namerow${r.led_depth === 2 ? ' module' : ''}`}
                   aria-selected={selected === r.led_node_id}
+                  /* DESIGN.md § Colors rule 3 puts the module hue on the
+                     fore-edge tab, a chip at the head of the module's row, a
+                     hairline down the indent of every row beneath it, and both
+                     Timeline bars. The List got all four; here only the bars
+                     had it, so the name column — the half of this view you
+                     actually read names in — was the one surface still unable
+                     to say what a row belongs to. Same hue, same index, same
+                     3px chip and 2px hairline as the List: a module keeps its
+                     colour across both views, which is the whole point of
+                     assigning it by filed position rather than per view. */
+                  style={{ ['--row-hue' as string]: TAB_HUE(moduleIndex.get(r.led_node_id) ?? 1) }}
                   onClick={() => setSelected(r.led_node_id)}
                 >
+                  {/* The module's chip became the block's full-height spine in
+                      timeline.css; drawing both would state the same hue twice
+                      in the same 14px. */}
                   {!flat && <span style={{ paddingLeft: (r.led_depth - 2) * 16 }} />}
                   {!flat && (byParent.get(r.led_node_id) ?? []).length > 0 && (
                     <button
@@ -469,7 +508,16 @@ export default function TimelineView({ projectName, slug, rows, holidays, canEdi
                 {dayList.map((iso) => (
                   <div
                     key={iso}
-                    className={`tl-day${isOff(iso) && dayW >= 20 ? ' off' : ''}`}
+                    /* Today's own number reads in datum ink. The vertical rule
+                       already marks the column, but it is 1px in a field of
+                       730 of them and the cap sits above the numbers rather
+                       than among them — so the one date you scan the scale
+                       for was the one date the scale did not distinguish. */
+                    className={[
+                      'tl-day',
+                      isOff(iso) && dayW >= 20 ? 'off' : '',
+                      iso === today ? 'is-today' : '',
+                    ].filter(Boolean).join(' ')}
                     style={{ width: dayW }}
                   >
                     {dayW >= 20 ? Number(iso.slice(8)) : ''}
@@ -479,6 +527,13 @@ export default function TimelineView({ projectName, slug, rows, holidays, canEdi
               </div>
 
               <div className="tl-rows">
+                {/* The period grid. The month band above states the boundary
+                    once; without it continued down the field a bar six months
+                    out is measured by counting, which is what the scale is
+                    for. Drawn first so everything else sits over it. */}
+                {monthEdges(dayList, dayW).map((left) => (
+                  <div key={left} className="tl-mrule" style={{ left }} />
+                ))}
                 {dayW >= 20 &&
                   dayList.map((iso) =>
                     isOff(iso) ? (
@@ -669,6 +724,19 @@ function shift(
   if (!origin.e) return null;
   const e = addDays(origin.e, days);
   return { s: origin.s && origin.s > e ? e : origin.s, e };
+}
+
+/**
+ * The x of every month boundary, in the same coordinates the header labels
+ * use. One walk, so the rule down the field and the label above it can never
+ * disagree about where a month starts.
+ */
+function monthEdges(days: string[], dayW: number): number[] {
+  const out: number[] = [];
+  for (let i = 1; i < days.length; i++) {
+    if (days[i]!.slice(0, 7) !== days[i - 1]!.slice(0, 7)) out.push(i * dayW);
+  }
+  return out;
 }
 
 function monthHeader(days: string[], dayW: number) {
