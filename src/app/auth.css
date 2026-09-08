@@ -1,0 +1,362 @@
+/*
+ * The doors: sign in, claim an invitation, change a password.
+ *
+ * Direction pinned by the user on 2026-09-08 from a reference composition
+ * (`Sign Up page.jpg`): a floating split card, saturated field left, white
+ * form right. The roll was not run — a pinned brief beats it.
+ *
+ * THESIS — the door states what is behind it. The category ships a mascot and
+ * a row of social buttons; this panel draws the one thing the product does
+ * that its competitors cannot, an estimate and an actual on the same row with
+ * the overrun measured.
+ * OWN-WORLD — indigo field (#2B3A8F) against a white leaf, one 20px-radius
+ * card on a pale indigo ground with a single soft offset shadow. Bai Jamjuree
+ * for structure, Anuphan for reading, Martian Mono only where a figure is
+ * genuinely a measurement. Vermilion keeps its one meaning: it marks the
+ * overhang and its figure — lightened, because #A82A17 on indigo is unreadable
+ * — and the errata band, which is a write that did not land. Nothing else.
+ * STORY — before typing anything, the visitor sees what this tool holds, then
+ * signs in with the only credential it has.
+ * FIRST VIEWPORT — card centred, 46% field / 54% form; the graphic bleeds off
+ * the field's left edge with the claim beneath it; the form's heading, its
+ * labelled fields and the primary button stack in a 320px column.
+ * FORM — pinned by the user's reference image; no staging dealt.
+ *
+ * This is a departure from DESIGN.md's paper world, and it is scoped to these
+ * three routes exactly as the List's ClickUp restyle is scoped to its sheet.
+ * DESIGN.md § Auth surfaces records it.
+ */
+
+.auth {
+  --auth-field: #2B3A8F;
+  --auth-field-deep: #222E73;
+  --auth-field-ink: #ffffff;
+  /* Tinted from the field's own hue rather than grey, so the secondary voice
+     stays part of the panel instead of sitting on top of it. */
+  --auth-field-ink-soft: #B9C1E8;
+  --auth-leaf: #ffffff;
+  --auth-ground: #EEF0FA;
+  --auth-ink: #1B1F2E;
+  --auth-ink-soft: #5A6178;
+  --auth-line: #DEE1EF;
+  --auth-r: 10px;
+
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px;
+  background: var(--auth-ground);
+  font-family: var(--font-read), system-ui, sans-serif;
+  color: var(--auth-ink);
+}
+
+.auth-card {
+  display: grid;
+  grid-template-columns: 46fr 54fr;
+  width: 100%;
+  max-width: 1020px;
+  min-height: 560px;
+  overflow: hidden;
+  border-radius: 20px;
+  background: var(--auth-leaf);
+  /* One cast shadow, offset and blurred — plus a 2px contact shadow that keeps
+     the card's own edge from dissolving into the ground. Neither is a halo. */
+  box-shadow: 0 28px 60px -28px rgba(27, 31, 46, 0.45), 0 2px 6px rgba(27, 31, 46, 0.06);
+}
+
+/* ------------------------------------------------------------- the field */
+
+.auth-field {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 32px;
+  padding: 96px 44px 52px;
+  background: var(--auth-field);
+  color: var(--auth-field-ink);
+  overflow: hidden;
+}
+
+/* The field is one flat colour with a single soft light from the top left —
+   no gradient mesh, no glass. */
+.auth-field::before {
+  content: '';
+  position: absolute;
+  inset: -40% 30% 40% -30%;
+  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.14), transparent);
+  pointer-events: none;
+}
+
+/* The wordmark holds the panel's top-left corner rather than joining the
+   centred stack: it is identification, not part of the argument below it. */
+.auth-mark {
+  position: absolute;
+  top: 34px;
+  left: 44px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-family: var(--font-struct), sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.auth-mark span { display: block; }
+
+/* The graphic is not a picture placed in the panel — it runs off the panel's
+   left edge, so the plan reads as already under way when the page opens. The
+   negative margin cancels the field's padding and then some; `.auth-field`
+   clips it. */
+.auth-figure {
+  position: relative;
+  align-self: stretch;
+  width: auto;
+  margin-inline: -44px 0;
+  padding-right: 20px;
+}
+.auth-figure svg { display: block; width: 100%; height: auto; }
+
+.auth-claim { position: relative; }
+.auth-claim h2 {
+  margin: 0;
+  max-width: 22ch;
+  font-family: var(--font-struct), sans-serif;
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+.auth-claim p {
+  margin: 10px 0 0;
+  max-width: 40ch;
+  color: var(--auth-field-ink-soft);
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+/* -------------------------------------------------------------- the leaf */
+
+.auth-leaf {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 44px;
+}
+
+.auth-form { width: 100%; max-width: 320px; }
+
+.auth-form h1 {
+  margin: 0;
+  font-family: var(--font-struct), sans-serif;
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+.auth-lede {
+  margin: 8px 0 0;
+  color: var(--auth-ink-soft);
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+.auth-fields { margin-top: 24px; display: flex; flex-direction: column; gap: 14px; }
+
+/* The name stays visible after the field is filled. Three password rows in a
+   column are three rows of dots otherwise. */
+.auth-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--auth-ink-soft);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* A field is an icon, an input and — on passwords — a reveal, sharing one
+   border so the three read as a single control. */
+.auth-field-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 46px;
+  padding: 0 12px;
+  border: 1px solid var(--auth-line);
+  border-radius: var(--auth-r);
+  background: var(--auth-leaf);
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.auth-field-row:focus-within {
+  border-color: var(--auth-field);
+  box-shadow: 0 0 0 3px rgba(43, 58, 143, 0.14);
+}
+/* The field that caused the refusal, marked as well as announced. */
+.auth-field-row.is-bad { border-color: var(--color-vermilion); }
+.auth-field-row.is-bad:focus-within { box-shadow: 0 0 0 3px rgba(168, 42, 23, 0.13); }
+.auth-field-row .glyph { flex: 0 0 18px; color: #7C8398; display: flex; }
+.auth-field-row input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0 10px;
+  border: 0;
+  background: none;
+  color: var(--auth-ink);
+  font-family: inherit;
+  font-size: 14px;
+}
+.auth-field-row input:focus { outline: none; }
+
+/* A 40px target with a 16px glyph: the negative margin lets the hit area reach
+   the row's edges without the button drawing that large. */
+.auth-reveal {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  margin: -6px -8px -6px 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--auth-r);
+  background: none;
+  color: #7C8398;
+  cursor: pointer;
+}
+.auth-reveal:hover { background: var(--auth-ground); color: var(--auth-ink); }
+.auth-reveal:active { background: #E3E7F6; }
+
+.auth-hint {
+  margin: 8px 2px 0;
+  color: var(--auth-ink-soft);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+/* -------------------------------------------------------------- actions */
+
+.auth-submit {
+  width: 100%;
+  height: 46px;
+  margin-top: 22px;
+  border: 1px solid var(--auth-field);
+  border-radius: var(--auth-r);
+  background: var(--auth-field);
+  color: #fff;
+  cursor: pointer;
+  font-family: var(--font-struct), sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.auth-submit:hover { background: var(--auth-field-deep); border-color: var(--auth-field-deep); }
+.auth-submit:active { background: #1B2660; border-color: #1B2660; }
+/* Dark enough that the word on it stays readable — a label nobody can read is
+   not a loading state. */
+.auth-submit:disabled { background: #767FB5; border-color: #767FB5; cursor: default; }
+
+.auth-note {
+  margin: 22px 0 0;
+  padding-top: 18px;
+  border-top: 1px solid var(--auth-line);
+  color: var(--auth-ink-soft);
+  font-size: 12.5px;
+  line-height: 1.6;
+  text-align: center;
+}
+.auth-note strong { color: var(--auth-ink); font-weight: 600; }
+.auth-note a {
+  color: var(--auth-field);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
+}
+.auth-note a:hover { color: var(--auth-field-deep); }
+
+/* The refusal that is worth stating: this is where the reference put
+   "Registration". There is no self-registration here — an admin creates the
+   account — so the slot carries that fact instead of a button that would
+   have to apologise for itself. */
+
+.auth-errata {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 9px 11px;
+  border-radius: 8px;
+  background: var(--color-vermilion-wash);
+  color: var(--color-vermilion);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.auth-errata svg { flex: 0 0 15px; margin-top: 1px; }
+
+/* A dead link is a state, not a misclosure. The sentence stays in ink and one
+   vermilion rule carries the alarm — vermilion marks the thing that is wrong,
+   it does not set the paragraph explaining it. */
+.auth-dead {
+  margin-top: 22px;
+  padding-left: 13px;
+  border-left: 2px solid var(--color-vermilion);
+  color: var(--auth-ink-soft);
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+:where(.auth) :focus-visible {
+  outline: 2px solid var(--auth-field);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-field-row, .auth-submit { transition: none; }
+}
+
+/* ----------------------------------------------------------- responsive */
+
+/* The split cannot survive a phone: below this the field becomes a band that
+   still carries the graphic, and the form takes the width. */
+@media (max-width: 880px) {
+  .auth { padding: 0; align-items: stretch; }
+  .auth-card {
+    grid-template-columns: 1fr;
+    /* The band takes what it needs; the form takes the rest. Without this the
+       two panels split the viewport evenly and the band wins space it has no
+       use for. */
+    grid-template-rows: auto 1fr;
+    min-height: 100dvh;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  /* Stacked, the field's contents share one column and one left edge —
+     centring the graphic inside a full-width band while the claim stays left
+     reads as two unrelated blocks. */
+  .auth-field {
+    align-items: center;
+    gap: 20px;
+    padding: 70px 26px 32px;
+  }
+  .auth-mark { top: 26px; left: 26px; }
+  .auth-claim { width: 100%; max-width: 440px; align-self: auto; }
+  .auth-figure { align-self: stretch; margin-inline: -26px 0; padding-right: 10px; }
+  .auth-claim h2 { font-size: 20px; }
+
+  .auth-leaf { padding: 34px 26px 48px; align-items: flex-start; }
+  .auth-form { max-width: 440px; margin: 0 auto; }
+}
+
+@media (max-width: 420px) {
+  /* The graphic is the first thing cut, not the claim: at this width it would
+     be too small to read as two bars at all. */
+  .auth-figure { display: none; }
+  .auth-field { padding: 66px 20px 26px; }
+  .auth-figure { margin-inline: -20px 0; }
+  .auth-mark { top: 22px; left: 20px; }
+  .auth-leaf { padding: 28px 20px 40px; }
+}

@@ -1,18 +1,29 @@
 'use client';
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
+import { PasswordField, Errata } from '../auth-fields';
 
 export default function SetPasswordForm({ token, minLength }: { token: string; minLength: number }) {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Nothing is judged until the visitor has finished with the field. Checking
+  // on every keystroke narrates "eight more characters, seven more…" to a
+  // screen reader and scolds everybody else halfway through a word.
+  const [touched, setTouched] = useState(false);
+  const noteId = useId();
 
-  const tooShort = password.length > 0 && password.length < minLength;
-  const mismatch = confirm.length > 0 && confirm !== password;
+  const short = touched && password.length > 0 && password.length < minLength;
+  const mismatch = touched && confirm.length > 0 && confirm !== password;
+  const complaint = error
+    ?? (short
+      ? `${minLength - password.length} more character${minLength - password.length === 1 ? '' : 's'}.`
+      : mismatch ? 'The two entries do not match.' : null);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    setTouched(true);
     if (password !== confirm) return setError('The two entries do not match.');
     setBusy(true);
     setError(null);
@@ -27,7 +38,7 @@ export default function SetPasswordForm({ token, minLength }: { token: string; m
         setError(err.message ?? 'That did not save.');
         return;
       }
-      window.location.href = '/sign-in';
+      window.location.href = '/sign-in?set=1';
     } catch {
       setError('No connection. Nothing was saved.');
     } finally {
@@ -36,58 +47,39 @@ export default function SetPasswordForm({ token, minLength }: { token: string; m
   }
 
   return (
-    <form onSubmit={submit} style={{ marginTop: 26 }}>
-      <p style={{ color: 'var(--color-ink-graphite-soft)', fontSize: 12.5, marginTop: 0 }}>
-        Choose a password of at least {minLength} characters. Length is the only
-        rule — it is the property that actually resists guessing.
+    <form onSubmit={submit}>
+      <div className="auth-fields">
+        <PasswordField
+          name="password" label="New password" required autoFocus
+          minLength={minLength} autoComplete="new-password"
+          invalid={short || !!error}
+          describedBy={complaint ? noteId : undefined}
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          onBlur={() => setTouched(true)}
+        />
+        <PasswordField
+          name="confirm" label="Again" required autoComplete="new-password"
+          invalid={mismatch}
+          describedBy={complaint ? noteId : undefined}
+          value={confirm}
+          onChange={(e) => setConfirm(e.target.value)}
+          onBlur={() => setTouched(true)}
+        />
+      </div>
+
+      <p className="auth-hint">
+        At least {minLength} characters. Length is the only rule — it is the
+        property that actually resists guessing.
       </p>
 
-      <label className="label" htmlFor="pw" style={label}>New password</label>
-      <input
-        id="pw" type="password" required minLength={minLength} autoFocus style={input}
-        value={password} onChange={(e) => setPassword(e.target.value)}
-      />
-
-      <label className="label" htmlFor="pw2" style={{ ...label, marginTop: 16 }}>Again</label>
-      <input
-        id="pw2" type="password" required style={input}
-        value={confirm} onChange={(e) => setConfirm(e.target.value)}
-      />
-
-      {(tooShort || mismatch || error) && (
-        <p className="figure" style={{ marginTop: 14, color: 'var(--color-vermilion)' }}>
-          {error ?? (tooShort ? `${minLength - password.length} more characters.` : 'The two entries do not match.')}
-        </p>
+      {complaint && (
+        <Errata id={noteId} live={error ? 'assertive' : 'polite'}>{complaint}</Errata>
       )}
 
-      <button type="submit" className="label" disabled={busy} style={button}>
+      <button type="submit" className="auth-submit" disabled={busy} aria-busy={busy}>
         {busy ? 'Saving' : 'Set password'}
       </button>
     </form>
   );
 }
-
-const label: React.CSSProperties = {
-  display: 'block',
-  color: 'var(--color-ink-graphite-soft)',
-  marginBottom: 6,
-};
-
-const input: React.CSSProperties = {
-  display: 'block',
-  width: '100%',
-  height: 34,
-  padding: '0 10px',
-  background: 'var(--color-page)',
-  border: '1px solid var(--color-ink-graphite)',
-};
-
-const button: React.CSSProperties = {
-  marginTop: 24,
-  height: 34,
-  padding: '0 18px',
-  background: 'var(--color-ink-graphite)',
-  color: 'var(--color-page)',
-  border: '1px solid var(--color-ink-graphite)',
-  cursor: 'pointer',
-};

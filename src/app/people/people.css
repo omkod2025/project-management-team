@@ -1,181 +1,392 @@
 /*
- * The access board.
+ * The access board, restyled to the Untitled UI user-management reference
+ * (`User management — Untitled UI.jpg`) by explicit instruction on 2026-09-08.
  *
- * Field-book styling, not the ClickUp language the List view now speaks: this
- * page sits beside the shelf and project Settings, which are the surfaces it
- * is read with. See DESIGN.md — square corners, ruled rather than boxed, no
- * zebra striping, and the one hard 2px shadow at the fore edge.
+ * It now speaks the same language as the List sheet: white ground, cool grey
+ * hairlines, a 4–10px radius, a grey page under a floating sheet. The `--cu-*`
+ * names are the List's, redeclared here rather than imported — `list.css` scopes
+ * them to `.book`, and one page reaching into another page's stylesheet for its
+ * palette is how two surfaces end up unable to move independently.
+ *
+ * What the reference has and this page does not, on purpose:
+ *
+ *   - a row-select checkbox column. Nothing here acts on a selection; a
+ *     checkbox that arms no verb is furniture.
+ *   - a kebab overflow menu. There is exactly one row-level action, and it is
+ *     irreversible. Hiding a delete behind a menu makes it cheaper to reach by
+ *     accident, not harder.
+ *   - coloured permission badges. The six tab hues mean module identity
+ *     everywhere in this system (DESIGN.md § Colors) and cannot be re-let to
+ *     mean a permission level. Roles are held apart in ink weight and slope,
+ *     which survives greyscale and colour blindness besides.
+ *   - pagination. The board is a matrix; a person's row is only worth reading
+ *     against every project at once, so it scrolls rather than paginates.
+ *
+ * Vermilion still means out of tolerance and nothing else. On this page that is
+ * the armed delete and a deactivated account — both states where something is
+ * wrong or about to be — and nowhere else. Acceptance test A8 checks it.
  */
 
 .people {
-  background: var(--color-page);
+  --cu-canvas: #ffffff;
+  --cu-ground: #f5f6f7;
+  --cu-line: #e8eaed;
+  --cu-line-soft: #f1f2f4;
+  --cu-ink: #292d34;
+  --cu-ink-soft: #7c828d;
+  --cu-ink-faint: #a5abb5;
+  --cu-hover: #f9fafb;
+  --cu-chip: #f1f2f4;
+  --cu-r: 4px;
+  --cu-r-lg: 6px;
+  --cu-r-sheet: 10px;
+
   min-height: 100vh;
+  padding: 24px 24px 64px;
+  background: var(--cu-ground);
+  color: var(--cu-ink);
+  box-shadow: none;
+  max-width: none;
+}
+
+/* The sheet. One shadow, offset and blurred — the field book's hard 2px rule
+   is a paper edge, and this page is no longer paper. */
+.people-sheet {
   max-width: 1440px;
   margin: 0 auto;
-  padding: 22px 20px 60px;
-  box-shadow: 2px 0 0 rgba(0, 0, 0, 0.25);
+  background: var(--cu-canvas);
+  border: 1px solid var(--cu-line);
+  border-radius: var(--cu-r-sheet);
+  box-shadow: 0 1px 2px rgba(41, 45, 52, 0.05), 0 8px 24px -12px rgba(41, 45, 52, 0.12);
+  overflow: hidden;
 }
 
-.people-head { display: flex; align-items: center; gap: 20px; }
-.people-out { margin-left: auto; }
+/* ---- head ---- */
+
+.people-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  padding: 22px 24px 18px;
+}
 .people-head h1 {
   margin: 0;
-  font-family: var(--font-struct), sans-serif;
-  font-size: var(--type-headline-size);
-  font-weight: var(--type-headline-weight);
+  font-family: var(--font-struct), system-ui, sans-serif;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
 }
+.people-sub {
+  margin: 5px 0 0;
+  max-width: 62ch;
+  color: var(--cu-ink-soft);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.people-out { margin-left: auto; display: flex; align-items: center; gap: 8px; }
 
-.shelf-link {
+/* The two chrome controls follow the sheet rather than the field book. Both are
+   overrides of `.shelf-button`, which is rendered by pages this stylesheet does
+   not own (`sign-out`, and the way back to the shelf). */
+.people .shelf-link,
+.people .shelf-button {
   display: inline-flex;
   align-items: center;
-  height: 30px;
+  height: 32px;
   padding: 0 12px;
-  border: 1px solid var(--color-ink-graphite);
-  color: var(--color-ink-graphite);
+  border: 1px solid var(--cu-line);
+  border-radius: var(--cu-r);
+  background: var(--cu-canvas);
+  color: var(--cu-ink-soft);
   text-decoration: none;
-  font-family: var(--font-struct), sans-serif;
-  font-size: var(--type-label-size);
-  font-weight: var(--type-label-weight);
-  letter-spacing: var(--type-label-tracking);
-  text-transform: uppercase;
   white-space: nowrap;
+  font-family: var(--font-read), system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
 }
-.shelf-link:hover { background: var(--color-ink-graphite); color: var(--color-page); }
+.people .shelf-link:hover,
+.people .shelf-button:hover {
+  background: var(--cu-hover);
+  border-color: var(--cu-ink-faint);
+  color: var(--cu-ink);
+}
+
+/* ---- toolbar ---- */
 
 .people-bar {
   display: flex;
   align-items: center;
-  gap: 14px;
-  margin: 18px 0 10px;
-  color: var(--color-ink-graphite-soft);
-  font-size: 12px;
+  gap: 12px;
+  padding: 0 24px 14px;
+}
+.people-count {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-right: auto;
+  color: var(--cu-ink-soft);
+  font-size: 13px;
+}
+.people-count strong {
+  color: var(--cu-ink);
+  font-size: 15px;
+  font-weight: 600;
+}
+/* A count is a measurement, so it sets in the figure face like every other
+   number in this system. */
+.people-count .figure { color: var(--cu-ink-soft); font-size: 12px; }
+
+.people-find { position: relative; display: flex; align-items: center; }
+.people-find svg {
+  position: absolute;
+  left: 9px;
+  color: var(--cu-ink-faint);
+  pointer-events: none;
 }
 .people-search {
-  height: 26px;
-  width: 220px;
-  padding: 0 8px;
-  background: var(--color-page);
-  border: 1px solid var(--color-rule);
-  font-size: 12px;
+  height: 32px;
+  width: 236px;
+  padding: 0 10px 0 30px;
+  background: var(--cu-canvas);
+  border: 1px solid var(--cu-line);
+  border-radius: var(--cu-r);
+  font-size: 13px;
 }
-.people-search:focus { border-color: var(--color-ink-graphite); outline: none; }
-.people-count strong { color: var(--color-ink-graphite); font-weight: 400; }
+.people-search::placeholder { color: var(--cu-ink-faint); }
+.people-search:focus {
+  border-color: var(--cu-ink-faint);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(41, 45, 52, 0.06);
+}
+
+/* The one filled control on the page. It does not open anything — the invite
+   form is already below and always has been — it moves the caret there, so the
+   page keeps one place where people are made. */
+.people-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 13px;
+  border: 1px solid var(--cu-ink);
+  border-radius: var(--cu-r);
+  background: var(--cu-ink);
+  color: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.people-add:hover { background: #1e2228; border-color: #1e2228; }
 
 .people-errata {
-  margin: 0 0 10px;
-  padding: 6px 10px;
+  margin: 0 24px 12px;
+  padding: 9px 12px;
   background: var(--color-vermilion-wash);
+  border: 1px solid color-mix(in srgb, var(--color-vermilion) 28%, var(--cu-canvas));
+  border-radius: var(--cu-r);
   color: var(--color-vermilion);
-  font-family: var(--font-figure), monospace;
-  font-size: 11px;
+  font-size: 12.5px;
 }
 
 .people-empty {
-  margin-top: 24px;
+  margin: 0;
+  padding: 0 24px 40px;
   max-width: 56ch;
-  color: var(--color-ink-graphite-soft);
+  color: var(--cu-ink-soft);
+  line-height: 1.6;
 }
 
 /* ---- the grid ---- */
 
-.people-scroll { overflow-x: auto; }
+.people-scroll {
+  overflow-x: auto;
+  border-top: 1px solid var(--cu-line);
+}
 
 table.board {
   border-collapse: separate;
   border-spacing: 0;
   table-layout: fixed;
+  /* Fixed layout needs a resolved width or it falls back to auto and the
+     longest project name in the head decides how wide its column gets. */
+  width: 100%;
   min-width: 100%;
 }
 
 .board thead th {
-  height: 28px;
-  padding: 0 10px;
+  height: 38px;
+  padding: 0 12px;
   text-align: left;
   white-space: nowrap;
-  background: var(--color-page);
-  color: var(--color-ink-graphite-soft);
-  font-family: var(--font-struct), sans-serif;
-  font-size: var(--type-label-size);
-  font-weight: var(--type-label-weight);
-  letter-spacing: var(--type-label-tracking);
-  text-transform: uppercase;
-  /* the signature double rule, once on the page */
-  box-shadow: inset 0 -1px 0 var(--color-rule-major), 0 2px 0 -1px var(--color-rule-major);
+  background: var(--cu-hover);
+  color: var(--cu-ink-soft);
+  font-family: var(--font-read), system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
+  box-shadow: inset 0 -1px 0 var(--cu-line);
 }
-.board thead th a { color: var(--color-ink-graphite); text-decoration: none; }
-.board thead th a:hover { text-decoration: underline; }
+/* Project names are long, bracketed and often Thai. The head truncates rather
+   than spilling across the neighbouring column — the full name is in the title
+   and one click away on the project itself. */
+.board thead th a {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--cu-ink-soft);
+  text-decoration: none;
+}
+.board thead th a:hover { color: var(--cu-ink); text-decoration: underline; }
 
-/* The person column is the one that must stay readable while the projects
-   scroll under it, so it pins and carries the fore-edge offset. */
+/* The person column stays readable while the projects scroll under it. */
 .board th.who {
   position: sticky;
   left: 0;
   z-index: 2;
-  background: var(--color-page);
-  box-shadow: 2px 0 0 rgba(42, 38, 34, 0.16);
+  background: var(--cu-canvas);
+  box-shadow: 1px 0 0 var(--cu-line);
 }
 .board thead th.who {
   z-index: 3;
-  box-shadow:
-    inset 0 -1px 0 var(--color-rule-major),
-    0 2px 0 -1px var(--color-rule-major),
-    2px 0 0 rgba(42, 38, 34, 0.16);
+  background: var(--cu-hover);
+  box-shadow: inset 0 -1px 0 var(--cu-line), 1px 0 0 var(--cu-line);
 }
+.board tbody tr:hover th.who { background: var(--cu-hover); }
 
 .board tbody th.who {
   display: table-cell;
-  height: 46px;
-  padding: 6px 10px;
+  height: 60px;
+  padding: 8px 12px;
   text-align: left;
   font-weight: 400;
-  border-bottom: 1px solid var(--color-rule);
+  border-bottom: 1px solid var(--cu-line);
 }
-.who-name { display: block; font-size: 13.5px; }
-.who-mail { display: block; color: var(--color-ink-graphite-soft); font-size: 11px; }
+
+/* Person: monogram, then name over address — the reference's row identity,
+   with a drawn monogram where it has a photograph. The monogram is grey on
+   grey: a per-person hue would be a seventh colour meaning nothing. */
+.who-id { display: flex; align-items: center; gap: 10px; }
+.who-mark {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--cu-chip);
+  color: var(--cu-ink-soft);
+  font-family: var(--font-struct), system-ui, sans-serif;
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1;
+  user-select: none;
+}
+.who-lines { min-width: 0; }
+.who-name {
+  display: block;
+  color: var(--cu-ink);
+  font-size: 13.5px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.who-mail {
+  display: block;
+  color: var(--cu-ink-soft);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .you {
   margin-left: 6px;
-  padding: 0 4px;
-  background: var(--color-page-edge);
-  color: var(--color-ink-graphite-soft);
-  font-size: 9px;
-  letter-spacing: 0.1em;
+  padding: 1px 5px;
+  border-radius: var(--cu-r);
+  background: var(--cu-chip);
+  color: var(--cu-ink-soft);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
+  vertical-align: 1px;
 }
 
 /* An unclaimed invitation and a deactivated account both mean "cannot sign
    in", and they are drawn differently because only one of them is a problem. */
-.who-state { display: inline-block; margin-top: 2px; font-size: 10px; letter-spacing: 0.06em; }
-.who-state.pending { color: var(--color-ink-blue-soft); }
-.who-state.off { color: var(--color-vermilion); }
+.who-state {
+  display: inline-block;
+  margin-top: 3px;
+  padding: 1px 6px;
+  border-radius: var(--cu-r);
+  font-size: 10.5px;
+  font-weight: 500;
+}
+.who-state.pending {
+  background: color-mix(in srgb, var(--color-ink-blue) 8%, var(--cu-canvas));
+  color: var(--color-ink-blue);
+}
+.who-state.off {
+  background: var(--color-vermilion-wash);
+  color: var(--color-vermilion);
+}
 
 .board tbody td {
-  height: 46px;
-  padding: 0 6px;
-  border-bottom: 1px solid var(--color-rule);
-  border-left: 1px solid var(--color-rule);
-  background: var(--color-page);
+  height: 60px;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--cu-line);
+  background: var(--cu-canvas);
 }
-.board tbody tr:hover td { border-bottom-color: var(--color-rule-major); }
+.board tbody tr:hover td { background: var(--cu-hover); }
 
+/* The role control. The reference draws access as a chip; this one has to be
+   editable, so it is a select drawn as a chip — no frame at rest, a frame the
+   moment the pointer or the keyboard arrives. A grid of ninety boxed selects
+   reads as boxes, not as who has what. */
 .role {
-  width: 100%;
-  height: 26px;
-  padding: 0 6px;
-  background: var(--color-page);
-  border: 1px solid var(--color-rule);
+  /* Sized to its own label, not to the column: a chip that fills 176px stops
+     reading as a chip and starts reading as a box. The floor keeps the target
+     comfortable in the cells that say nothing. */
+  width: auto;
+  min-width: 96px;
+  max-width: 100%;
+  height: 32px;
+  padding: 0 8px;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--cu-r);
   font-size: 12.5px;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
 }
-.role:focus { border-color: var(--color-ink-graphite); outline: none; }
-.role:disabled { color: var(--color-ink-graphite-soft); }
+.role:hover { background: var(--cu-canvas); border-color: var(--cu-line); }
+.board tbody tr:hover .role:hover { background: var(--cu-canvas); }
+.role:focus {
+  background: var(--cu-canvas);
+  border-color: var(--cu-ink-faint);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(41, 45, 52, 0.06);
+}
+.role:disabled { color: var(--cu-ink-faint); cursor: default; }
 
-/* A held role is stated in ink weight, not in colour. The six tab hues mean
-   module identity everywhere else in this system and cannot be borrowed to
-   mean a permission level (DESIGN.md § Colors). No access is the quiet state,
-   because most cells on a real install are empty. */
-.board td.none .role { color: var(--color-ink-graphite-soft); border-color: var(--color-page-edge); }
-.board td.has .role { color: var(--color-ink-graphite); }
-.board td.role-admin .role { font-weight: 600; box-shadow: inset 2px 0 0 var(--color-ink-graphite); }
+/* A held role is stated in ink weight and slope, not in colour: the six tab
+   hues mean module identity and cannot be borrowed for a permission level
+   (DESIGN.md § Colors). No access is the quiet state, because most cells on a
+   real install are empty. */
+.board td.none .role { color: var(--cu-ink-faint); }
+.board td.has .role {
+  background: var(--cu-chip);
+  color: var(--cu-ink);
+  font-weight: 500;
+}
+.board td.role-admin .role { font-weight: 600; box-shadow: inset 2px 0 0 var(--cu-ink); }
 .board td.role-viewer .role { font-style: italic; }
 
 /* ---- the account column ----
@@ -183,85 +394,120 @@ table.board {
    Vermilion appears on the armed confirm and nowhere else in this column. That
    is inside the colour law rather than an exception to it: an armed delete is
    a state out of tolerance, which is the one thing vermilion is allowed to
-   mean (DESIGN.md § Colors rule 1). The resting Delete is graphite, because a
-   row that has not been armed is not in trouble. */
+   mean (DESIGN.md § Colors rule 1). The resting Delete is grey, because a row
+   that has not been armed is not in trouble. */
 
-.board td.acct, .board th.acct { padding: 0 10px; }
+.board td.acct, .board th.acct { padding: 0 16px 0 12px; }
 .board th.acct { text-align: right; }
 .board td.acct { text-align: right; white-space: nowrap; }
 
 .acct-locked {
-  color: var(--color-ink-graphite-soft);
-  font-size: 11px;
-  font-style: italic;
+  color: var(--cu-ink-faint);
+  font-size: 11.5px;
 }
 
 .acct-del {
-  height: 24px;
-  padding: 0 10px;
-  border: 1px solid var(--color-rule);
+  height: 28px;
+  padding: 0 11px;
+  border: 1px solid transparent;
+  border-radius: var(--cu-r);
   background: none;
-  color: var(--color-ink-graphite-soft);
+  color: var(--cu-ink-faint);
   cursor: pointer;
-  font-size: 12px;
+  font-size: 12.5px;
 }
-.acct-del:hover { border-color: var(--color-vermilion); color: var(--color-vermilion); }
+/* Revealed on approach rather than parked: one irreversible verb per row, on a
+   page whose ordinary work is the grid to its left. It stays for the keyboard,
+   which has no approach. */
+.board tbody tr:hover .acct-del { color: var(--cu-ink-soft); border-color: var(--cu-line); }
+.acct-del:hover,
+.acct-del:focus-visible {
+  border-color: color-mix(in srgb, var(--color-vermilion) 45%, var(--cu-canvas));
+  background: var(--color-vermilion-wash);
+  color: var(--color-vermilion);
+}
 
 .acct-armed { display: inline-flex; gap: 6px; }
-.acct-armed button { height: 24px; padding: 0 8px; cursor: pointer; font-size: 12px; }
+.acct-armed button {
+  height: 28px;
+  padding: 0 10px;
+  border-radius: var(--cu-r);
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 500;
+}
 .acct-yes {
   border: 1px solid var(--color-vermilion);
   background: var(--color-vermilion);
-  color: var(--color-page);
+  color: #fff;
 }
 .acct-no {
-  border: 1px solid var(--color-rule);
-  background: none;
-  color: var(--color-ink-graphite);
+  border: 1px solid var(--cu-line);
+  background: var(--cu-canvas);
+  color: var(--cu-ink);
 }
-.acct-no:hover { border-color: var(--color-ink-graphite); }
+.acct-no:hover { border-color: var(--cu-ink-faint); background: var(--cu-hover); }
 
 /* ---- invite ---- */
 
-.invite { margin-top: 32px; max-width: 900px; }
+.invite {
+  margin: 0;
+  padding: 22px 24px 24px;
+  border-top: 1px solid var(--cu-line);
+  background: var(--cu-hover);
+}
 .invite h2 {
-  margin: 0 0 10px;
-  padding-bottom: 6px;
-  color: var(--color-ink-graphite-soft);
-  font-family: var(--font-struct), sans-serif;
-  font-size: var(--type-label-size);
-  font-weight: var(--type-label-weight);
-  letter-spacing: var(--type-label-tracking);
-  text-transform: uppercase;
-  box-shadow: inset 0 -1px 0 var(--color-rule-major), 0 2px 0 -1px var(--color-rule-major);
+  margin: 0;
+  padding: 0;
+  color: var(--cu-ink);
+  font-family: var(--font-struct), system-ui, sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: normal;
+  text-transform: none;
+  box-shadow: none;
 }
 .invite-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .invite-row input,
 .invite-row select {
-  height: 30px;
-  padding: 0 8px;
-  background: var(--color-page);
-  border: 1px solid var(--color-rule);
+  height: 34px;
+  padding: 0 10px;
+  background: var(--cu-canvas);
+  border: 1px solid var(--cu-line);
+  border-radius: var(--cu-r);
   font-size: 13px;
 }
 .invite-row input { min-width: 200px; flex: 1 1 200px; }
+.invite-row input::placeholder { color: var(--cu-ink-faint); }
 .invite-row input:focus,
-.invite-row select:focus { border-color: var(--color-ink-graphite); outline: none; }
-.invite-row button {
-  height: 30px;
-  padding: 0 16px;
-  border: 1px solid var(--color-ink-graphite);
-  background: var(--color-ink-graphite);
-  color: var(--color-page);
-  cursor: pointer;
-  font-family: var(--font-struct), sans-serif;
-  font-size: var(--type-label-size);
-  font-weight: var(--type-label-weight);
-  letter-spacing: var(--type-label-tracking);
-  text-transform: uppercase;
+.invite-row select:focus {
+  border-color: var(--cu-ink-faint);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(41, 45, 52, 0.06);
 }
+.invite-row button {
+  height: 34px;
+  padding: 0 16px;
+  border: 1px solid var(--cu-ink);
+  border-radius: var(--cu-r);
+  background: var(--cu-ink);
+  color: #fff;
+  cursor: pointer;
+  font-family: var(--font-read), system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
+}
+.invite-row button:hover:not(:disabled) { background: #1e2228; border-color: #1e2228; }
 .invite-row button:disabled { opacity: 0.5; cursor: default; }
-.invite-note { margin: 10px 0 0; max-width: 62ch; color: var(--color-ink-graphite-soft); font-size: 12px; }
+.invite-note {
+  margin: 12px 0 0;
+  max-width: 68ch;
+  color: var(--cu-ink-soft);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
 
 /* The choice between the two ways in. A checkbox rather than a pair of radios:
    one of the two is the default and the other is the exception, and radios
@@ -271,44 +517,53 @@ table.board {
   align-items: center;
   gap: 7px;
   margin-top: 12px;
-  color: var(--color-ink-graphite-soft);
-  font-size: 12px;
+  color: var(--cu-ink-soft);
+  font-size: 12.5px;
+  cursor: pointer;
 }
-.invite-choice input { accent-color: var(--color-ink-graphite); }
+.invite-choice input { accent-color: var(--cu-ink); }
 
 .people-token {
-  margin-top: 14px;
-  max-width: 62ch;
-  padding: 10px 12px;
-  background: var(--color-page-edge);
-  border-top: 1px solid var(--color-rule-major);
-  border-bottom: 1px solid var(--color-rule-major);
+  margin: 0;
+  padding: 14px 24px 20px;
+  max-width: 76ch;
+  color: var(--cu-ink-soft);
+  background: var(--cu-hover);
   font-size: 12.5px;
+  line-height: 1.6;
 }
-.people-token code {
-  display: block;
-  margin-top: 8px;
-  font-family: var(--font-figure), monospace;
-  font-size: 11px;
-  word-break: break-all;
-}
+.people-token strong { color: var(--cu-ink); }
+/* The link itself and its copy button are `invite-link.css` — the component is
+   shared, and its stylesheet reads the `--cu-*` names this sheet sets. */
 
 /* ---- legend ---- */
 
 .legend {
-  margin: 32px 0 0;
-  max-width: 760px;
-  border-top: 1px solid var(--color-rule);
+  margin: 0;
+  padding: 4px 24px 22px;
+  max-width: 860px;
   font-size: 12.5px;
 }
 .legend > div {
   display: grid;
-  grid-template-columns: 120px 1fr;
-  gap: 12px;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--color-rule);
+  grid-template-columns: 132px 1fr;
+  gap: 14px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--cu-line-soft);
 }
-.legend dt { color: var(--color-ink-graphite); }
+.legend > div:last-child { border-bottom: 0; }
+.legend dt { color: var(--cu-ink); font-weight: 500; }
 .legend dt.role-admin { font-weight: 600; }
-.legend dt.role-viewer { font-style: italic; }
-.legend dd { margin: 0; color: var(--color-ink-graphite-soft); }
+.legend dt.role-viewer { font-style: italic; font-weight: 400; }
+.legend dd { margin: 0; color: var(--cu-ink-soft); line-height: 1.55; }
+
+@media (max-width: 720px) {
+  .people { padding: 12px 12px 40px; }
+  .people-head { flex-wrap: wrap; padding: 18px 16px 14px; }
+  .people-bar { flex-wrap: wrap; padding: 0 16px 12px; }
+  .people-count { width: 100%; margin-right: 0; }
+  .people-search { width: 100%; }
+  .people-find { flex: 1 1 160px; }
+  .invite, .people-token, .legend, .people-errata, .people-empty { padding-inline: 16px; }
+  .people-errata { margin-inline: 16px; padding-inline: 12px; }
+}

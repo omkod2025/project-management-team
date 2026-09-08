@@ -169,6 +169,18 @@ describe('A3 — variance matches a hand calculation in working days', () => {
     assert.equal(res.body?.led_misclosure_end, -2, 'two working days early');
   });
 
+  /**
+   * The import arrived with two `date_done` values in 174 tasks, and the point
+   * of this test is that finished work is what variance is computed from, so
+   * the imported project cannot demonstrate A3 on its own — the data has to
+   * accrue from launch.
+   *
+   * It asserted exactly two until 2026-09-08, which made it a snapshot of live
+   * data rather than a criterion: the first person to record a finish in the
+   * real project broke it, which is the one event the product is *for*. Two is
+   * the floor the import established, so a floor is what it checks. The
+   * finding it defends is the shape of the number, not the number.
+   */
   test('the imported project cannot demonstrate this yet, and that is a data finding', async () => {
     const rows = await sql<{ n: string }>(
       `SELECT count(*) AS n FROM pmt_nodes
@@ -176,8 +188,10 @@ describe('A3 — variance matches a hand calculation in working days', () => {
           AND node_actual_end IS NOT NULL`,
       [REAL_SLUG],
     );
-    assert.equal(Number(rows[0]?.n), 2,
-      'ClickUp held two date_done values in 174 tasks; variance data accrues from launch, not before');
+    const finished = Number(rows[0]?.n);
+    assert.ok(finished >= 2,
+      `ClickUp held two date_done values in 174 tasks and the count only grows from there; ` +
+      `found ${finished}, which means finishes were lost rather than recorded`);
   });
 });
 

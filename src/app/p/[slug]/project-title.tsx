@@ -109,7 +109,7 @@ export default function ProjectTitle(
         </button>
       )}
 
-      {error && <span className="title-error">{error}</span>}
+      {error && <span className="title-errata" role="alert">{error}</span>}
     </span>
   );
 }

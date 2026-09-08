@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { currentUserId } from '@/auth';
 import { mustChangePassword } from '@/lib/admin';
 import { MIN_PASSWORD_LENGTH } from '@/lib/admin-rules';
+import AuthShell from '../auth-shell';
 import ChangePasswordForm from './form';
 
 /**
@@ -20,12 +21,15 @@ export default async function ChangePassword() {
   const forced = await mustChangePassword(userId);
 
   return (
-    <main className="page" style={{ padding: '32px 20px', maxWidth: 460 }}>
-      <h1 style={{ margin: 0, fontFamily: 'var(--font-struct)', fontSize: 'var(--type-headline-size)' }}>
-        Field Book
-      </h1>
-
+    <AuthShell
+      title={forced ? 'Choose your own password' : 'Change your password'}
+      lede={
+        forced
+          ? 'The password you signed in with was set by an admin, so two people know it. Replace it and the rest of Field Book opens up.'
+          : 'You will be asked to sign in again afterwards — the session was made with the old password.'
+      }
+    >
       <ChangePasswordForm forced={forced} minLength={MIN_PASSWORD_LENGTH} />
-    </main>
+    </AuthShell>
   );
 }

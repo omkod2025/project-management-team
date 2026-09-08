@@ -488,7 +488,12 @@ export default function TimelineView({
                       saying. Without this a task name stands alone with no
                       indication of what it belongs to. */}
                   {flat && r.led_depth > 2 && (
-                    <span className="rowmodule label">{moduleOf.get(r.led_node_id)}</span>
+                    <span
+                      className="rowmodule"
+                      lang={/[฀-๿]/.test(moduleOf.get(r.led_node_id) ?? '') ? 'th' : 'en'}
+                    >
+                      {moduleOf.get(r.led_node_id)}
+                    </span>
                   )}
                 </div>
               ))}

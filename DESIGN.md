@@ -281,3 +281,33 @@ Everything else that another system would elevate is expressed by ply:
 - Don't let a module hue touch the reading field.
 - Don't animate with easing curves, fades, or spring physics.
 - Don't apply letter-spacing or all-caps to Thai text.
+
+---
+
+## `/people` — a scoped departure
+
+The access board follows the List sheet rather than the field book. Direction pinned by the owner on 2026-09-08 from an Untitled UI user-management reference. Scoped to `src/app/people/people.css`, which redeclares the List's `--cu-*` palette locally rather than reaching into `list.css` for it; `tokens.css` is untouched.
+
+**Why a departure is tolerable here.** The board holds no plan and no reality. It is a matrix of who can reach what — one categorical value per cell, no dates, no figures, no roll-up — so none of the laws that keep estimate and actual legible have anything to bite on. What it does hold is a grid to be scanned across, which is the thing the List sheet's language was adopted for in the first place.
+
+- **What the reference offered and this refused.** Row-select checkboxes (nothing here acts on a selection), a kebab overflow (one row action, and it is irreversible — hiding it makes it cheaper to hit by accident, not harder), coloured permission badges, and pagination. The reasons are in the stylesheet's opening comment.
+- **Roles are never a hue.** The six tab hues mean module identity and cannot be re-let to mean a permission level. Admin is weight plus a 2px inset bar, View only is italic, No access is faint. All three survive greyscale.
+- **Vermilion still means one thing.** The armed delete and a deactivated account — both states where something is wrong or about to be. Nowhere else on the page.
+- **The monogram is grey on grey.** A per-person hue would be a seventh colour meaning nothing, and it would collide with the six that already mean something.
+- **The invite form stays on the page.** The reference's `+ Add user` opens a modal; here the toolbar button moves the caret to the form that is already there. A task that needs neither interruption nor protected focus does not get a modal.
+
+---
+
+## Auth surfaces — a scoped departure
+
+`/sign-in`, `/set-password` and `/change-password` do not speak the field book. Direction pinned by the owner on 2026-09-08 from a reference composition: a floating split card, saturated field left, white form right. It is recorded here rather than argued with, and it is scoped to those three routes exactly as the List's ClickUp restyle is scoped to its sheet. `tokens.css` is untouched; the world lives in `src/app/auth.css` and its opening comment carries the direction contract.
+
+**Why a departure is tolerable here.** These pages hold no data. Every law in this document exists to keep plan and reality legible against each other, and there is nothing on a sign-in page to keep legible — no rows, no figures, no hierarchy, no module identity. What the door owes the product is a statement of what is behind it, and that is what the left panel does: an estimate bar and an actual bar on one row, with the overrun measured. Nothing about it is a mascot.
+
+- **Palette.** Indigo `#2B3A8F` field, white leaf, `#EEF0FA` ground. Secondary text on the field is tinted from the field's own hue (`#B9C1E8`), never grey.
+- **Vermilion still means one thing.** It marks the bar's overhang and its `+3d` — lightened to `#E5654E`, because `#A82A17` on indigo is unreadable — and the errata band, which is a write that did not land. Nothing else on these pages is allowed it. The colour law holds even where the rest of the world does not.
+- **Shapes.** 20px on the card, 10px on inputs, the button and the reveal's hit area, 8px on the errata slip inset inside them — the one place in this product with a radius, and the reason it is legible as a different room.
+- **Type.** The product's own three faces. A pinned composition is a composition; it does not bring its fonts.
+- **Fields are labelled above, not by placeholder.** The reference put the name inside the box, which survives two fields; the change-password form has three password rows, and filled placeholders would leave three identical rows of dots.
+- **No self-registration, and the page says so.** Where the reference put Google, GitLab and Registration, this carries the fact that an admin creates the account. A control that would have to refuse is worse than a sentence that explains.
+- **Below 880px** the split stacks: the field becomes a band sized to its content, the form takes the rest. Below 420px the graphic is dropped before the claim is.

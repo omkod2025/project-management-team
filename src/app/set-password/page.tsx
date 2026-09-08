@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { setupTokenIsLive } from '@/lib/admin';
 import { MIN_PASSWORD_LENGTH } from '@/lib/admin-rules';
+import AuthShell from '../auth-shell';
 import SetPasswordForm from './form';
 
 /**
@@ -20,21 +21,28 @@ export default async function SetPassword({
 
   const live = await setupTokenIsLive(token);
 
-  return (
-    <main className="page" style={{ padding: '32px 20px', maxWidth: 460 }}>
-      <h1 style={{ margin: 0, fontFamily: 'var(--font-struct)', fontSize: 'var(--type-headline-size)' }}>
-        Field Book
-      </h1>
-
-      {live ? (
-        <SetPasswordForm token={token} minLength={MIN_PASSWORD_LENGTH} />
-      ) : (
-        // An expired, wrong, or already-claimed token all say the same thing:
-        // a more specific message would confirm that a token once existed.
-        <p style={{ marginTop: 24, color: 'var(--color-vermilion)' }}>
-          That link is not valid any more. Ask an admin for a new one.
+  if (!live) {
+    return (
+      <AuthShell title="This link has expired">
+        {/* An expired, a wrong and an already-claimed token all say the same
+            thing: anything more specific confirms that a token once existed. */}
+        <p className="auth-dead">
+          Ask an admin for a new one. Invitations last seven days and can only
+          be used once.
         </p>
-      )}
-    </main>
+        <p className="auth-note">
+          Already set your password? <strong><a href="/sign-in">Sign in</a></strong>
+        </p>
+      </AuthShell>
+    );
+  }
+
+  return (
+    <AuthShell
+      title="Set your password"
+      lede="Nobody else will ever see it — not even the admin who invited you."
+    >
+      <SetPasswordForm token={token} minLength={MIN_PASSWORD_LENGTH} />
+    </AuthShell>
   );
 }

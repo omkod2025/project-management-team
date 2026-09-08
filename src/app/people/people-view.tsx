@@ -1,8 +1,9 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { AccessBoard, PersonAccess } from '@/lib/people';
 import { MIN_PASSWORD_LENGTH, PROTECTED_EMAIL, type Role } from '@/lib/admin-rules';
+import InviteLink, { inviteUrl } from '../invite-link';
 import './people.css';
 
 /**
@@ -36,6 +37,26 @@ const ROLE_NOTE: Record<Role, string> = {
 
 const NONE = '';
 
+/** Thai renders in the name column; it must never be tracked or uppercased. */
+const THAI = /[฀-๿]/;
+
+/**
+ * Initials for the row monogram, where the reference has a photograph.
+ *
+ * A grapheme is a base character plus whatever marks hang off it, which is the
+ * only definition that survives Thai: `ก` and `กั` are one letter each, and
+ * slicing two code units off a Thai name can hand back a floating tone mark.
+ */
+function monogram(name: string, email: string): string {
+  const source = name.trim() || email.split('@')[0]!;
+  const cluster = (s: string) => s.match(/^\P{M}\p{M}*/u)?.[0] ?? '';
+  const words = source.split(/[\s._-]+/).filter(Boolean);
+  const marks = words.length > 1
+    ? cluster(words[0]!) + cluster(words[1]!)
+    : cluster(source) + cluster(source.slice(cluster(source).length));
+  return THAI.test(marks) ? marks : marks.toUpperCase();
+}
+
 type Props = { board: AccessBoard; actingUserId: string; signOut: React.ReactNode };
 
 export default function PeopleView({ board, actingUserId, signOut }: Props) {
@@ -43,9 +64,14 @@ export default function PeopleView({ board, actingUserId, signOut }: Props) {
   const [query, setQuery] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
-  const [invited, setInvited] = useState<{ email: string; token: string | null } | null>(null);
+  // `link` is the whole address, built in the handler that receives the token:
+  // `location` cannot be read while rendering on the server.
+  const [invited, setInvited] = useState<{ email: string; link: string | null } | null>(null);
   /** The id of the one row whose Delete is armed. Only ever one at a time. */
   const [arming, setArming] = useState<string | null>(null);
+  /** The toolbar's Invite button does not open a form — it moves the caret to
+      the one that is already on the page. */
+  const inviteEmail = useRef<HTMLInputElement>(null);
 
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -180,7 +206,7 @@ export default function PeopleView({ board, actingUserId, signOut }: Props) {
         pending: true,
         roles: granted.ok ? { [projectId]: role } : {},
       }]);
-      setInvited({ email, token: person.token });
+      setInvited({ email, link: person.token ? inviteUrl(person.token) : null });
     } catch {
       setFailure('No connection. Nobody was invited.');
     } finally {
@@ -191,35 +217,66 @@ export default function PeopleView({ board, actingUserId, signOut }: Props) {
   if (board.projects.length === 0) {
     return (
       <main className="people">
-        <Head signOut={signOut} />
-        <p className="people-empty">
-          You do not administer any project, so there is no access to hand out.
-          Admin is granted per project — ask an admin of the project you need.
-        </p>
+        <div className="people-sheet">
+          <Head signOut={signOut} />
+          <p className="people-empty">
+            You do not administer any project, so there is no access to hand out.
+            Admin is granted per project — ask an admin of the project you need.
+          </p>
+        </div>
       </main>
     );
   }
 
   return (
     <main className="people">
+     <div className="people-sheet">
       <Head signOut={signOut} />
 
       <div className="people-bar">
-        <input
-          className="people-search"
-          type="search"
-          value={query}
-          placeholder="Find a person"
-          onChange={(e) => setQuery(e.target.value)}
-          aria-label="Find a person"
-        />
         <span className="people-count">
-          <strong>{shown.length}</strong> of {people.length} people ·{' '}
-          <strong>{board.projects.length}</strong> project{board.projects.length === 1 ? '' : 's'} you administer
+          <strong>All people</strong>
+          <span className="figure">
+            {shown.length === people.length ? people.length : `${shown.length} / ${people.length}`}
+          </span>
+          <span>
+            across {board.projects.length} project{board.projects.length === 1 ? '' : 's'} you administer
+          </span>
         </span>
+
+        <span className="people-find">
+          {/* Drawn rather than fetched: an icon file would be a network request
+              for fourteen pixels. */}
+          <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+            <circle cx="7" cy="7" r="4.6" fill="none" stroke="currentColor" strokeWidth="1.4" />
+            <path d="M10.4 10.4 14 14" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+          </svg>
+          <input
+            className="people-search"
+            type="search"
+            value={query}
+            placeholder="Find a person"
+            onChange={(e) => setQuery(e.target.value)}
+            aria-label="Find a person"
+          />
+        </span>
+
+        <button
+          type="button"
+          className="people-add"
+          onClick={() => {
+            inviteEmail.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            inviteEmail.current?.focus({ preventScroll: true });
+          }}
+        >
+          <svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+            <path d="M8 2.6v10.8M2.6 8h10.8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+          </svg>
+          Invite someone
+        </button>
       </div>
 
-      {failure && <p className="people-errata">{failure}</p>}
+      {failure && <p className="people-errata" role="alert">{failure}</p>}
 
       <div className="people-scroll">
         <table className="board">
@@ -233,7 +290,9 @@ export default function PeopleView({ board, actingUserId, signOut }: Props) {
               <th scope="col" className="who">Person</th>
               {board.projects.map((p) => (
                 <th scope="col" key={p.id}>
-                  <a href={`/p/${p.slug}`}>{p.name}</a>
+                  <a href={`/p/${p.slug}`} title={p.name} lang={THAI.test(p.name) ? 'th' : undefined}>
+                    {p.name}
+                  </a>
                 </th>
               ))}
               {/* Last, and away from the role selects. Access and existence are
@@ -245,16 +304,23 @@ export default function PeopleView({ board, actingUserId, signOut }: Props) {
             {shown.map((person) => (
               <tr key={person.id}>
                 <th scope="row" className="who">
-                  <span className="who-name">
-                    {person.name}
-                    {person.id === actingUserId && <span className="you">you</span>}
+                  <span className="who-id">
+                    <span className="who-mark" aria-hidden="true">
+                      {monogram(person.name, person.email)}
+                    </span>
+                    <span className="who-lines">
+                      <span className="who-name" lang={THAI.test(person.name) ? 'th' : undefined}>
+                        {person.name}
+                        {person.id === actingUserId && <span className="you">you</span>}
+                      </span>
+                      <span className="who-mail">{person.email}</span>
+                      {/* Two different kinds of "cannot sign in", and they are
+                          not interchangeable: one is waiting for the person,
+                          the other was done to them. */}
+                      {person.pending && <span className="who-state pending">invite not claimed</span>}
+                      {!person.active && <span className="who-state off">deactivated</span>}
+                    </span>
                   </span>
-                  <span className="who-mail">{person.email}</span>
-                  {/* Two different kinds of "cannot sign in", and they are not
-                      interchangeable: one is waiting for the person, the other
-                      was done to them. */}
-                  {person.pending && <span className="who-state pending">invite not claimed</span>}
-                  {!person.active && <span className="who-state off">deactivated</span>}
                 </th>
 
                 {board.projects.map((project) => {
@@ -299,14 +365,19 @@ export default function PeopleView({ board, actingUserId, signOut }: Props) {
         </table>
       </div>
 
-      <Invite projects={board.projects} busy={busy === 'invite'} onInvite={invite} />
+      <Invite
+        projects={board.projects}
+        busy={busy === 'invite'}
+        onInvite={invite}
+        emailRef={inviteEmail}
+      />
 
-      {invited && (invited.token ? (
+      {invited && (invited.link ? (
         <p className="people-token">
           <strong>{invited.email}</strong> now has access. Hand them this
           one-time link — it expires in seven days and they choose their own
           password, which you never see.
-          <code>/set-password?token={invited.token}</code>
+          <InviteLink url={invited.link} />
         </p>
       ) : (
         <p className="people-token">
@@ -333,6 +404,7 @@ export default function PeopleView({ board, actingUserId, signOut }: Props) {
           </dd>
         </div>
       </dl>
+     </div>
     </main>
   );
 }
@@ -389,23 +461,32 @@ function DeleteCell({
 function Head({ signOut }: { signOut: React.ReactNode }) {
   return (
     <header className="people-head">
-      <a className="shelf-link" href="/">‹ Field Book</a>
-      <h1>People and access</h1>
+      <div>
+        <h1>People and access</h1>
+        <p className="people-sub">
+          Who can reach which project, and as what. Access is held per project —
+          there is no account-wide setting to get wrong.
+        </p>
+      </div>
       {/* Both of these change what level you are on rather than what you are
           looking at, so they share the head's edge. */}
-      <div className="people-out">{signOut}</div>
+      <div className="people-out">
+        <a className="shelf-link" href="/">‹ Field Book</a>
+        {signOut}
+      </div>
     </header>
   );
 }
 
 function Invite({
-  projects, busy, onInvite,
+  projects, busy, onInvite, emailRef,
 }: {
   projects: AccessBoard['projects'];
   busy: boolean;
   onInvite: (
     email: string, name: string, projectId: string, role: Role, password: string,
   ) => Promise<void>;
+  emailRef: React.RefObject<HTMLInputElement | null>;
 }) {
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
@@ -427,6 +508,7 @@ function Invite({
       <h2>Invite someone</h2>
       <div className="invite-row">
         <input
+          ref={emailRef}
           type="email" required value={email} placeholder="name@company.com"
           onChange={(e) => setEmail(e.target.value)} aria-label="Email address"
         />

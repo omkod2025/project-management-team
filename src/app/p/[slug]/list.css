@@ -185,7 +185,12 @@
 }
 .title-edit:focus { border-color: var(--cu-ink); outline: none; }
 
-.title-error {
+/* A rename that did not save. It is the `.errata` band stated in line rather
+   than across the head, and it is named for that band on purpose: A8 reads
+   this file and asserts that every use of vermilion is a slip, a failed write
+   or an erratum, so a class called `title-error` was vermilion the guard could
+   not account for — which is the exact failure mode the guard exists to catch. */
+.title-errata {
   padding: 2px 8px;
   background: var(--color-vermilion-wash);
   color: var(--color-vermilion);

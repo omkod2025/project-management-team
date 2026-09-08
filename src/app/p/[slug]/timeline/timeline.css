@@ -29,7 +29,14 @@
  * readable without scrolling.
  */
 
-.tl { display: flex; min-width: max-content; }
+/* The field runs to the foot of the sheet whether or not the rows fill it.
+   A period grid that stops two thirds of the way down, with white below it,
+   reads as a page that failed to finish loading rather than as a project with
+   room left in it. Same argument the roster already made for its party
+   column, applied to the field the column indexes. */
+.tl { display: flex; min-width: max-content; min-height: 100%; }
+.tl-field { display: flex; flex-direction: column; }
+.tl-rows { flex: 1 1 auto; }
 
 .tl-names {
   position: sticky;
@@ -48,6 +55,7 @@
 
 .tl-head {
   height: 30px;
+  flex: 0 0 auto;
   position: sticky;
   top: 0;
   z-index: 5;
@@ -78,6 +86,7 @@
 .tl-days {
   display: flex;
   height: 22px;
+  flex: 0 0 auto;
   align-items: center;
   position: sticky;
   top: 30px;
@@ -191,9 +200,14 @@
 .band { position: absolute; top: 0; bottom: 0; background: var(--cu-line-soft); z-index: 0; }
 
 .datum { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--color-datum); z-index: 3; }
+/* The cap rides in the month band, not among the day numbers. Spec 04 §5 says
+   today's own number is set in datum ink because it is the one date somebody
+   scans the scale for — and the cap, centred on the same column at `top: 4px`,
+   was sitting straight on top of it. The label and the number were competing
+   to say the same thing, and the label was winning. */
 .datum-cap {
   position: absolute;
-  top: 4px;
+  top: -21px;
   transform: translateX(-50%);
   z-index: 6;
   padding: 0 4px;
@@ -404,7 +418,14 @@
 .flip:hover { background: var(--cu-hover); color: var(--cu-ink); }
 
 /* Which module a row belongs to, shown only when the sort has flattened the
-   tree and the indent can no longer say it. */
+   tree and the indent can no longer say it.
+ *
+ * This carried the `label` class until 2026-09-08, which meant tracked
+ * uppercase — and most module names in this data are Thai. Thai has no case,
+ * so `text-transform` does nothing but the tracking prises the vowel and tone
+ * marks off the consonants they belong to. CLAUDE.md § Language forbids both
+ * on Thai; the rule was being broken on the one row-level label most likely to
+ * be Thai. It is set in the reading face now, like the name beside it. */
 .rowmodule {
   margin-left: auto;
   padding-left: 10px;
@@ -413,4 +434,8 @@
   overflow: hidden;
   text-overflow: ellipsis;
   color: var(--cu-ink-faint);
+  font-family: var(--font-read), system-ui, sans-serif;
+  font-size: 11.5px;
+  letter-spacing: normal;
+  text-transform: none;
 }

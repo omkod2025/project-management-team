@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { Settings } from '@/lib/admin';
 import { FIELD_KINDS, STAGES } from '@/lib/admin-rules';
+import InviteLink, { inviteUrl } from '../../../invite-link';
 import '../list.css';
 import './settings.css';
 
@@ -306,7 +307,9 @@ function Field({ s, f, send }: { s: Settings; f: Settings['fields'][number]; sen
 
 function Members({ s, send }: { s: Settings; send: Send }) {
   const [invite, setInvite] = useState('');
-  const [token, setToken] = useState<string | null>(null);
+  // The whole address, built here rather than in the markup: `location` is not
+  // readable while rendering on the server.
+  const [link, setLink] = useState<string | null>(null);
   const memberIds = new Set(s.members.map((m) => m.userId));
   const outsiders = s.people.filter((p) => !memberIds.has(p.id));
 
@@ -363,7 +366,7 @@ function Members({ s, send }: { s: Settings; send: Send }) {
           const out = (await send('/api/users', 'POST', {
             projectId: s.project.id, email: invite,
           })) as { token?: string } | null;
-          if (out?.token) setToken(out.token);
+          if (out?.token) setLink(inviteUrl(out.token));
           setInvite('');
         }}
       >
@@ -378,11 +381,11 @@ function Members({ s, send }: { s: Settings; send: Send }) {
         <button type="submit" className="label">Create</button>
       </form>
 
-      {token && (
+      {link && (
         <p className="aside token">
           Hand this one-time link to them. It expires in seven days, and they
           choose their own password — you never see it.
-          <code>/set-password?token={token}</code>
+          <InviteLink url={link} />
         </p>
       )}
     </section>
