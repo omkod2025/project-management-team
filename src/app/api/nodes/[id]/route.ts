@@ -2,10 +2,32 @@ import { NextResponse } from 'next/server';
 import { eq } from 'drizzle-orm';
 import { currentUserId } from '@/auth';
 import { db } from '@/db/client';
-import { nodes } from '@/db/schema';
-import { authorize } from '@/lib/permissions';
+import { nodes, projects } from '@/db/schema';
+import { authorize, can } from '@/lib/permissions';
 import { archiveNode, moveNode, updateNode, type NodePatch } from '@/lib/nodes';
-import { DomainError } from '@/lib/errors';
+import { DomainError, domainError } from '@/lib/errors';
+import { handle } from '@/lib/api';
+import { loadLedger } from '@/lib/ledger';
+import type { TaskDetail } from '@/lib/task-detail';
+
+export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
+  const { id } = await ctx.params;
+  return handle(`GET /api/nodes/${id}`, async (userId): Promise<TaskDetail> => {
+    const [node] = await db.select({ slug: projects.slug }).from(nodes)
+      .innerJoin(projects, eq(projects.id, nodes.projectId)).where(eq(nodes.id, id)).limit(1);
+    if (!node) throw domainError('E_NOT_FOUND', 'No such task.');
+    const ledger = await loadLedger(userId, node.slug);
+    const row = ledger.rows.find((r) => r.led_node_id === id);
+    if (!row) throw domainError('E_NOT_FOUND', 'No such task.');
+    return {
+      row, projectName: ledger.project.name, fields: ledger.fields, people: ledger.people,
+      permissions: {
+        rename: can(ledger.role, 'node.rename'), dates: can(ledger.role, 'node.editDates'),
+        values: can(ledger.role, 'node.editValues'),
+      },
+    };
+  });
+}
 
 /**
  * PATCH one node. Returns its recomputed ledger row, so the grid updates

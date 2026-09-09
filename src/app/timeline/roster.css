@@ -27,6 +27,41 @@
    it or be filed underneath it. */
 .book { --names-w: 260px; }
 
+.rs-task-modal {
+  width: min(640px, calc(100vw - 32px));
+  max-height: calc(100dvh - 48px);
+  margin: auto;
+  padding: 24px;
+  overflow: auto;
+  border: 1px solid var(--cu-line);
+  border-radius: var(--cu-r);
+  background: var(--cu-ground);
+  color: var(--cu-ink);
+  font: 14px/1.5 var(--font-read), system-ui, sans-serif;
+}
+.rs-task-modal::backdrop { background: rgb(0 0 0 / 35%); }
+.rs-task-head, .rs-task-actions { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.rs-task-head { margin-bottom: 20px; }
+.rs-task-head h2 { margin: 0; font-size: 20px; }
+.rs-task-head p { margin: 4px 0 0; color: var(--cu-ink-soft); }
+.rs-task-modal fieldset { min-width: 0; padding: 0; border: 0; margin: 0; }
+.rs-task-modal label { display: grid; gap: 4px; margin-bottom: 14px; }
+.rs-task-modal input:not([type=checkbox]), .rs-task-modal select, .rs-task-modal textarea,
+.rs-task-modal button {
+  min-width: 0; padding: 8px 10px; border: 1px solid var(--cu-line);
+  border-radius: var(--cu-r); background: var(--cu-ground); color: inherit; font: inherit;
+}
+.rs-task-modal button { cursor: pointer; }
+.rs-task-modal :disabled { opacity: .6; cursor: default; }
+.rs-task-modal :focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.rs-task-dates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px; }
+.rs-task-modal .rs-task-options { margin-bottom: 14px; }
+.rs-task-options legend { margin-bottom: 6px; }
+.rs-task-modal .rs-task-options label, .rs-task-modal .rs-task-check { display: flex; align-items: center; gap: 8px; }
+.rs-task-actions { justify-content: flex-end; margin-top: 20px; }
+.rs-task-modal [role=alert] { color: var(--color-vermilion); }
+@media (max-width: 480px) { .rs-task-dates { grid-template-columns: 1fr; } }
+
 .rs-names {
   width: var(--names-w);
   min-width: var(--names-w);

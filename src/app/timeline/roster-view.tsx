@@ -1,6 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import TaskModal from './task-modal';
 import type { Roster, RosterItem, RosterLane } from '@/lib/roster';
 import { loadRecord, saveRecord } from '../p/[slug]/view-state';
 import { addDays, contendedRuns, occupancy, pack, span, unpack } from './pack';
@@ -24,7 +26,7 @@ import './roster.css';
  *     page before any figure is read.
  *   - Nothing here is draggable. Moving a date on a packed lane would rewrite
  *     a plan without its module beside it, which is exactly the context the
- *     project Timeline exists to supply. This surface reads.
+ *     project Timeline exists to supply. Click a bar to edit its task in a modal.
  */
 
 type Zoom = 'day' | 'week' | 'month';
@@ -54,13 +56,17 @@ const HUE = (i: number) => `var(--color-tab-${((i - 1) % 6) + 1})`;
 const isThai = (s: string) => /[฀-๿]/.test(s);
 
 export default function RosterView({ roster }: { roster: Roster }) {
-  const { lanes, projects, holidays } = roster;
+  const router = useRouter();
+  const [openedTask, setOpenedTask] = useState<string | null>(null);
+  const { lanes, projects, modules, holidays } = roster;
 
   const [zoom, setZoom] = useState<Zoom>('week');
   const [mode, setMode] = useState<Mode>('both');
   /** Empty means the whole party. Non-empty means these people only. */
   const [who, setWho] = useState<Set<string>>(new Set());
   const [hiddenProjects, setHiddenProjects] = useState<Set<string>>(new Set());
+  const [moduleFilter, setModuleFilter] = useState('');
+  const moduleQuery = moduleFilter.trim().toLocaleLowerCase();
   const [ready, setReady] = useState(false);
   const scrollerRef = useRef<HTMLDivElement>(null);
 
@@ -79,25 +85,30 @@ export default function RosterView({ roster }: { roster: Roster }) {
   // Escape returns the whole party. Soloing is the primary act on this page,
   // so the way back must not require finding the same name again.
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setWho(new Set()); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !openedTask) setWho(new Set()); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [openedTask]);
 
   const dayW = DAY_W[zoom];
   const holidaySet = useMemo(() => new Set(holidays), [holidays]);
   const today = useMemo(() => toIso(new Date(Date.now() + 7 * 3600 * 1000)), []);
   const solo = who.size > 0;
 
-  /** Project filtering happens before packing: a hidden project must not
+  /** Filtering happens before packing: hidden work must not
    *  reserve a sub-row it no longer draws into. */
   const shown: RosterLane[] = useMemo(() => {
-    const kept = lanes.map((l) => ({
-      ...l,
-      items: l.items.filter((it) => !hiddenProjects.has(it.projectSlug)),
-    }));
+    const matchingModules = new Set(
+      modules.filter((m) => m.name.toLocaleLowerCase().includes(moduleQuery)).map((m) => m.id),
+    );
+    const matches = (it: { projectSlug: string; moduleId: string | null }) =>
+      !hiddenProjects.has(it.projectSlug) && (!moduleQuery || (it.moduleId !== null && matchingModules.has(it.moduleId)));
+    const kept = lanes.map((l) => {
+      const undatedItems = l.undatedItems.filter(matches);
+      return { ...l, items: l.items.filter(matches), undatedItems, undatedCount: undatedItems.length };
+    });
     return solo ? kept.filter((l) => who.has(laneKey(l))) : kept;
-  }, [lanes, hiddenProjects, solo, who]);
+  }, [lanes, modules, hiddenProjects, moduleQuery, solo, who]);
 
   /* ------------------------------------------------------------- window */
 
@@ -229,6 +240,23 @@ export default function RosterView({ roster }: { roster: Roster }) {
           )}
         </div>
 
+        <div className="timeline-filters" role="search" aria-label="Filter roster tasks">
+          <label>
+            Module
+            <input
+              type="search"
+              value={moduleFilter}
+              onChange={(e) => setModuleFilter(e.target.value)}
+              placeholder="Module name contains…"
+            />
+          </label>
+          {moduleFilter && <button type="button" onClick={() => setModuleFilter('')}>Clear module</button>}
+        </div>
+
+        {!nothingDated && (moduleQuery || hiddenProjects.size > 0) && totalItems === 0 && (
+          <p className="tl-empty">No dated work matches these filters.</p>
+        )}
+
         {nothingDated && (
           <p className="tl-empty">
             Nobody has dated work yet. Give a task an estimate in a project and the person holding it appears here.
@@ -318,6 +346,8 @@ export default function RosterView({ roster }: { roster: Roster }) {
                     rows={rows}
                     mode={mode}
                     solo={solo}
+                    filtered={Boolean(moduleQuery || hiddenProjects.size)}
+                    onOpen={setOpenedTask}
                     dayW={dayW}
                     start={start}
                     days={days}
@@ -328,6 +358,9 @@ export default function RosterView({ roster }: { roster: Roster }) {
             </div>
           </div>
         </div>
+        {openedTask && <TaskModal key={openedTask} nodeId={openedTask}
+          onClose={() => setOpenedTask(null)}
+          onSaved={() => { setOpenedTask(null); router.refresh(); }} />}
       </div>
     </div>
   );
@@ -336,12 +369,14 @@ export default function RosterView({ roster }: { roster: Roster }) {
 /* ==================================================================== lane */
 
 function Lane({
-  lane, rows, mode, solo, dayW, start, days, x,
+  lane, rows, mode, solo, filtered, onOpen, dayW, start, days, x,
 }: {
   lane: RosterLane;
   rows: RosterItem[][];
   mode: Mode;
   solo: boolean;
+  filtered: boolean;
+  onOpen: (nodeId: string) => void;
   dayW: number;
   start: string;
   days: number;
@@ -378,7 +413,7 @@ function Lane({
       {shownRows.map((items, i) => (
         <div key={i} className="rs-sub" style={{ top: LANE_PAD + i * subH, height: subH }}>
           {items.map((it) => (
-            <Item key={it.nodeId + it.projectSlug} item={it} mode={mode} solo={solo} dayW={dayW} x={x} subH={subH} />
+            <Item key={it.nodeId + it.projectSlug} item={it} mode={mode} solo={solo} dayW={dayW} x={x} subH={subH} onOpen={onOpen} />
           ))}
         </div>
       ))}
@@ -390,7 +425,7 @@ function Lane({
         <div className="rs-idle label">
           {lane.undatedCount > 0
             ? `${lane.undatedCount} assigned, none dated`
-            : 'nothing assigned'}
+            : filtered ? 'no matching work' : 'nothing assigned'}
         </div>
       )}
     </div>
@@ -400,9 +435,10 @@ function Lane({
 /* ==================================================================== item */
 
 function Item({
-  item, mode, solo, dayW, x, subH,
+  item, mode, solo, dayW, x, subH, onOpen,
 }: {
   item: RosterItem;
+  onOpen: (nodeId: string) => void;
   mode: Mode;
   solo: boolean;
   dayW: number;
@@ -441,6 +477,12 @@ function Item({
     <a
       className="rs-item"
       href={`/p/${item.projectSlug}?node=${item.nodeId}`}
+      aria-haspopup="dialog"
+      onClick={(e) => {
+        if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+        e.preventDefault();
+        onOpen(item.nodeId);
+      }}
       title={title}
       style={{ ['--bar-hue' as string]: hue, height: subH }}
     >

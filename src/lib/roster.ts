@@ -32,6 +32,7 @@ export type RosterItem = {
   projectIndex: number;
   /** The top-level block inside its project — its module, when it has one. */
   moduleName: string | null;
+  moduleId: string | null;
   estimateStart: string | null;
   estimateEnd: string | null;
   actualStart: string | null;
@@ -50,6 +51,7 @@ export type RosterLane = {
   items: RosterItem[];
   /** Assigned to this person but carrying neither an estimate nor an actual. */
   undatedCount: number;
+  undatedItems: { projectSlug: string; moduleId: string | null }[];
 };
 
 export type RosterProject = {
@@ -65,6 +67,7 @@ export type RosterProject = {
 export type Roster = {
   lanes: RosterLane[];
   projects: RosterProject[];
+  modules: { id: string; name: string; projectSlug: string }[];
   holidays: string[];
 };
 
@@ -86,7 +89,7 @@ export async function loadRoster(userId: string): Promise<Roster> {
     .where(and(eq(projectMembers.userId, userId), isNull(projects.archivedAt)))
     .orderBy(asc(projects.name));
 
-  if (mine.length === 0) return { lanes: [], projects: [], holidays: [] };
+  if (mine.length === 0) return { lanes: [], projects: [], modules: [], holidays: [] };
 
   const projectIds = mine.map((p) => p.id);
 
@@ -114,6 +117,7 @@ export async function loadRoster(userId: string): Promise<Roster> {
 
   /** personId (or null for unassigned) → lane under construction */
   const lanes = new Map<string | null, RosterLane>();
+  const modules: Roster['modules'] = [];
   const lane = (id: string | null): RosterLane => {
     let l = lanes.get(id);
     if (!l) {
@@ -122,6 +126,7 @@ export async function loadRoster(userId: string): Promise<Roster> {
         personName: id === null ? 'Unassigned' : nameOf.get(id) ?? 'Unknown person',
         items: [],
         undatedCount: 0,
+        undatedItems: [],
       };
       lanes.set(id, l);
     }
@@ -144,11 +149,17 @@ export async function loadRoster(userId: string): Promise<Roster> {
     const fields = peopleFields.filter((f) => f.projectId === project.id);
     const byId = new Map(rows.map((r) => [r.led_node_id, r] as const));
     const rosterProject = rosterProjects[pi]!;
+    for (const row of rows) {
+      if (row.led_depth === 2) {
+        modules.push({ id: row.led_node_id, name: row.led_name, projectSlug: project.slug });
+      }
+    }
 
     for (const row of rows) {
       // Depth 1 is the project's own root node — it is the project, not work
       // inside it, and it carries no assignee.
       if (row.led_depth <= 1) continue;
+      const module = moduleOf(row, byId);
 
       const assigned = new Set<string>();
       const fieldNames: string[] = [];
@@ -167,6 +178,7 @@ export async function loadRoster(userId: string): Promise<Roster> {
         const l = lane(personId);
         if (!dated) {
           l.undatedCount += 1;
+          l.undatedItems.push({ projectSlug: project.slug, moduleId: module?.led_node_id ?? null });
           continue;
         }
         l.items.push({
@@ -175,7 +187,8 @@ export async function loadRoster(userId: string): Promise<Roster> {
           projectSlug: project.slug,
           projectName: project.name,
           projectIndex: rosterProject.index,
-          moduleName: moduleOf(row, byId),
+          moduleName: module && module.led_node_id !== row.led_node_id ? module.led_name : null,
+          moduleId: module?.led_node_id ?? null,
           estimateStart: row.led_estimate_start,
           estimateEnd: row.led_estimate_end,
           actualStart: row.led_actual_start,
@@ -189,7 +202,7 @@ export async function loadRoster(userId: string): Promise<Roster> {
   });
 
   const ordered = [...lanes.values()].sort(byLoadThenName);
-  return { lanes: ordered, projects: rosterProjects, holidays: hols.map((h) => h.date) };
+  return { lanes: ordered, projects: rosterProjects, modules, holidays: hols.map((h) => h.date) };
 }
 
 /**
@@ -208,11 +221,11 @@ function byLoadThenName(a: RosterLane, b: RosterLane): number {
   return a.personName.localeCompare(b.personName);
 }
 
-/** Walk up to the depth-2 ancestor — the module — or null if the node is one. */
-function moduleOf(row: LedgerRow, byId: Map<string, LedgerRow>): string | null {
+/** Find the depth-2 module, including the module row itself. */
+function moduleOf(row: LedgerRow, byId: Map<string, LedgerRow>): LedgerRow | null {
   let cur: LedgerRow | undefined = row;
   while (cur && cur.led_depth > 2) {
     cur = cur.led_parent_id ? byId.get(cur.led_parent_id) : undefined;
   }
-  return cur && cur.led_depth === 2 && cur.led_node_id !== row.led_node_id ? cur.led_name : null;
+  return cur && cur.led_depth === 2 ? cur : null;
 }
