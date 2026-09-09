@@ -12,13 +12,15 @@ continuous saves by the same editor with a 30-minute inactivity threshold.
 
 Image uploads accept PNG, JPEG, WebP, GIF and SVG up to 50 MB per file. SVG supports CSS, HTML labels, animation and embedded assets; its sandbox blocks scripts and external resource loading. Image URLs require project
 membership. Files live in `data/doc-assets` or the absolute `DOC_ASSET_DIR` path.
-GitHub release deployments and production Compose bind `/mnt/fieldbook-files`
-on the server to `/app/data/doc-assets` in the container, and set `DOC_ASSET_DIR`
+GitHub release deployments read the host directory from the required `ASSET_DIR`
+GitHub Actions secret (repository or `production` environment), for example
+`/mnt/fieldbook-files`. Production Compose uses `/mnt/fieldbook-files` by default.
+Both bind the host directory to `/app/data/doc-assets` in the container and set `DOC_ASSET_DIR`
 to that container path. The directory must be writable by UID/GID 1001:1001;
 the release workflow sets ownership automatically. When an existing container
 does not yet use this mount, the workflow stops it, backs up its assets under
 `$DEPLOY_PATH/doc-assets-backup.*`, and copies them into the mount without
-overwriting existing files. Back up `/mnt/fieldbook-files` together with PostgreSQL.
+overwriting existing files. Back up the configured host directory together with PostgreSQL.
 Removing an image from a page
 does not remove its stored file. Orphan collection is not part of the editor.
 
