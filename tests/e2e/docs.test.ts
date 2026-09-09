@@ -1,9 +1,10 @@
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { unlink } from 'node:fs/promises';
+import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { setup, signIn, BASE_URL, type Fixture, type Jar } from '../helpers/harness.ts';
+import { docAssetStorageKey } from '../../src/lib/doc-asset-path.ts';
 
 let fx: Fixture;
 let admin: Jar;
@@ -14,6 +15,13 @@ before(async () => {
   viewer = await signIn(fx.viewer.email, fx.viewer.password);
 });
 after(async () => { await fx?.cleanup(); });
+
+async function assetFilePath(id: string) {
+  const { rows } = await fx.client.query('SELECT asset_filename, asset_created_at FROM pmt_doc_assets WHERE asset_id = $1', [id]);
+  const key = docAssetStorageKey({ id, filename: rows[0].asset_filename, createdAt: rows[0].asset_created_at });
+  assert.match(key, /^\d{2}\/\d{2}\//);
+  return path.join(process.env.DOC_ASSET_DIR || 'data/doc-assets', key);
+}
 
 async function call(jar: Jar, method: string, body?: unknown, projectId = fx.projectId) {
   return fetch(`${BASE_URL}/api/projects/${projectId}/docs`, {
@@ -57,6 +65,24 @@ test('invalid document input gives actionable validation', async () => {
   assert.equal((await call(admin, 'POST', { title: 'Test', version: 123 })).status, 422);
 });
 
+test('legacy flat assets remain readable through their existing authenticated URLs', async () => {
+  const id = randomUUID();
+  const root = process.env.DOC_ASSET_DIR || 'data/doc-assets';
+  const legacyPath = path.join(root, id);
+  const content = 'Existing attachment';
+  await mkdir(root, { recursive: true });
+  await writeFile(legacyPath, content, { flag: 'wx' });
+  try {
+    await fx.client.query('INSERT INTO pmt_doc_assets (asset_id, asset_project_id, asset_filename, asset_mime, asset_bytes) VALUES ($1, $2, $3, $4, $5)', [id, fx.projectId, 'legacy.txt', 'application/octet-stream', Buffer.byteLength(content)]);
+    const response = await fetch(`${BASE_URL}/api/doc-assets/${id}`, { headers: { cookie: admin.header } });
+    assert.equal(response.status, 200);
+    assert.equal(await response.text(), content);
+  } finally {
+    await fx.client.query('DELETE FROM pmt_doc_assets WHERE asset_id = $1', [id]);
+    await unlink(legacyPath);
+  }
+});
+
 test('attachments accept exactly 50 MB and reject one byte over the limit', async () => {
   const bytes = new Uint8Array(50 * 1024 * 1024);
   bytes[0] = 23; bytes[bytes.length - 1] = 42;
@@ -69,6 +95,7 @@ test('attachments accept exactly 50 MB and reject one byte over the limit', asyn
   const id = asset.url.split('/').at(-1);
   try {
     assert.equal(asset.bytes, bytes.length);
+    assert.deepEqual(new Uint8Array(await readFile(await assetFilePath(id))), bytes);
     const download = await fetch(`${BASE_URL}${asset.url}`, { headers: { cookie: admin.header } });
     assert.equal(download.status, 200);
     assert.deepEqual(new Uint8Array(await download.arrayBuffer()), bytes);
@@ -77,8 +104,8 @@ test('attachments accept exactly 50 MB and reject one byte over the limit', asyn
     assert.equal(rejected.status, 422);
     assert.match((await rejected.json()).message, /50 MB/);
   } finally {
+    await unlink(await assetFilePath(id));
     await fx.client.query('DELETE FROM pmt_doc_assets WHERE asset_id = $1', [id]);
-    await unlink(path.join(process.env.DOC_ASSET_DIR || 'data/doc-assets', id));
   }
 });
 
@@ -119,7 +146,7 @@ test('file attachments preserve bytes, force download, and enforce project acces
     finally { await fx.client.query("INSERT INTO pmt_project_members(member_project_id, member_user_id, member_role) VALUES ($1,$2,'viewer')", [fx.projectId, fx.viewer.id]); }
   } finally {
     await fx.client.query("UPDATE pmt_project_members SET member_role='viewer' WHERE member_project_id=$1 AND member_user_id=$2", [fx.projectId, fx.viewer.id]);
-    if (assetId && /^[a-f0-9-]{36}$/.test(assetId)) await unlink(path.resolve(process.env.DOC_ASSET_DIR || 'data/doc-assets', assetId));
+    if (assetId && /^[a-f0-9-]{36}$/.test(assetId)) await unlink(await assetFilePath(assetId));
   }
 });
 

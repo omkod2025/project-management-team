@@ -118,6 +118,8 @@ Tables are in because the source uses them — the module matrix on the first sc
 
 `pmt_doc_assets` records the project, the uploader, the time, the byte size, the MIME type and the original filename.
 
+New uploads use `YY/MM/<asset-id>-<safe-original-filename>` beneath the asset directory. Year and month come from the saved upload timestamp in `Asia/Bangkok`; the asset ID prevents filename collisions. Download names and authenticated URLs remain unchanged. Reads also support the older flat `<asset-id>` layout, so existing files do not require a move.
+
 > **Recorded against the recommendation, 2026-09-08.** External links only was recommended — the source document's diagrams and UI already live in Figma and Canva as links, and a file store means this system holds state in two places that must be backed up at the same instant or restore to a document pointing at an image that is not there. The owner chose upload to a server volume. The registry is what makes that survivable.
 
 Without a registry, `/uploads/<uuid>.png` is a URL: anyone who can guess it can fetch it. This product's central access rule is that a non-member must not learn a project **exists** — a direct URL returns 404, not 403 ([`05-permissions.md`](05-permissions.md) §2). A customer's security-system diagram reachable by URL alone is the quietest possible breach of that. The registry is what lets the file be served through a route that authorises first.
@@ -126,15 +128,15 @@ It is also the only thing that makes *deletion* answerable. Files nobody can att
 
 **Accepted:** `image/png`, `image/jpeg`, `image/webp`, `image/gif`. Maximum **50 MB** (52,428,800 bytes) per file.
 
-**Extension requested 2026-09-08:** The editor also supports general file attachments, up to **50 MB** per file. Attachments are stored in the same authenticated asset registry as `application/octet-stream` and always served with `Content-Disposition: attachment` (never inline). Their filename and size appear in an ordinary Markdown download link. This extends image uploads without changing Markdown storage, project access, or the retain-on-reference-removal rule.
+**Extension requested 2026-09-08:** The editor also supports general file attachments, up to **50 MB** per file. Attachments are stored in the same authenticated asset registry as `application/octet-stream` and always served with `Content-Disposition: attachment` (never inline). Their filename and size appear in an ordinary Markdown download link. This extends image uploads without changing Markdown storage, project access, or the Done-editing deletion rule.
 
 **SVG support (updated 2026-09-09).** SVG uploads are validated as XML and displayed through image elements, never inserted inline into the application DOM. CSS, HTML labels (`foreignObject`), animation, editor metadata and embedded images/fonts are accepted. Missing root namespaces are normalized; ordinary public/system SVG DTD declarations are removed without fetching them. Malformed XML, custom entity definitions, more than 20,000 nodes or nesting beyond 64 levels are refused. The authenticated asset response MUST carry the sandbox CSP defined in `src/lib/doc-svg.ts`, even on direct navigation: scripts, external resources, frames, forms and base URL changes are disabled; inline styles and data images/fonts are allowed. Validation is not sanitization: accepted SVG must never be served without that policy. Browser image mode determines rendering support; externally hosted resources and script-driven drawings do not execute.
 
 An upload field that accepts anything becomes the company's free file store within a quarter, which is what the size and type limits are for.
 
-**D-57. Removing a reference does not delete the file.**
+**D-57. Removed files are deleted only after Done editing (updated 2026-09-09).**
 
-The same image may be pasted on several pages; deleting on save destroys something another page is still showing. Unreferenced assets are collected by a later sweep, never at write time.
+Autosave records removal candidates and retains the file for Undo. Done editing submits a final save even when autosave already says Saved. After that save commits, removed files are deleted from local storage only if no current page (including archived pages), cover, template, task image value or another page's unfinished removal still references them. Removing one of several references keeps the file. Both dated and legacy flat storage layouts are supported. Revision history alone does not retain deleted files; restoring a deleted link requires re-uploading the file. A failed/conflicting save never deletes files. Durable deletion work survives filesystem errors and retries on the next Done editing, with a visible pending-cleanup message.
 
 ---
 
@@ -277,7 +279,7 @@ Against a database, in `db/tests.sql`:
 - depth is capped at 3 and the constraint is what stops the fourth level, not the application.
 - a page cannot become its own ancestor.
 - archiving a doc archives nothing else, and archived rows stay readable.
-- `pmt_doc_assets` rows survive the removal of every reference to them (`D-57`).
+- removed assets survive autosave and are deleted only after Done editing and a last-reference check (`D-57`).
 
 End to end, in `tests/e2e/docs.test.ts`:
 

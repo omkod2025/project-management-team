@@ -8,6 +8,7 @@ import { docAssets, projects } from '@/db/schema';
 import { authorize, requireProjectRole } from '@/lib/permissions';
 import { domainError } from '@/lib/errors';
 import { validateDocSvg } from '@/lib/doc-svg';
+import { docAssetStorageKey } from '@/lib/doc-asset-path';
 
 // Runtime-mounted mutable assets must not be bundled into the server output.
 const directory = () => path.resolve(/* turbopackIgnore: true */ process.env.DOC_ASSET_DIR || 'data/doc-assets');
@@ -37,11 +38,14 @@ export async function uploadDocAsset(userId: string, projectId: string, file: Fi
   }
   const filename = Array.from(file.name.replace(/[\u0000-\u001f\u007f/\\]/g, '_')).slice(0, 200).join('') || 'attachment';
   const id = crypto.randomUUID();
-  await mkdir(directory(), { recursive: true });
+  const createdAt = new Date();
+  const storageKey = docAssetStorageKey({ id, filename, createdAt });
+  const destination = path.join(/* turbopackIgnore: true */ directory(), storageKey);
+  await mkdir(/* turbopackIgnore: true */ path.dirname(destination), { recursive: true });
   // Files are immutable. A failed registry insert leaves an orphan for a later
   // sweep; it never exposes an unregistered URL or deletes another reference.
-  await writeFile(/* turbopackIgnore: true */ path.join(/* turbopackIgnore: true */ directory(), id), data, { flag: 'wx' });
-  await db.insert(docAssets).values({ id, projectId, uploaderId: userId, filename, mime, bytes: data.length });
+  await writeFile(/* turbopackIgnore: true */ destination, data, { flag: 'wx' });
+  await db.insert(docAssets).values({ id, projectId, uploaderId: userId, filename, mime, bytes: data.length, createdAt });
   return { url: `/api/doc-assets/${id}`, filename, bytes: data.length };
 }
 
@@ -50,6 +54,16 @@ export async function readDocAsset(userId: string, id: string) {
   const [asset] = await db.select().from(docAssets).where(eq(docAssets.id, id));
   if (!asset) throw domainError('E_NOT_FOUND', 'No such file.');
   await projectAccess(userId, asset.projectId);
-  try { return { data: await readFile(/* turbopackIgnore: true */ path.join(/* turbopackIgnore: true */ directory(), id)), mime: asset.mime, filename: asset.filename }; }
+  try {
+    let data: Buffer;
+    try {
+      data = await readFile(/* turbopackIgnore: true */ path.join(/* turbopackIgnore: true */ directory(), docAssetStorageKey(asset)));
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+      // Existing assets predate year/month storage and keep their original URLs.
+      data = await readFile(/* turbopackIgnore: true */ path.join(/* turbopackIgnore: true */ directory(), id));
+    }
+    return { data, mime: asset.mime, filename: asset.filename };
+  }
   catch { throw domainError('E_NOT_FOUND', 'File is unavailable.'); }
 }

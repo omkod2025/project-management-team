@@ -243,21 +243,32 @@
 .doc-reading { display: grid; grid-template-columns: minmax(0, 1fr); padding: 0; overflow: hidden; min-height: 0; }
 .doc-reading:has(> .doc-page-outline) { grid-template-columns: 190px minmax(0, 1fr); }
 .doc-reading-body { min-width: 0; min-height: 0; overflow: auto; padding: 24px 64px 80px; }
+/* Reserve a fixed row inside the Doc so Done never scrolls or covers text. */
+.doc-reading:has(> .doc-edit-actions) { grid-template-rows: auto minmax(0, 1fr); }
+.doc-edit-actions { grid-column: 2; grid-row: 1; display: flex; justify-content: flex-end; align-items: center; min-height: 58px; padding: 10px 64px 10px 24px; border-bottom: 1px solid var(--cu-line); background: #fff; }
+.doc-reading:has(> .doc-edit-actions) > .doc-page-outline { grid-column: 1; grid-row: 1 / span 2; }
+.doc-reading:has(> .doc-edit-actions) > .doc-reading-body { grid-column: 2; grid-row: 2; }
+.docs-book .doc-done-button { min-height: 38px; }
 @media (min-width: 751px) and (max-width: 1100px) {
   .doc-reading:has(> .doc-page-outline) { grid-template-columns: 160px minmax(0, 1fr); }
   .doc-reading-body { padding: 24px 48px 60px 24px; }
+  .doc-edit-actions { padding-right: 48px; }
 }
 @media (max-width: 750px) {
   .doc-workspace { display: flex; flex-direction: column; overflow: hidden; }
   .doc-sidebar-toggle, .doc-sidebar { flex-shrink: 0; }
   .doc-reading { flex: 1; }
   .doc-reading:has(> .doc-page-outline) { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .doc-reading:has(> .doc-edit-actions) { grid-template-rows: auto auto minmax(0, 1fr); }
+  .doc-edit-actions { grid-column: 1; grid-row: 1; padding: 10px 48px 10px 32px; }
+  .doc-reading:has(> .doc-edit-actions) > .doc-page-outline { grid-column: 1; grid-row: 2; }
+  .doc-reading:has(> .doc-edit-actions) > .doc-reading-body { grid-column: 1; grid-row: 3; }
   .doc-page-outline { max-height: 160px; padding: 12px 48px 12px 32px; border-right: 0; border-bottom: 1px solid var(--cu-line); }
   .doc-reading-body { padding: 20px 48px 60px 32px; }
   .doc-reading :is(.doc-prose h1, .doc-prose h2, .doc-section > h2) { scroll-margin-top: 20px; }
   .doc-reading .page-editor :is(h1, h2) { scroll-margin-top: 100px; }
 }
 @media print {
-  .doc-page-outline { display: none; }
+  .doc-page-outline, .doc-edit-actions { display: none; }
   .doc-reading-body { display: block; overflow: visible; padding: 0; }
 }

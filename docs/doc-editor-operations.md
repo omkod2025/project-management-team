@@ -12,6 +12,11 @@ continuous saves by the same editor with a 30-minute inactivity threshold.
 
 Image uploads accept PNG, JPEG, WebP, GIF and SVG up to 50 MB per file. SVG supports CSS, HTML labels, animation and embedded assets; its sandbox blocks scripts and external resource loading. Image URLs require project
 membership. Files live in `data/doc-assets` or the absolute `DOC_ASSET_DIR` path.
+New uploads are stored as `YY/MM/<asset-id>-<safe-original-filename>` using the
+upload timestamp in `Asia/Bangkok`, for example `26/09/<asset-id>-report.pdf`.
+The ID prevents collisions; filesystem names are sanitized and bounded while
+downloads retain their original filename. Existing flat `<asset-id>` files remain
+readable without moving them. Keep both layouts when backing up the asset volume.
 GitHub release deployments read the host directory from the required `ASSET_DIR`
 GitHub Actions secret (repository or `production` environment), for example
 `/mnt/fieldbook-files`. Production Compose uses `/mnt/fieldbook-files` by default.
@@ -21,8 +26,14 @@ the release workflow sets ownership automatically. When an existing container
 does not yet use this mount, the workflow stops it, backs up its assets under
 `$DEPLOY_PATH/doc-assets-backup.*`, and copies them into the mount without
 overwriting existing files. Back up the configured host directory together with PostgreSQL.
-Removing an image from a page
-does not remove its stored file. Orphan collection is not part of the editor.
+Removing an image or attachment records a pending removal during autosave.
+The local file is deleted only after **Done editing** saves successfully and no
+other page, cover, template, task image or unfinished edit still needs it.
+Files remain available for Undo before Done. Old revision links cannot recover a
+physically deleted file. Apply migration `015_doc_asset_deletions.sql` for the
+pending-removal and durable deletion queues. A filesystem failure keeps deletion
+queued and shows a message; click Done editing again to retry. This also handles
+files uploaded and removed within the same editor session before autosave.
 
 Validation commands:
 
@@ -36,7 +47,7 @@ revision inspection/restore. The follow-up below extends the original Markdown
 editor contract; full-content search is still separate work.
 # File attachments
 
-Apply `db/migrations/009_doc_attachments.sql` after migration 008, and `014_doc_asset_50mb.sql` for the current size limit. The Attachment command (search `/file` or `/attachment`) uploads one file, maximum 50 MB (52,428,800 bytes), to the existing document asset volume. Admins and Members can upload; project members can download. Files are forced downloads, not rendered inline, with the original filename supplied in the download header. Files are not malware-scanned: only open attachments from trusted sources. Removing a download link does not remove the stored file.
+Apply `db/migrations/009_doc_attachments.sql` after migration 008, and `014_doc_asset_50mb.sql` for the current size limit. The Attachment command (search `/file` or `/attachment`) uploads one file, maximum 50 MB (52,428,800 bytes), to the existing document asset volume. Admins and Members can upload; project members can download. Files are forced downloads, not rendered inline, with the original filename supplied in the download header. Files are not malware-scanned: only open attachments from trusted sources. Removing a download link stages its file for cleanup after Done editing, subject to the shared-reference check.
 
 ## Rich Docs follow-up
 

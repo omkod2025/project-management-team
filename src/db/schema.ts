@@ -136,6 +136,19 @@ export const docAssets = pgTable('pmt_doc_assets', {
   createdAt: timestamp('asset_created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const docAssetRemovals = pgTable('pmt_doc_asset_removals', {
+  pageId: uuid('removal_page_id').notNull().references(() => docPages.id, { onDelete: 'cascade' }),
+  assetId: uuid('removal_asset_id').notNull().references(() => docAssets.id, { onDelete: 'cascade' }),
+}, t => [primaryKey({ columns: [t.pageId, t.assetId] })]);
+
+export const docAssetDeletions = pgTable('pmt_doc_asset_deletions', {
+  id: uuid('deletion_asset_id').primaryKey(),
+  projectId: uuid('deletion_project_id').notNull(),
+  filename: text('deletion_filename').notNull(),
+  createdAt: timestamp('deletion_asset_created_at', { withTimezone: true }).notNull(),
+  queuedAt: timestamp('deletion_queued_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const fieldDefinitions = pgTable('pmt_field_definitions', {
   id: uuid('field_id').primaryKey().defaultRandom(),
   projectId: uuid('field_project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),

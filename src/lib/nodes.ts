@@ -1,5 +1,6 @@
 import 'server-only';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
+import { lockAssetReferences, type AssetTransaction } from '@/lib/doc-asset-cleanup';
 import { db, rawQuery } from '@/db/client';
 import { docAssets, fieldDefinitions, fieldOptions, nodes, projects } from '@/db/schema';
 import type { CustomValues, LedgerRow } from '@/db/schema';
@@ -45,7 +46,21 @@ function todayInBangkok(): string {
 }
 
 export async function updateNode(nodeId: string, patch: NodePatch): Promise<LedgerRow> {
-  const [node] = await db.select().from(nodes).where(eq(nodes.id, nodeId)).limit(1);
+  const [node] = await db.select({ projectId: nodes.projectId }).from(nodes).where(eq(nodes.id, nodeId));
+  if (!node) throw domainError('E_NOT_FOUND', 'No such task.');
+  const result = await db.transaction(async tx => {
+    await lockAssetReferences(tx, node.projectId);
+    return updateNodeWithAssets(tx, nodeId, patch);
+  });
+  return result;
+}
+async function updateNodeWithAssets(tx: AssetTransaction, nodeId: string, patch: NodePatch): Promise<LedgerRow> {
+  const query = async <T,>(text: string, values: unknown[] = []): Promise<T[]> => {
+    const chunks = text.split(/(\$\d+)/g).map(chunk => /^\$\d+$/.test(chunk)
+      ? sql`${values[Number(chunk.slice(1)) - 1]}` : sql.raw(chunk));
+    return (await tx.execute(sql.join(chunks, sql.raw('')))).rows as T[];
+  };
+  const [node] = await tx.select().from(nodes).where(eq(nodes.id, nodeId)).limit(1);
   if (!node) throw domainError('E_NOT_FOUND', 'No such task.');
 
   const current: NodeDates = {
@@ -70,7 +85,7 @@ export async function updateNode(nodeId: string, patch: NodePatch): Promise<Ledg
   /* --------------------------------------------------- custom values */
   if (patch.values) {
     const [defs, opts, project] = await Promise.all([
-      db
+      tx
         .select({
           id: fieldDefinitions.id,
           kind: fieldDefinitions.kind,
@@ -79,7 +94,7 @@ export async function updateNode(nodeId: string, patch: NodePatch): Promise<Ledg
         })
         .from(fieldDefinitions)
         .where(eq(fieldDefinitions.projectId, node.projectId)),
-      db
+      tx
         .select({
           id: fieldOptions.id,
           fieldId: fieldOptions.fieldId,
@@ -87,7 +102,7 @@ export async function updateNode(nodeId: string, patch: NodePatch): Promise<Ledg
           archivedAt: fieldOptions.archivedAt,
         })
         .from(fieldOptions),
-      db
+      tx
         .select({ statusFieldId: projects.statusFieldId })
         .from(projects)
         .where(eq(projects.id, node.projectId))
@@ -122,7 +137,7 @@ export async function updateNode(nodeId: string, patch: NodePatch): Promise<Ledg
       const value = coerceValue(spec, raw, optionSpecs);
       if (spec.kind === 'image' && Array.isArray(value)) {
         for (const url of value) {
-          const [asset] = await db.select().from(docAssets).where(eq(docAssets.id, url.split('/').pop()!)).limit(1);
+          const [asset] = await tx.select().from(docAssets).where(eq(docAssets.id, url.split('/').pop()!)).limit(1);
           if (!asset || asset.projectId !== node.projectId) {
             throw domainError('E_UNKNOWN_FIELD', 'Choose an image uploaded to this project.');
           }
@@ -177,13 +192,13 @@ export async function updateNode(nodeId: string, patch: NodePatch): Promise<Ledg
   if (sets.length) {
     sets.push('node_updated_at = now()');
     params.push(nodeId);
-    await rawQuery(
+    await query(
       `UPDATE pmt_nodes SET ${sets.join(', ')} WHERE node_id = $${params.length}`,
       params,
     );
 
     // Snapping can invert a range; collapse it to one working day (D-16).
-    await rawQuery(
+    await query(
       `UPDATE pmt_nodes SET node_actual_end = node_actual_start
         WHERE node_id = $1
           AND node_actual_start IS NOT NULL AND node_actual_end IS NOT NULL
@@ -192,7 +207,7 @@ export async function updateNode(nodeId: string, patch: NodePatch): Promise<Ledg
     );
   }
 
-  const [row] = await rawQuery<LedgerRow>(
+  const [row] = await query<LedgerRow>(
     `SELECT * FROM pmf_project_ledger($1) WHERE led_node_id = $2`,
     [node.projectId, nodeId],
   );

@@ -12,8 +12,9 @@ import EditorToolbar from './editor-toolbar';
 import { downloadDocFile, isDocAssetLink } from '@/lib/doc-download';
 import { decodeRich, encodeRich, RICH_PREFIX, safeEmbed } from '@/lib/doc-rich-content';
 
-export default function RichEditor({ value, label, onChange, projectId, onProblem, onUploadChange, autoFocus = false }: {
+export default function RichEditor({ value, label, onChange, projectId, onProblem, onUploadChange, onAssetUploaded, autoFocus = false }: {
   value: string; label: string; onChange: (value: string) => void; projectId: string; onProblem: (message: string) => void; onUploadChange: (delta: number) => void; autoFocus?: boolean;
+  onAssetUploaded?: (url: string) => void;
 }) {
   const [toolbarPosition, setToolbarPosition] = useState<'floating' | 'top'>('floating');
   const [inserting, setInserting] = useState(false);
@@ -150,6 +151,7 @@ export default function RichEditor({ value, label, onChange, projectId, onProble
       const res = await fetch(`/api/projects/${projectId}/doc-assets`, { method: 'POST', body: data });
       const body = await res.json();
       if (!res.ok) { onProblem(body.message ?? 'Upload failed. Try again.'); return; }
+      onAssetUploaded?.(body.url);
       if (attachment) {
         const size = body.bytes < 1024 * 1024 ? `${Math.ceil(body.bytes / 1024)} KB` : `${(body.bytes / (1024 * 1024)).toFixed(1)} MB`;
         editor.chain().focus().insertContent([{ type: 'text', text: `📎 ${body.filename} (${size})`, marks: [{ type: 'link', attrs: { href: body.url } }] }, { type: 'text', text: ' ' }]).run();

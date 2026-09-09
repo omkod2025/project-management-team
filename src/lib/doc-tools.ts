@@ -15,6 +15,7 @@ import { requirePage } from "@/lib/docs";
 import { authorize } from "@/lib/permissions";
 import { domainError } from "@/lib/errors";
 import { parseNewDoc, parsePageContent } from "@/lib/doc-rules";
+import { lockAssetReferences, stageRemovedAssets } from '@/lib/doc-asset-cleanup';
 
 export async function getDocTools(userId: string, id: string) {
   const { doc } = await requirePage(userId, id);
@@ -157,7 +158,8 @@ export async function mutateDocTools(
     if (!rows.length) throw domainError("E_NOT_FOUND", "No such comment.");
     return { ok: true };
   }
-  return db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
+    await lockAssetReferences(tx, doc.projectId);
     // Use the same document → page lock order for every structural action.
     await tx.select().from(docs).where(eq(docs.id, doc.id)).for("update");
     const [current] = await tx
@@ -449,6 +451,7 @@ export async function mutateDocTools(
         .update(docPages)
         .set({ settings, updatedAt: now, updatedBy: userId })
         .where(eq(docPages.id, id));
+      await stageRemovedAssets(tx, doc.projectId, id, current.settings, settings);
       return { updatedAt: now.toISOString() };
     }
     if (action === "applyTemplate") {
@@ -491,4 +494,5 @@ export async function mutateDocTools(
     }
     throw domainError("E_INVALID_DOC", "Unknown page action.");
   });
+  return result;
 }

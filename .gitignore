@@ -17,5 +17,7 @@ dist/
 !/db/migrations/011_doc_comment_threads.sql
 !/db/migrations/013_image_columns.sql
 !/db/migrations/014_doc_asset_50mb.sql
-/data/doc-assets/
-/data/doc-editor-*.png
+!/db/migrations/015_doc_asset_deletions.sql
+/data/
+/data/*
+/db

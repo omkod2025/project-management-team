@@ -710,6 +710,21 @@ CREATE TABLE pmt_doc_assets (
   asset_created_at timestamptz NOT NULL DEFAULT now()
 );
 
+CREATE TABLE pmt_doc_asset_removals (
+  removal_page_id uuid NOT NULL REFERENCES pmt_doc_pages(doc_page_id) ON DELETE CASCADE,
+  removal_asset_id uuid NOT NULL REFERENCES pmt_doc_assets(asset_id) ON DELETE CASCADE,
+  PRIMARY KEY (removal_page_id, removal_asset_id)
+);
+
+CREATE TABLE pmt_doc_asset_deletions (
+  deletion_asset_id uuid PRIMARY KEY,
+  deletion_project_id uuid NOT NULL,
+  deletion_filename text NOT NULL,
+  deletion_asset_created_at timestamptz NOT NULL,
+  deletion_queued_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX pmt_doc_asset_deletions_project_idx ON pmt_doc_asset_deletions(deletion_project_id);
+
 ALTER TABLE pmt_doc_pages ADD COLUMN doc_page_settings jsonb NOT NULL DEFAULT '{}';
 ALTER TABLE pmt_doc_pages ADD COLUMN doc_page_protected boolean NOT NULL DEFAULT false;
 CREATE TABLE pmt_doc_comments (

@@ -4,6 +4,7 @@ import { db } from '@/db/client';
 import { docs, docPages, docRevisions, nodes, projects, users, projectMembers } from '@/db/schema';
 import { authorize, requireProjectRole } from '@/lib/permissions';
 import { domainError } from '@/lib/errors';
+import { deleteQueuedAssets, lockAssetReferences, stageRemovedAssets, stageUploadedAssets, finalizeRemovedAssets, validateAddedAssets } from '@/lib/doc-asset-cleanup';
 import { parseNewDoc, pageSections, parsePageContent, nextPageDepth, extendRevision, type DocPage, type DocSummary, type PageTemplate } from '@/lib/doc-rules';
 
 async function visibleProject(userId: string, projectId: string) {
@@ -83,6 +84,7 @@ export async function restoreDocPage(userId:string,docId:string,input:unknown){
   const pageId=input&&typeof input==='object'?(input as {pageId?:unknown}).pageId:undefined;
   if(typeof pageId!=='string')throw domainError('E_INVALID_DOC','Choose an archived page.');validId(pageId);
   return db.transaction(async tx=>{
+    await lockAssetReferences(tx, doc.projectId);
     await tx.select().from(docs).where(eq(docs.id,docId)).for('update');
     const [page]=await tx.select().from(docPages).where(and(eq(docPages.id,pageId),eq(docPages.docId,docId),isNotNull(docPages.archivedAt)));
     if(!page)throw domainError('E_NOT_FOUND','No such archived page.');
@@ -112,6 +114,7 @@ export async function createDocPage(userId: string, docId: string, input: unknow
   const parentId = body.parentId || null;
   if (parentId !== null) { if (typeof parentId !== 'string') throw domainError('E_INVALID_DOC', 'Invalid parent page.'); validId(parentId); }
   return db.transaction(async (tx) => {
+    await lockAssetReferences(tx, doc.projectId);
     // Serialize structural writes in this document before choosing the new position.
     await tx.select().from(docs).where(eq(docs.id, docId)).for('update');
     let parentDepth: number | null = null;
@@ -121,6 +124,7 @@ export async function createDocPage(userId: string, docId: string, input: unknow
       parentDepth = parent.depth;
     }
     const content = body.content === undefined ? Object.fromEntries(pageSections(template as PageTemplate).map(([key]) => [key, ''])) : parsePageContent(body.content, template as PageTemplate);
+    await validateAddedAssets(tx, doc.projectId, null, content);
     const id = crypto.randomUUID();
     const [page] = await tx.insert(docPages).values({ id, docId, parentId: parentId as string | null,
       depth: nextPageDepth(parentDepth), title: parsed.title, slug: `page-${id}`, template,
@@ -147,7 +151,8 @@ export async function saveDocPage(userId: string, pageId: string, input: unknown
   const title = body.title === undefined ? undefined : parseNewDoc({ title: body.title }).title;
   if (title !== undefined && page.nodeId) throw domainError('E_INVALID_DOC', 'This page uses its linked module or task name. Rename it in the project list.');
   if (typeof body.updatedAt !== 'string') throw domainError('E_INVALID_DOC', 'Reload this page before editing.');
-  return db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
+    await lockAssetReferences(tx, doc.projectId);
     await tx.select().from(docs).where(eq(docs.id, doc.id)).for('update');
     const [current] = await tx.select().from(docPages).where(eq(docPages.id, pageId)).for('update');
     if (!current || current.archivedAt) throw domainError('E_NOT_FOUND', 'No such page.');
@@ -158,6 +163,7 @@ export async function saveDocPage(userId: string, pageId: string, input: unknown
         { updatedAt: current.updatedAt.toISOString(), updatedBy: editor?.fullName ?? 'Another editor' });
     }
     const now = new Date(Math.max(Date.now(), current.updatedAt.getTime() + 1));
+    await validateAddedAssets(tx, doc.projectId, current.content, content);
     const [last] = await tx.select().from(docRevisions).where(eq(docRevisions.pageId, pageId)).orderBy(desc(docRevisions.updatedAt)).limit(1);
     if (last && body.forceRevision !== true && extendRevision(last.editorId, userId, last.updatedAt.getTime(), now.getTime())) {
       await tx.update(docRevisions).set({ content, updatedAt: now }).where(eq(docRevisions.id, last.id));
@@ -166,8 +172,13 @@ export async function saveDocPage(userId: string, pageId: string, input: unknown
     }
     await tx.update(docPages).set({ content, ...(title === undefined ? {} : { title }), updatedBy: userId, updatedAt: now }).where(eq(docPages.id, pageId));
     await tx.update(docs).set({ updatedAt: now }).where(eq(docs.id, doc.id));
+    await stageRemovedAssets(tx, doc.projectId, pageId, current.content, content);
+    await stageUploadedAssets(tx, doc.projectId, pageId, userId, body.uploadedAssets);
+    if (body.finalizeAssets === true) await finalizeRemovedAssets(tx, doc.projectId, pageId);
     return { updatedAt: now.toISOString(), title: title ?? current.title };
   });
+  const assetCleanupPending = body.finalizeAssets === true ? await deleteQueuedAssets(doc.projectId) : 0;
+  return { ...result, assetCleanupPending };
 }
 
 export async function pageHistory(userId: string, pageId: string) {
