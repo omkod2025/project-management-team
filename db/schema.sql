@@ -53,7 +53,8 @@ CREATE TYPE pm_field_kind AS ENUM (
     'select',
     'multi_select',
     'checkbox',
-    'people'
+    'people',
+    'image'
 );
 
 -- Lifecycle meaning of a select option. Only the project's designated
@@ -705,7 +706,7 @@ CREATE TABLE pmt_doc_assets (
   asset_uploader_id uuid REFERENCES pmt_users(user_id) ON DELETE SET NULL,
   asset_filename text NOT NULL,
   asset_mime text NOT NULL CHECK (asset_mime IN ('image/png','image/jpeg','image/webp','image/gif','image/svg+xml','application/octet-stream')),
-  asset_bytes integer NOT NULL CHECK (asset_bytes BETWEEN 1 AND 5242880),
+  asset_bytes integer NOT NULL CHECK (asset_bytes BETWEEN 1 AND 52428800),
   asset_created_at timestamptz NOT NULL DEFAULT now()
 );
 

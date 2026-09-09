@@ -120,6 +120,7 @@ export default function ReportView({ projectName, slug, rows, fields, people, st
         const m = raw as { amount: number; currency: string };
         return `${m.amount.toLocaleString('en-US')} ${m.currency}`;
       }
+      case 'image': return Array.isArray(raw) ? `${raw.length} image(s)` : '';
       case 'checkbox': return raw === true ? 'Yes' : '';
       default: return String(raw);
     }

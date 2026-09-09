@@ -10,7 +10,7 @@ read the server-rendered page. Content autosaves after one second of inactivity.
 the local draft remains available through **Copy Markdown**. History groups
 continuous saves by the same editor with a 30-minute inactivity threshold.
 
-Image uploads accept PNG, JPEG, WebP, GIF and static SVG up to 5 MB. SVG class stylesheets for fonts, colors and local fragment references are supported; scripts, embedded HTML, CSS imports, animations and external resources remain rejected. Image URLs require project
+Image uploads accept PNG, JPEG, WebP, GIF and SVG up to 50 MB per file. SVG supports CSS, HTML labels, animation and embedded assets; its sandbox blocks scripts and external resource loading. Image URLs require project
 membership. Files live in `data/doc-assets` or the absolute `DOC_ASSET_DIR` path.
 The production Compose file mounts a named volume at `/app/data/doc-assets`.
 Back up this volume together with PostgreSQL. Do not run Compose with `down -v`
@@ -29,7 +29,7 @@ revision inspection/restore. The follow-up below extends the original Markdown
 editor contract; full-content search is still separate work.
 # File attachments
 
-Apply `db/migrations/009_doc_attachments.sql` after migration 008. The Attachment command (search `/file` or `/attachment`) uploads one file, maximum 5 MB, to the existing document asset volume. Admins and Members can upload; project members can download. Files are forced downloads, not rendered inline, with the original filename supplied in the download header. Files are not malware-scanned: only open attachments from trusted sources. Removing a download link does not remove the stored file.
+Apply `db/migrations/009_doc_attachments.sql` after migration 008, and `014_doc_asset_50mb.sql` for the current size limit. The Attachment command (search `/file` or `/attachment`) uploads one file, maximum 50 MB (52,428,800 bytes), to the existing document asset volume. Admins and Members can upload; project members can download. Files are forced downloads, not rendered inline, with the original filename supplied in the download header. Files are not malware-scanned: only open attachments from trusted sources. Removing a download link does not remove the stored file.
 
 ## Rich Docs follow-up
 
@@ -71,6 +71,8 @@ is still required for documents, comments and assets. Real-time collaborative
 editing is not implemented; concurrent edits use optimistic conflict detection.
 # SVG image uploads
 
-Migration `012_doc_svg.sql` adds `image/svg+xml` to the asset registry. It has been applied directly to the development database. The editor and cover picker accept static SVG up to 5 MB. Server-side XML validation rejects scripts, event handlers, embedded HTML, animations, DTDs and external references. SVG responses use a sandboxed CSP; project membership checks remain unchanged. Complex SVG exports using embedded HTML must first be exported as plain SVG or PNG.
+Migration `012_doc_svg.sql` adds `image/svg+xml` to the asset registry. The editor and cover picker accept SVG up to 50 MB after migration `014_doc_asset_50mb.sql`. Server-side XML validation rejects malformed documents, custom entity definitions and excessive complexity. SVG responses use a sandboxed CSP; project membership checks remain unchanged. See `docs/spec/10-docs.md` for the rendering contract.
+
+The 50 MB limit applies to uploaded assets, including attachments, covers and task image columns. Document import/conversion retains its separate 5 MB input and DOCX expansion budgets. A reverse proxy in front of the app must allow at least 51 MB request bodies to accommodate multipart form overhead.
 
 The Docs sidebar now exposes a trash icon next to each page for project admins. Deletion uses the existing recoverable archive action, requires confirmation, blocks during editing, respects protection and stale-save checks, and requires subpages to be archived first. Restore remains available under Archived pages.

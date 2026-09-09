@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { LedgerRow, MoneyValue } from '@/db/schema';
 import type { FieldDef, Person } from '@/lib/ledger';
 import { MAX_DEPTH } from '@/lib/constants';
+import { ImageField } from './image-field';
 import DetailPanel from './detail-panel';
 import ProjectTitle from './project-title';
 import ConfirmArchive from './confirm-archive';
@@ -514,7 +515,7 @@ export default function ListView({
 
         case 'Enter': {
           const col = columns[focus.col];
-          if (canEdit && col && col.kind !== 'computed' && col.kind !== 'closed'
+          if ((canEdit || col?.field?.kind === 'long_text') && col && col.kind !== 'computed' && col.kind !== 'closed'
               && col.kind !== 'misclosure' && col.kind !== 'gutter') {
             e.preventDefault();
             setEditing(true);
@@ -955,7 +956,7 @@ function Cell(p: CellProps) {
       ].filter(Boolean).join(' ')}
       onClick={() => {
         p.onFocus();
-        if (!editable || p.editing || p.renaming) return;
+        if ((!editable && c.field?.kind !== 'long_text') || p.editing || p.renaming) return;
         if (c.kind === 'name') {
           p.onCancel();
           p.onStartRename();
@@ -1181,6 +1182,10 @@ function FieldCell(p: CellProps & { field: FieldDef }) {
   const { row: r, field: f } = p;
   const raw = r.led_custom_values?.[f.id] ?? null;
 
+  if (f.kind === 'long_text') return <LongTextCell {...p} value={raw == null ? '' : String(raw)} />;
+
+  if (f.kind === 'image') return <ImageField nodeId={r.led_node_id} fieldId={f.id} label={f.name} value={raw} editing={p.editing} canEdit={p.canEdit} onCommit={(value) => p.onCommit({ values: { [f.id]: value } })} onCancel={p.onCancel} />;
+
   if (p.editing) return <FieldEditor {...p} field={f} value={raw} />;
 
   switch (f.kind) {
@@ -1235,6 +1240,37 @@ function FieldCell(p: CellProps & { field: FieldDef }) {
       return <span lang={isThai(s) ? 'th' : 'en'}>{s}</span>;
     }
   }
+}
+
+function LongTextCell(p: CellProps & { field: FieldDef; value: string }) {
+  return <>
+    <button type="button" className="long-text-preview" aria-label={`Open ${p.field.name}`} aria-haspopup="dialog"
+      onKeyDown={(e) => e.stopPropagation()}
+      onClick={(e) => { e.stopPropagation(); p.onFocus(); p.onEdit(); }}>
+      {p.value || <Dash />}
+    </button>
+    {p.editing && <LongTextPopup {...p} />}
+  </>;
+}
+
+function LongTextPopup(p: CellProps & { field: FieldDef; value: string }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const [draft, setDraft] = useState(p.value);
+  useEffect(() => { dialog.current?.showModal(); }, []);
+  return <dialog ref={dialog} className="long-text-popup" aria-label={p.field.name}
+    onCancel={(e) => { e.preventDefault(); p.onCancel(); }}
+    onClick={(e) => { e.stopPropagation(); if (e.target === e.currentTarget) p.onCancel(); }}
+    onKeyDown={(e) => e.stopPropagation()}>
+    <div className="long-text-popup-body">
+      <h2>{p.field.name}</h2>
+      {p.canEdit ? <textarea aria-label={p.field.name} value={draft} onChange={(e) => setDraft(e.target.value)} autoFocus />
+        : <div className="long-text-content" tabIndex={0}>{p.value || 'No text'}</div>}
+      <div className="overleaf-actions long-text-actions">
+        <button type="button" onClick={p.onCancel}>{p.canEdit ? 'Cancel' : 'Close'}</button>
+        {p.canEdit && <button type="button" className="long-text-save" onClick={() => p.onCommit({ values: { [p.field.id]: draft || null } })}>Save</button>}
+      </div>
+    </div>
+  </dialog>;
 }
 
 function FieldEditor(p: CellProps & { field: FieldDef; value: unknown }) {

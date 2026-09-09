@@ -16,7 +16,7 @@ export const ROLES: Role[] = ['admin', 'member', 'viewer'];
 
 export const FIELD_KINDS: FieldKind[] = [
   'text', 'long_text', 'number', 'money', 'date',
-  'select', 'multi_select', 'checkbox', 'people',
+  'select', 'multi_select', 'checkbox', 'people', 'image',
 ];
 
 export const STAGES = ['notStarted', 'inProgress', 'done'] as const;

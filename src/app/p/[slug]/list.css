@@ -959,3 +959,80 @@ tr[aria-selected='true'] .rowacts,
   color: #fff;
 }
 .overleaf-actions .primary:hover { background: #bc3125; }
+
+.long-text-preview {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.long-text-preview:focus-visible { outline: 2px solid #4169e1; outline-offset: 2px; border-radius: var(--cu-r); }
+.long-text-popup {
+  width: min(640px, calc(100vw - 32px));
+  max-height: calc(100dvh - 48px);
+  margin: auto;
+  padding: 0;
+  overflow: auto;
+  white-space: normal;
+  text-align: left;
+  font-family: var(--font-read), system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.6;
+  letter-spacing: normal;
+  color: var(--cu-ink);
+  background: var(--cu-ground);
+  border: 0;
+  border-radius: 8px;
+  box-shadow: 0 16px 48px rgba(41, 45, 52, 0.28);
+}
+.long-text-popup::backdrop { background: rgba(41, 45, 52, 0.4); }
+.long-text-popup-body { padding: 22px 24px 18px; }
+.long-text-popup h2 {
+  margin: 0 0 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--cu-line);
+  font-family: var(--font-struct), sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--cu-ink);
+  overflow-wrap: anywhere;
+}
+.long-text-popup textarea {
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  min-height: 240px;
+  max-height: 60dvh;
+  padding: 12px;
+  resize: vertical;
+  border: 1px solid var(--cu-line);
+  border-radius: var(--cu-r);
+  background: var(--cu-ground);
+  color: var(--cu-ink);
+  font: inherit;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.long-text-popup textarea:hover { border-color: var(--cu-ink-faint); }
+.long-text-popup textarea:focus { border-color: #4169e1; outline: 1px solid #4169e1; outline-offset: 0; }
+.long-text-content { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; }
+.long-text-actions { padding-top: 16px; border-top: 1px solid var(--cu-line-soft); }
+.long-text-actions .long-text-save { background: #4169e1; border-color: #4169e1; color: #fff; }
+.long-text-actions .long-text-save:hover { background: #3457c0; border-color: #3457c0; }
+.long-text-actions button:focus-visible { outline: 2px solid #4169e1; outline-offset: 2px; }
+@media (max-width: 600px) {
+  .long-text-popup-body { padding: 18px 16px 16px; }
+  .long-text-actions button { min-height: 40px; }
+}

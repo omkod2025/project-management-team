@@ -1,4 +1,5 @@
 "use client";
+import { MAX_UPLOAD_BYTES } from '@/lib/upload-limits';
 import DocIcon from "./doc-icon";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -322,8 +323,8 @@ export default function PageTools({
     }
   }
   async function cover(file: File) {
-    if (!file.size || file.size > 5 * 1024 * 1024) {
-      setError("Choose an image up to 5 MB.");
+    if (!file.size || file.size > MAX_UPLOAD_BYTES) {
+      setError("Choose an image up to 50 MB.");
       return;
     }
     setBusy(true);

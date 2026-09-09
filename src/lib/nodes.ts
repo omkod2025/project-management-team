@@ -1,7 +1,7 @@
 import 'server-only';
 import { eq } from 'drizzle-orm';
 import { db, rawQuery } from '@/db/client';
-import { fieldDefinitions, fieldOptions, nodes, projects } from '@/db/schema';
+import { docAssets, fieldDefinitions, fieldOptions, nodes, projects } from '@/db/schema';
 import type { CustomValues, LedgerRow } from '@/db/schema';
 import { domainError } from '@/lib/errors';
 import {
@@ -120,6 +120,14 @@ export async function updateNode(nodeId: string, patch: NodePatch): Promise<Ledg
       if (!spec) throw domainError('E_UNKNOWN_FIELD', 'No such column in this project.', { key });
 
       const value = coerceValue(spec, raw, optionSpecs);
+      if (spec.kind === 'image' && Array.isArray(value)) {
+        for (const url of value) {
+          const [asset] = await db.select().from(docAssets).where(eq(docAssets.id, url.split('/').pop()!)).limit(1);
+          if (!asset || asset.projectId !== node.projectId) {
+            throw domainError('E_UNKNOWN_FIELD', 'Choose an image uploaded to this project.');
+          }
+        }
+      }
       if (value === null) delete values[key];
       else values[key] = value as CustomValues[string];
     }

@@ -1,3 +1,4 @@
+import { MAX_UPLOAD_BYTES } from '@/lib/upload-limits';
 import 'server-only';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -22,17 +23,17 @@ async function projectAccess(userId: string, id: string) {
 export async function uploadDocAsset(userId: string, projectId: string, file: File, attachment = false) {
   await projectAccess(userId, projectId);
   await authorize(userId, projectId, 'doc.edit');
-  if (!file.size || file.size > 5 * 1024 * 1024) throw domainError('E_INVALID_DOC', 'Choose a non-empty file no larger than 5 MB.');
+  if (!file.size || file.size > MAX_UPLOAD_BYTES) throw domainError('E_INVALID_DOC', 'Choose a non-empty file no larger than 50 MB.');
   let data = Buffer.from(await file.arrayBuffer());
   const mime = attachment ? 'application/octet-stream' : data.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10])) ? 'image/png'
     : data[0] === 255 && data[1] === 216 && data[2] === 255 ? 'image/jpeg'
     : ['GIF87a','GIF89a'].includes(data.subarray(0,6).toString()) ? 'image/gif'
     : data.subarray(0,4).toString() === 'RIFF' && data.subarray(8,12).toString() === 'WEBP' ? 'image/webp'
-    : file.type === 'image/svg+xml' || (!file.type && /\.svg$/i.test(file.name)) ? 'image/svg+xml' : null;
-  if (!mime || (!attachment && mime !== file.type && !(mime === 'image/svg+xml' && !file.type))) throw domainError('E_INVALID_DOC', 'Use a PNG, JPEG, WebP, GIF or static SVG image.');
+    : file.type === 'image/svg+xml' || /\.svg$/i.test(file.name) ? 'image/svg+xml' : null;
+  if (!mime || (!attachment && mime !== file.type && mime !== 'image/svg+xml')) throw domainError('E_INVALID_DOC', 'Use a PNG, JPEG, WebP, GIF or SVG image.');
   if (mime === 'image/svg+xml') {
     try { data = Buffer.from(validateDocSvg(data)); }
-    catch { throw domainError('E_INVALID_DOC', 'Use a valid static SVG without scripts, embedded HTML, animations or external resources.'); }
+    catch { throw domainError('E_INVALID_DOC', 'This file could not be read as SVG. Export it again as a valid SVG without custom XML entities (maximum 20,000 nodes and 64 nested levels).'); }
   }
   const filename = Array.from(file.name.replace(/[\u0000-\u001f\u007f/\\]/g, '_')).slice(0, 200).join('') || 'attachment';
   const id = crypto.randomUUID();

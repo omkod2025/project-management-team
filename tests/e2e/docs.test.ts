@@ -57,6 +57,31 @@ test('invalid document input gives actionable validation', async () => {
   assert.equal((await call(admin, 'POST', { title: 'Test', version: 123 })).status, 422);
 });
 
+test('attachments accept exactly 50 MB and reject one byte over the limit', async () => {
+  const bytes = new Uint8Array(50 * 1024 * 1024);
+  bytes[0] = 23; bytes[bytes.length - 1] = 42;
+  const form = new FormData();
+  form.set('kind', 'attachment');
+  form.set('file', new File([bytes], 'boundary.bin'));
+  const response = await fetch(`${BASE_URL}/api/projects/${fx.projectId}/doc-assets`, { method: 'POST', headers: { cookie: admin.header }, body: form });
+  assert.equal(response.status, 200, await response.clone().text());
+  const asset = await response.json();
+  const id = asset.url.split('/').at(-1);
+  try {
+    assert.equal(asset.bytes, bytes.length);
+    const download = await fetch(`${BASE_URL}${asset.url}`, { headers: { cookie: admin.header } });
+    assert.equal(download.status, 200);
+    assert.deepEqual(new Uint8Array(await download.arrayBuffer()), bytes);
+    form.set('file', new File([bytes, new Uint8Array(1)], 'too-large.bin'));
+    const rejected = await fetch(`${BASE_URL}/api/projects/${fx.projectId}/doc-assets`, { method: 'POST', headers: { cookie: admin.header }, body: form });
+    assert.equal(rejected.status, 422);
+    assert.match((await rejected.json()).message, /50 MB/);
+  } finally {
+    await fx.client.query('DELETE FROM pmt_doc_assets WHERE asset_id = $1', [id]);
+    await unlink(path.join(process.env.DOC_ASSET_DIR || 'data/doc-assets', id));
+  }
+});
+
 test('file attachments preserve bytes, force download, and enforce project access', async () => {
   const upload = (jar: Jar, file: File) => {
     const form = new FormData(); form.set('file', file); form.set('kind', 'attachment');
@@ -66,7 +91,7 @@ test('file attachments preserve bytes, force download, and enforce project acces
   const file = new File([source], 'เอกสารทดสอบ.html', { type: 'text/html' });
   assert.equal((await upload(viewer, file)).status, 403);
   assert.equal((await upload(admin, new File([], 'empty.txt'))).status, 422);
-  assert.equal((await upload(admin, new File([new Uint8Array(5 * 1024 * 1024 + 1)], 'large.zip'))).status, 422);
+  assert.equal((await upload(admin, new File([new Uint8Array(50 * 1024 * 1024 + 1)], 'large.zip'))).status, 422);
   // Members can attach files as well as edit content.
   await fx.client.query("UPDATE pmt_project_members SET member_role = 'member' WHERE member_project_id=$1 AND member_user_id=$2", [fx.projectId, fx.viewer.id]);
   let assetId: string | undefined;
@@ -154,7 +179,7 @@ test('editor persists Markdown, refuses stale saves, and enforces page roles and
   const html = await (await request(viewer, `/p/${rows[0].project_slug}/docs/${page.slug}`)).text();
   assert.match(html, /Member update/);
   assert.ok(!html.includes('Edit page</button>'));
-  const svg = new FormData(); svg.set('file', new File(['<svg/>'], 'unsafe.svg', { type: 'image/svg+xml' }));
+  const svg = new FormData(); svg.set('file', new File(['<svg><g></svg>'], 'invalid.svg', { type: 'image/svg+xml' }));
   assert.equal((await fetch(`${BASE_URL}/api/projects/${fx.projectId}/doc-assets`, { method: 'POST', headers: { cookie: admin.header }, body: svg })).status, 422);
   const safeSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><style>.box{fill:blue;stroke-width:2}</style><rect class="box" width="100" height="100"/></svg>';
   const svgForm = new FormData(); svgForm.set('file', new File([safeSvg], 'diagram.svg', { type:'image/svg+xml' }));
@@ -166,8 +191,12 @@ test('editor persists Markdown, refuses stale saves, and enforces page roles and
   assert.match(svgRead.headers.get('content-security-policy') ?? '', /sandbox/);
   assert.equal(await svgRead.text(), safeSvg);
   const maliciousSvg = new FormData(); maliciousSvg.set('file', new File(['<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'], 'script.svg', {type:'image/svg+xml'}));
-  assert.equal((await fetch(`${BASE_URL}/api/projects/${fx.projectId}/doc-assets`, {method:'POST',headers:{cookie:admin.header},body:maliciousSvg})).status,422);
-  const large = new FormData(); large.set('file', new File([new Uint8Array(6 * 1024 * 1024)], 'large.png', { type: 'image/png' }));
+  const scriptUpload = await fetch(`${BASE_URL}/api/projects/${fx.projectId}/doc-assets`, {method:'POST',headers:{cookie:admin.header},body:maliciousSvg});
+  assert.equal(scriptUpload.status, 200);
+  const scriptRead = await request(viewer, (await scriptUpload.json()).url);
+  assert.match(scriptRead.headers.get('content-security-policy') ?? '', /script-src 'none'/);
+  assert.match(scriptRead.headers.get('content-security-policy') ?? '', /sandbox;/);
+  const large = new FormData(); large.set('file', new File([new Uint8Array(50 * 1024 * 1024 + 1)], 'large.png', { type: 'image/png' }));
   assert.equal((await fetch(`${BASE_URL}/api/projects/${fx.projectId}/doc-assets`, { method: 'POST', headers: { cookie: admin.header }, body: large })).status, 422);
   const linked = await (await request(admin, `/api/docs/${doc.id}/pages`, 'POST', { template: 'module', nodeId: fx.nodes.module })).json();
   assert.deepEqual(Object.keys(linked.content).sort(), ['description','wantFeature','decisions','currentScope','nextPhase'].sort());

@@ -124,11 +124,11 @@ Without a registry, `/uploads/<uuid>.png` is a URL: anyone who can guess it can 
 
 It is also the only thing that makes *deletion* answerable. Files nobody can attribute are files nobody dares remove.
 
-**Accepted:** `image/png`, `image/jpeg`, `image/webp`, `image/gif`. Maximum **5 MB**.
+**Accepted:** `image/png`, `image/jpeg`, `image/webp`, `image/gif`. Maximum **50 MB** (52,428,800 bytes) per file.
 
-**Extension requested 2026-09-08:** The editor also supports general file attachments, up to **5 MB** per file. Attachments are stored in the same authenticated asset registry as `application/octet-stream` and always served with `Content-Disposition: attachment` (never inline). Their filename and size appear in an ordinary Markdown download link. This extends image uploads without changing Markdown storage, project access, or the retain-on-reference-removal rule.
+**Extension requested 2026-09-08:** The editor also supports general file attachments, up to **50 MB** per file. Attachments are stored in the same authenticated asset registry as `application/octet-stream` and always served with `Content-Disposition: attachment` (never inline). Their filename and size appear in an ordinary Markdown download link. This extends image uploads without changing Markdown storage, project access, or the retain-on-reference-removal rule.
 
-**SVG is refused.** An SVG is a document that can carry script, and serving one from the application's own origin serves it inside the session. The rule is not about images; it is about not hosting attacker-controlled markup.
+**SVG support (updated 2026-09-09).** SVG uploads are validated as XML and displayed through image elements, never inserted inline into the application DOM. CSS, HTML labels (`foreignObject`), animation, editor metadata and embedded images/fonts are accepted. Missing root namespaces are normalized; ordinary public/system SVG DTD declarations are removed without fetching them. Malformed XML, custom entity definitions, more than 20,000 nodes or nesting beyond 64 levels are refused. The authenticated asset response MUST carry the sandbox CSP defined in `src/lib/doc-svg.ts`, even on direct navigation: scripts, external resources, frames, forms and base URL changes are disabled; inline styles and data images/fonts are allowed. Validation is not sanitization: accepted SVG must never be served without that policy. Browser image mode determines rendering support; externally hosted resources and script-driven drawings do not execute.
 
 An upload field that accepts anything becomes the company's free file store within a quarter, which is what the size and type limits are for.
 
@@ -284,7 +284,7 @@ End to end, in `tests/e2e/docs.test.ts`:
 - the role table in §8, every cell.
 - a non-member gets 404 for a doc URL, and 404 for an asset URL.
 - a stale `updated_at` is refused with 409 and the current holder is named (`D-60`).
-- an SVG upload is refused; a 6 MB PNG is refused (`D-56`).
+- valid SVG uploads are accepted with sandbox CSP; malformed SVG and a PNG larger than 50 MB are refused (`D-56`).
 - search returns nothing from a project the caller is not a member of.
 
 ---

@@ -17,7 +17,7 @@ export type DateSource = 'auto' | 'manual';
 export type Stage = 'notStarted' | 'inProgress' | 'done' | null;
 export type FieldKind =
   | 'text' | 'long_text' | 'number' | 'money' | 'date'
-  | 'select' | 'multi_select' | 'checkbox' | 'people';
+  | 'select' | 'multi_select' | 'checkbox' | 'people' | 'image';
 
 export type NodeDates = {
   estimateStart: string | null;
@@ -265,6 +265,13 @@ export function coerceValue(
   };
 
   switch (field.kind) {
+    case 'image': {
+      if (!Array.isArray(raw) || raw.length > 20 || raw.some((v) =>
+        typeof v !== 'string' || !/^\/api\/doc-assets\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(v))) {
+        throw domainError('E_UNKNOWN_FIELD', 'Choose up to 20 uploaded images.');
+      }
+      return [...new Set(raw)];
+    }
     case 'select':
       return liveOption(String(raw));
 

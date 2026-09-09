@@ -1,4 +1,5 @@
 'use client';
+import { MAX_UPLOAD_BYTES } from '@/lib/upload-limits';
 import DocIcon from "./doc-icon";
 import { EditorContent, useEditor, useEditorState } from '@tiptap/react';
 import { BubbleMenu } from '@tiptap/react/menus';
@@ -83,7 +84,7 @@ export default function RichEditor({ value, label, onChange, projectId, onProble
     { label:'Table of contents',hint:'Links to headings on this page',apply:c=>c.insertContent({type:'tableOfContents'}) },
     { label:'Button',hint:'A labelled link button',apply:c=>{setLinkBlock('button');setBlockUrl('');return c;} },
     { label:'Embed',hint:'YouTube, Vimeo, Figma, Google Docs, Loom or Miro embed URL',apply:c=>{setLinkBlock('embed');setBlockUrl('');return c;} },
-    { label: 'Attachment', hint: 'Upload a file · PDF, Office, ZIP and more · 5 MB max', apply: (c) => { attachmentInput.current?.click(); return c; } },
+    { label: 'Attachment', hint: 'Upload a file · PDF, Office, ZIP and more · 50 MB max', apply: (c) => { attachmentInput.current?.click(); return c; } },
   ];
   const filtered = commands.filter((item) => `${item.label} ${item.hint}`.toLowerCase().includes((inserting ? insertQuery : match?.[1] ?? '').toLowerCase()));
   const showCommands = inserting || (!!match && dismissed !== commandKey);
@@ -142,7 +143,7 @@ export default function RichEditor({ value, label, onChange, projectId, onProble
 
   async function upload(file: File, attachment = false) {
     if (!editor) return;
-    if (!file.size || file.size > 5 * 1024 * 1024) { onProblem('Choose a non-empty file no larger than 5 MB.'); return; }
+    if (!file.size || file.size > MAX_UPLOAD_BYTES) { onProblem('Choose a non-empty file no larger than 50 MB.'); return; }
     setUploading(true); onUploadChange(1);
     try {
       const data = new FormData(); data.set('file', file); data.set('kind', attachment ? 'attachment' : 'image');

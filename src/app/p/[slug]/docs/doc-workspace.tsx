@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import type { DocPage, PageTemplate } from '@/lib/doc-rules';
 import PageStyles, { type ReadingStyle } from './page-styles';
 import PageTools from './page-tools';
+import PageOutline from './page-outline';
 import { pageMarkdown } from '@/lib/doc-rules';
 import '../list.css';
 import './docs.css';
@@ -117,6 +118,8 @@ export default function DocWorkspace({ project, doc, pages, page, archivedPages=
         {canCreate&&!!archivedPages.length&&<details className="doc-archived"><summary>Archived pages ({archivedPages.length})</summary>{archivedPages.map(p=><div key={p.id}><span>{p.title}</span><button disabled={busy||editing} onClick={async()=>{setBusy(true);setError('');try{const res=await fetch(`/api/docs/${doc.id}/pages`,{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({pageId:p.id})});const body=await res.json();if(!res.ok)throw new Error(body.message);window.location.assign(`${base}/${body.slug}`);}catch(e){setError(e instanceof Error?e.message:'Restore failed.');}finally{setBusy(false);}}}><DocIcon name="history" />Restore</button></div>)}</details>}
       </aside>
       <div ref={reading} className={`doc-reading font-${readingStyle.font} size-${readingStyle.size} focus-${readingStyle.focus??'none'}${readingStyle.wide ? ' is-wide' : ''}`}>
+        {page && <PageOutline key={page.id} container={reading} />}
+        <div className="doc-reading-body">
         {page && <PageStyles value={readingStyle} onChange={setReadingStyle} container={reading} />}
         {page && <PageTools page={page} pages={pages} base={base} projectId={project.id} canCreate={canCreate} canEdit={canEdit} editing={editing} container={reading} />}
         {adding && <form className="docs-create" onSubmit={(e) => void add(e)}>
@@ -135,11 +138,13 @@ export default function DocWorkspace({ project, doc, pages, page, archivedPages=
           <div className="doc-reading-tools"><div className="doc-breadcrumb"><a href={`${base}?doc=${doc.id}`}>{doc.title}</a>{crumbs.map((p) => <span key={p.id}> / <a href={`${base}/${p.slug}`}>{p.title}</a></span>)}</div></div>
           {page.settings?.icon && <div className="doc-page-icon">{String(page.settings.icon)}</div>}
           {!editing && <><div className="doc-page-heading"><h1>{canEdit && !page.nodeId && !page.protected ? <button className="doc-title-button" title="Rename page" onClick={() => { setFocusTitle(true); setAdding(false); setEditing(true); }}>{pageTitle}</button> : pageTitle}</h1>{canEdit && !page.protected && <button className="docs-primary" onClick={() => { setFocusTitle(false); setAdding(false); setEditing(true); }}><DocIcon name="edit" />Edit page</button>}</div>{metadata}</>}
+
           {editing ? <PageEditor key={page.id} page={page} projectId={project.id} focusTitle={focusTitle} metadata={metadata} onTitleSaved={setPageTitle} onDone={() => { setEditing(false); window.history.replaceState(null, '', `${base}/${page.slug}`); router.refresh(); }} /> : <article className="doc-prose">{children}</article>}
           {page.settings?.showStats && <p className="docs-muted doc-page-stats">{pageMarkdown(page.template,page.content).length.toLocaleString()} characters · {Math.max(1,Math.ceil(pageMarkdown(page.template,page.content).length/1000))} min read</p>}
           {!editing && pages.some(p=>p.parentId===page.id) && <nav className="doc-subpages" aria-label="Subpages"><h2>Subpages</h2>{pages.filter(p=>p.parentId===page.id).map(p=><a key={p.id} href={`${base}/${p.slug}`}>▤ {p.title}</a>)}</nav>}
         </> : <div className="doc-overview"><h1>{doc.title}</h1><p className="docs-muted">{doc.version || 'No version stamp'} · {pages.length} pages</p>
           <p>{pages.length ? 'Choose a page to read its scope, decisions and reference material.' : canCreate ? 'Add the first page to start writing.' : 'A project admin can add the first page.'}</p></div>}
+        </div>
       </div>
     </div>
   </main></div>;

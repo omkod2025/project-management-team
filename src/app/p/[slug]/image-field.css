@@ -1,0 +1,13 @@
+.image-links { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; overflow: auto; }
+.image-links img { width: 36px; height: 30px; object-fit: cover; vertical-align: middle; }
+.image-links a { flex-shrink: 0; }
+.image-editor { position: absolute; z-index: 25; width: min(350px, 85vw); padding: 16px; background: var(--color-paper, #fffdf7); color: var(--color-ink, #222); border: 1px solid currentColor; box-shadow: 0 4px 16px #0002; white-space: normal; }
+.image-editor p { margin: 0 0 8px; }
+.image-editor small { display: block; margin-bottom: 12px; }
+.image-draft { display: flex; flex-wrap: wrap; gap: 10px; max-height: 260px; overflow: auto; }
+.image-draft > div { display: flex; flex-direction: column; gap: 4px; width: 90px; }
+.image-draft img { width: 90px; height: 70px; object-fit: contain; }
+.image-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; }
+.image-editor button { border: 1px solid currentColor; padding: 5px 8px; }
+.image-editor button:disabled { opacity: .5; cursor: wait; }
+.image-editor [role=alert] { color: #a42d24; margin-top: 10px; }

@@ -1,5 +1,6 @@
 'use client';
 
+import { ImageLinks } from './image-field';
 import type { ReactNode } from 'react';
 
 import type { LedgerRow } from '@/db/schema';
@@ -127,6 +128,7 @@ const Chip = ({ label, colorIndex }: { label: string; colorIndex: number }) => (
 function display(f: FieldDef, raw: unknown, people: Person[]): ReactNode {
   if (raw === null || raw === undefined) return null;
   switch (f.kind) {
+    case 'image': return <ImageLinks value={raw} />;
     case 'select': {
       const o = f.options.find((x) => x.id === raw);
       return o ? <Chip label={o.label} colorIndex={o.colorIndex} /> : null;
