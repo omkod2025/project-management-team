@@ -72,6 +72,70 @@ export const projectMembers = pgTable('pmt_project_members', {
 
 /* --------------------------------------------------------------- fields */
 
+export const docs = pgTable('pmt_docs', {
+  id: uuid('doc_id').primaryKey().defaultRandom(),
+  projectId: uuid('doc_project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  title: text('doc_title').notNull(),
+  version: text('doc_version').notNull().default(''),
+  createdBy: uuid('doc_created_by').references(() => users.id, { onDelete: 'set null' }),
+  archivedAt: timestamp('doc_archived_at', { withTimezone: true }),
+  createdAt: timestamp('doc_created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('doc_updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index('pmt_docs_project_idx').on(t.projectId, t.updatedAt)]);
+
+export const docPages = pgTable('pmt_doc_pages', {
+  id: uuid('doc_page_id').primaryKey().defaultRandom(),
+  docId: uuid('doc_page_doc_id').notNull().references(() => docs.id, { onDelete: 'cascade' }),
+  parentId: uuid('doc_page_parent_id'),
+  depth: smallint('doc_page_depth').notNull(),
+  title: text('doc_page_title').notNull(),
+  slug: text('doc_page_slug').notNull().unique(),
+  template: text('doc_page_template').$type<'free' | 'module'>().notNull(),
+  nodeId: uuid('doc_page_node_id').references(() => nodes.id, { onDelete: 'set null' }),
+  content: jsonb('doc_page_content').$type<Record<string, string>>().notNull().default({ body: '' }),
+  settings: jsonb('doc_page_settings').$type<Record<string, string | boolean>>().notNull().default({}),
+  protected: boolean('doc_page_protected').notNull().default(false),
+  sortOrder: doublePrecision('doc_page_sort_order').notNull().default(0),
+  updatedBy: uuid('doc_page_updated_by').references(() => users.id, { onDelete: 'set null' }),
+  updatedAt: timestamp('doc_page_updated_at', { withTimezone: true, precision: 3 }).notNull().defaultNow(),
+  archivedAt: timestamp('doc_page_archived_at', { withTimezone: true }),
+});
+
+export const docRevisions = pgTable('pmt_doc_page_revisions', {
+  id: uuid('revision_id').primaryKey().defaultRandom(),
+  pageId: uuid('revision_page_id').notNull().references(() => docPages.id, { onDelete: 'cascade' }),
+  editorId: uuid('revision_editor_id').references(() => users.id, { onDelete: 'set null' }),
+  content: jsonb('revision_content').$type<Record<string, string>>().notNull(),
+  updatedAt: timestamp('revision_updated_at', { withTimezone: true, precision: 3 }).notNull().defaultNow(),
+});
+
+export const docComments = pgTable('pmt_doc_comments', {
+  id: uuid('comment_id').primaryKey().defaultRandom(),
+  pageId: uuid('comment_page_id').notNull().references(() => docPages.id, { onDelete: 'cascade' }),
+  authorId: uuid('comment_author_id').references(() => users.id, { onDelete: 'set null' }),
+  body: text('comment_body').notNull(), quote: text('comment_quote').notNull().default(''),
+  parentId: uuid('comment_parent_id'), assigneeId: uuid('comment_assignee_id').references(()=>users.id,{onDelete:'set null'}),
+  resolved: boolean('comment_resolved').notNull().default(false),
+  createdAt: timestamp('comment_created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+export const docTemplates = pgTable('pmt_doc_templates', {
+  id: uuid('template_id').primaryKey().defaultRandom(),
+  projectId: uuid('template_project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  title: text('template_title').notNull(), kind: text('template_kind').$type<'free'|'module'>().notNull(),
+  content: jsonb('template_content').$type<Record<string,string>>().notNull(),
+  createdAt: timestamp('template_created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const docAssets = pgTable('pmt_doc_assets', {
+  id: uuid('asset_id').primaryKey().defaultRandom(),
+  projectId: uuid('asset_project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  uploaderId: uuid('asset_uploader_id').references(() => users.id, { onDelete: 'set null' }),
+  filename: text('asset_filename').notNull(),
+  mime: text('asset_mime').notNull(),
+  bytes: integer('asset_bytes').notNull(),
+  createdAt: timestamp('asset_created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const fieldDefinitions = pgTable('pmt_field_definitions', {
   id: uuid('field_id').primaryKey().defaultRandom(),
   projectId: uuid('field_project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),

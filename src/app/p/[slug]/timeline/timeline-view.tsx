@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { LedgerRow } from '@/db/schema';
+import type { FieldDef, Person } from '@/lib/ledger';
 import { loadSet, saveSet, loadRecord, saveRecord, selectedFromUrl, writeSelectedToUrl, siblingHref } from '../view-state';
 import { SORTS, DEFAULT_SORT, orderRows, type SortKey } from './sort';
 import ProjectTitle from '../project-title';
@@ -27,6 +28,9 @@ type Props = {
   slug: string;
   rows: LedgerRow[];
   holidays: string[];
+  fields: FieldDef[];
+  people: Person[];
+  statusFieldId: string | null;
   canEdit: boolean;
   isAdmin: boolean;
 };
@@ -45,12 +49,19 @@ const addDays = (iso: string, n: number) => toIso(new Date(toDate(iso).getTime()
 const diffDays = (a: string, b: string) => Math.round((toDate(b).getTime() - toDate(a).getTime()) / MS);
 
 export default function TimelineView({
-  projectId, projectName, slug, rows, holidays, canEdit, isAdmin,
+  projectId, projectName, slug, rows, holidays, fields, people, statusFieldId, canEdit, isAdmin,
 }: Props) {
   const [zoom, setZoom] = useState<Zoom>('day');
   const [mode, setMode] = useState<Mode>('both');
   const [sort, setSort] = useState<SortKey>(DEFAULT_SORT);
   const [descending, setDescending] = useState(false);
+  const [query, setQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [personFilter, setPersonFilter] = useState('');
+  const [moduleFilter, setModuleFilter] = useState('');
+  const filtersActive = Boolean(query.trim() || statusFilter || personFilter || moduleFilter);
+  const statusField = fields.find((f) => f.id === statusFieldId && !f.archived);
+  const peopleFields = fields.filter((f) => f.kind === 'people' && !f.archived);
   const [selected, setSelected] = useState<string | null>(null);
   const [live, setLive] = useState(rows);
   const [failure, setFailure] = useState<string | null>(null);
@@ -179,11 +190,34 @@ export default function TimelineView({
     if (ready) saveRecord(slug, 'timeline', { mode, zoom, sort, descending });
   }, [ready, slug, mode, zoom, sort, descending]);
 
-  const flat = sort !== 'tree';
+  const flat = sort !== 'tree' || filtersActive;
+
+  const moduleRows = useMemo(() => {
+    if (!moduleFilter) return null;
+    const ids = new Set<string>();
+    const collect = (id: string) => {
+      ids.add(id);
+      for (const child of byParent.get(id) ?? []) collect(child.led_node_id);
+    };
+    collect(moduleFilter);
+    return ids;
+  }, [moduleFilter, byParent]);
 
   const visible = useMemo(
-    () => orderRows(live, sort, descending, { rootId: root?.led_node_id ?? null, collapsed }),
-    [live, sort, descending, root, collapsed],
+    () => orderRows(live, sort, descending, {
+      rootId: root?.led_node_id ?? null,
+      collapsed: filtersActive ? new Set<string>() : collapsed,
+    }).filter((r) => {
+      if (moduleRows && !moduleRows.has(r.led_node_id)) return false;
+      if (query.trim() && !r.led_name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())) return false;
+      const values = r.led_custom_values ?? {};
+      if (statusFilter && statusFieldId && (statusFilter === '_none'
+        ? Boolean(values[statusFieldId]) : values[statusFieldId] !== statusFilter)) return false;
+      const assigned = peopleFields.flatMap((f) => Array.isArray(values[f.id]) ? values[f.id] as string[] : []);
+      if (personFilter && (personFilter === '_none' ? assigned.length > 0 : !assigned.includes(personFilter))) return false;
+      return true;
+    }),
+    [live, sort, descending, root, collapsed, filtersActive, query, statusFilter, personFilter, statusFieldId, peopleFields, moduleRows],
   );
 
   /** Which module a row belongs to. In a flat run the tree no longer says. */
@@ -381,6 +415,7 @@ export default function TimelineView({
             <a href={siblingHref(`/p/${slug}`, selected)}>List</a>
             <span style={{ color: 'var(--color-rule)' }}>·</span>
             <span aria-current="page">Timeline</span>
+            <a href={`/p/${slug}/docs`}>Docs</a>
           </div>
         </header>
 
@@ -432,6 +467,37 @@ export default function TimelineView({
 
         {failure && <div className="errata">{failure}</div>}
 
+        <div className="timeline-filters" role="search" aria-label="Filter timeline tasks">
+          <label>Task name
+            <input className="search" type="search" placeholder="Search tasks…" value={query} onChange={(e) => setQuery(e.target.value)} />
+          </label>
+          <label>Module
+            <select value={moduleFilter} onChange={(e) => setModuleFilter(e.target.value)}>
+              <option value="">All modules</option>
+              {(byParent.get(root?.led_node_id ?? null) ?? []).map((m) => (
+                <option key={m.led_node_id} value={m.led_node_id}>{m.led_name}</option>
+              ))}
+            </select>
+          </label>
+          {statusField && <label>Status
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+              <option value="">All statuses</option>
+              <option value="_none">No status</option>
+              {statusField.options.map((o) => <option key={o.id} value={o.id}>{o.label}{o.archived ? ' (archived)' : ''}</option>)}
+            </select>
+          </label>}
+          {peopleFields.length > 0 && <label>Assignee
+            <select value={personFilter} onChange={(e) => setPersonFilter(e.target.value)}>
+              <option value="">All people</option>
+              <option value="_none">Unassigned</option>
+              {people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </label>}
+          {filtersActive && <button type="button" onClick={() => { setQuery(''); setStatusFilter(''); setPersonFilter(''); setModuleFilter(''); }}>Clear filters</button>}
+          <span role="status">{visible.length} matching rows</span>
+        </div>
+        {filtersActive && visible.length === 0 && <p className="tl-empty">No tasks match these filters. Try another search or clear the filters.</p>}
+
         {live.every((r) => !r.led_estimate_end && !r.led_actual_end) && (
           // The scale still draws. A timeline with no bars is a blank ruled
           // page, not an empty screen — the instrument is present, the
@@ -442,7 +508,7 @@ export default function TimelineView({
         )}
 
         <div className="scroller" ref={scrollerRef}>
-          <div className="tl">
+          <div className={`tl${mode === 'both' ? ' tl-both' : ''}`}>
             <div className="tl-names">
               <div className="tl-head"><div className="tl-months label" style={{ paddingLeft: 10 }}>Name</div></div>
               <div className="tl-days" />
@@ -484,6 +550,12 @@ export default function TimelineView({
                     />
                   )}
                   <span className="name-text" lang={/[฀-๿]/.test(r.led_name) ? 'th' : 'en'}>{r.led_name}</span>
+                  {mode === 'both' && (
+                    <span className="tl-lane-labels">
+                      <span>{r.led_depth === 2 ? 'Baseline' : 'Estimate'}</span>
+                      <span>{r.led_depth === 2 ? 'Roll-up' : 'Actual'}</span>
+                    </span>
+                  )}
                   {/* Flattening throws away the one thing the indent was
                       saying. Without this a task name stands alone with no
                       indication of what it belongs to. */}
@@ -652,7 +724,7 @@ function Row({
               {(() => {
                 const g = bar(drag.origin.s, drag.origin.e);
                 return g ? (
-                  <div className="ghost" style={{ ...g, top: drag.kind === 'est' ? 5 : 18, height: drag.kind === 'est' ? 9 : 13 }} />
+                  <div className="ghost" style={{ ...g, top: mode === 'both' ? (drag.kind === 'est' ? 3 : 19) : (drag.kind === 'est' ? 5 : 20), height: 9 }} />
                 ) : null;
               })()}
               {(drag.kind === 'est' ? est : act).s && (

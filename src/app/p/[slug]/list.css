@@ -595,6 +595,8 @@ tr[aria-selected='true'] .hole { background: #4169e1; box-shadow: none; }
 
 /* ---- editing ---- */
 
+.run tbody td.editable { cursor: pointer; }
+
 td.editing { background: #fff; box-shadow: inset 0 0 0 2px #4169e1; border-radius: var(--cu-r); }
 td.saving::after {
   content: '';
@@ -648,6 +650,24 @@ td.failed { box-shadow: inset 0 0 0 2px var(--color-vermilion); }
   font-size: 13px;
 }
 .leaf button:hover { background: var(--cu-hover); }
+.leaf button[aria-selected='true'] { background: #edf3ff; color: #274bb5; }
+.leaf button[aria-selected='true']:hover { background: #e2ebff; }
+.leaf .selection-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  border: 1px solid var(--cu-line);
+  border-radius: 3px;
+  font-size: 12px;
+}
+.leaf button[aria-selected='true'] .selection-mark {
+  background: #4169e1;
+  border-color: #4169e1;
+  color: #fff;
+}
 .leaf .stage {
   margin-left: auto;
   color: var(--cu-ink-faint);

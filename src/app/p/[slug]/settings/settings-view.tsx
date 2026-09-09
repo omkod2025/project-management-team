@@ -74,6 +74,7 @@ export default function SettingsView({ settings: initial, slug }: Props) {
             <a href={`/p/${slug}/timeline`}>Timeline</a>
             <span style={{ color: 'var(--color-rule)' }}>·</span>
             <span aria-current="page">Settings</span>
+            <a href={`/p/${slug}/docs`}>Docs</a>
           </div>
         </header>
 

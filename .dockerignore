@@ -7,5 +7,6 @@
 node_modules
 data/clickup-raw
 data/import
+data/doc-assets
 *.log
 *.tsbuildinfo

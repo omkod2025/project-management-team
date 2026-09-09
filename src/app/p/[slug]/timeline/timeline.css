@@ -1,3 +1,27 @@
+.timeline-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--cu-line);
+  font-size: 12px;
+}
+.timeline-filters label { display: grid; gap: 4px; color: var(--cu-ink-soft); }
+.timeline-filters select,
+.timeline-filters button {
+  min-height: 30px;
+  padding: 4px 8px;
+  border: 1px solid var(--cu-line);
+  border-radius: var(--cu-r);
+  background: var(--cu-ground);
+  color: var(--cu-ink);
+  font: inherit;
+}
+.timeline-filters select { max-width: 240px; }
+.timeline-filters button { cursor: pointer; }
+.timeline-filters > span { align-self: center; color: var(--cu-ink-soft); }
+
 /*
  * The field. See DESIGN.md § Components and spec 04.
  *
@@ -144,6 +168,29 @@
 .tl-namerow.module,
 .tl-row.module { height: 44px; box-shadow: inset 0 1px 0 var(--cu-line); }
 
+/* Both uses two full lanes on the same date scale for direct comparison. */
+.tl-both .tl-namerow,
+.tl-both .tl-row { height: 32px; box-sizing: border-box; }
+.tl-both .tl-namerow { padding-right: 72px; }
+.tl-lane-labels {
+  position: absolute;
+  right: 8px;
+  top: 0;
+  display: grid;
+  grid-template-rows: 16px 16px;
+  align-items: center;
+  font-size: 10px;
+  color: var(--cu-ink-soft);
+}
+.tl-both .bar.est { top: 3px; }
+.tl-both .bar.act { top: 19px; }
+.tl-both .mile { top: 3px; }
+.tl-both .mile.act { top: 19px; }
+.tl-both .brk.base { top: 4px; }
+.tl-both .brk.roll,
+.tl-both .brk.over { top: 20px; }
+.tl-both .over-fig { top: 16px; }
+
 /* The reference groups its left column into filled blocks of colour, one per
    swim-lane, and that is the read this column was missing: a module head sat
    in the same ink and on the same ground as the tasks under it, distinguished
@@ -259,8 +306,8 @@
    rather than becoming a bright block, and so tab-1 cannot be mistaken at a
    glance for the vermilion of an overrun. */
 .bar.act {
-  top: 18px;
-  height: 13px;
+  top: 20px;
+  height: 9px;
   background: color-mix(in srgb, var(--bar-hue) 62%, var(--color-ink-blue));
   border: 1px solid color-mix(in srgb, var(--bar-hue) 40%, var(--color-ink-blue-soft));
 }

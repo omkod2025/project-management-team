@@ -1,0 +1,56 @@
+/* THESIS: A compact project document register with creation on the page.
+   OWN-WORLD: The existing white project sheet, indigo actions, quiet rules.
+   STORY: Find a document or name a new one without losing project context.
+   FIRST VIEWPORT: Project tabs, title and New doc, search, then the register.
+   FORM: Established project shell; the specified document index, not a new world. */
+.docs-main { width: 100%; min-width: 0; display: flex; flex-direction: column; }
+.docs-book .head { flex-wrap: wrap; height: auto; min-height: 56px; gap: 12px; }
+.docs-project { font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
+.docs-book .views { display: flex; flex-wrap: wrap; gap: 16px; }
+.docs-content { overflow: auto; padding: 24px; }
+.docs-heading { display: flex; justify-content: space-between; align-items: start; gap: 20px; }
+.docs-heading h1 { margin: 0; font-size: 22px; font-weight: 600; }
+.docs-heading p { margin: 6px 0 0; color: #555e70; overflow-wrap: anywhere; }
+.docs-book button, .docs-book input { font: inherit; font-size: 14px; border: 1px solid var(--cu-line); border-radius: 4px; }
+.docs-book button { min-height: 34px; padding: 6px 12px; background: #fff; color: #303747; cursor: pointer; }
+.docs-book button:hover { background: var(--cu-hover); }
+.docs-book button:disabled { opacity: .55; cursor: default; }
+.docs-book .docs-primary { background: var(--brand, #2b3a8f); color: #fff; border-color: var(--brand, #2b3a8f); white-space: nowrap; }
+.docs-book .docs-primary:hover { background: var(--brand-deep, #202d73); }
+.docs-book :is(button, input, a):focus-visible { outline: 2px solid var(--brand, #2b3a8f); outline-offset: 3px; }
+.docs-book input { width: 100%; min-width: 0; min-height: 36px; padding: 7px 10px; background: #fff; color: #292d34; }
+.docs-book input::placeholder { color: #616a7c; }
+.docs-create { margin-top: 22px; padding: 18px 0; border-block: 1px solid var(--cu-line); }
+.docs-create h2 { margin: 0 0 14px; font-size: 16px; }
+.docs-form-fields { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 16px; max-width: 780px; }
+.docs-form-fields label { display: block; font-size: 13px; font-weight: 500; }
+.docs-form-fields input { display: block; margin-top: 6px; }
+.docs-muted { color: #555e70; font-size: 13px; font-weight: 400; }
+.docs-actions { display: flex; gap: 8px; }
+.docs-error { color: #963427; }
+.docs-notice { margin: 12px 0; color: var(--brand, #2b3a8f); overflow-wrap: anywhere; }
+.docs-notice:empty { display: none; }
+.docs-tools { display: flex; flex-wrap: wrap; align-items: end; gap: 16px; margin: 24px 0 12px; }
+.docs-search { display: grid; gap: 6px; font-size: 13px; width: 300px; max-width: 100%; }
+.docs-tools > span { padding-bottom: 8px; }
+.docs-table-wrap { overflow-x: auto; }
+.docs-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 14px; }
+.docs-table th, .docs-table td { padding: 10px 12px; border-bottom: 1px solid var(--cu-line); overflow-wrap: anywhere; }
+.docs-table th:first-child { padding-left: 0; width: 45%; }
+.docs-table thead th { color: #555e70; font-weight: 500; font-size: 12px; white-space: nowrap; }
+.docs-table tbody th { font-weight: 500; line-height: 1.6; }
+.docs-table tbody tr:hover { background: var(--cu-hover); }
+.docs-table td:last-child { white-space: nowrap; }
+.docs-empty { padding: 28px 0; }
+.docs-empty h2 { font-size: 16px; margin: 0 0 6px; }
+.docs-empty p { margin: 0; color: #555e70; }
+.docs-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@media (max-width: 650px) {
+  .docs-content { padding: 16px; }
+  .docs-heading { flex-wrap: wrap; gap: 12px; }
+  .docs-form-fields { grid-template-columns: minmax(0, 1fr); }
+  .docs-table { min-width: 560px; }
+  .docs-book .views { margin-left: 0; width: 100%; }
+}
+.doc-action-icon { display: inline-block; flex: 0 0 16px; vertical-align: -3px; margin-inline-end: 6px; pointer-events: none; }
+button[aria-label] > .doc-action-icon:only-child { margin-inline-end: 0; }

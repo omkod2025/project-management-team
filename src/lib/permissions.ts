@@ -19,6 +19,9 @@ import { domainError } from '@/lib/errors';
 export type Role = 'admin' | 'member' | 'viewer';
 
 export const ACTIONS = {
+  'doc.read': ['admin', 'member', 'viewer'],
+  'doc.create': ['admin'],
+  'doc.edit': ['admin', 'member'],
   'node.read': ['admin', 'member', 'viewer'],
   'node.create': ['admin', 'member'],
   'node.rename': ['admin', 'member'],

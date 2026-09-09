@@ -629,6 +629,7 @@ export default function ListView({
             <a href={siblingHref(`/p/${slug}/timeline`, selected)}>Timeline</a>
             <span style={{ color: 'var(--color-rule)' }}>·</span>
             <a href={`/p/${slug}/report`}>Report</a>
+            <a href={`/p/${slug}/docs`}>Docs</a>
             {isAdmin && (
               <>
                 <span style={{ color: 'var(--color-rule)' }}>·</span>
@@ -932,12 +933,12 @@ function Cell(p: CellProps) {
   const ref = useRef<HTMLTableCellElement>(null);
 
   useEffect(() => {
-    if (p.focused && !p.editing) ref.current?.focus({ preventScroll: false });
-  }, [p.focused, p.editing]);
+    if (p.focused && !p.editing && !p.renaming) ref.current?.focus({ preventScroll: false });
+  }, [p.focused, p.editing, p.renaming]);
 
   const editable =
     p.canEdit && c.kind !== 'computed' && c.kind !== 'closed' && c.kind !== 'misclosure'
-    && c.kind !== 'gutter' && c.kind !== 'name';
+    && c.kind !== 'gutter';
 
   return (
     <td
@@ -947,12 +948,21 @@ function Cell(p: CellProps) {
         c.kind === 'name' ? 'nm' : '',
         c.align === 'right' ? 'num' : '',
         c.kind === 'gutter' ? 'gutter' : '',
+        editable ? 'editable' : '',
         p.editing ? 'editing' : '',
         p.saving ? 'saving' : '',
         p.failed ? 'failed' : '',
       ].filter(Boolean).join(' ')}
-      onClick={() => { const wasFocused = p.focused; p.onFocus(); if (editable && wasFocused) p.onEdit(); }}
-      onDoubleClick={() => editable && p.onEdit()}
+      onClick={() => {
+        p.onFocus();
+        if (!editable || p.editing || p.renaming) return;
+        if (c.kind === 'name') {
+          p.onCancel();
+          p.onStartRename();
+        } else {
+          p.onEdit();
+        }
+      }}
     >
       {c.kind === 'name' && <NameCell {...p} />}
       {c.kind === 'date' && <DateCell {...p} />}
@@ -1229,9 +1239,25 @@ function FieldCell(p: CellProps & { field: FieldDef }) {
 
 function FieldEditor(p: CellProps & { field: FieldDef; value: unknown }) {
   const { field: f } = p;
+  const selectRef = useRef<HTMLDivElement>(null);
+  const isSelect = f.kind === 'select' || f.kind === 'multi_select' || f.kind === 'people';
+  const { onCancel } = p;
+
+  useEffect(() => {
+    if (!isSelect) return;
+    const dismissOutside = (event: MouseEvent) => {
+      if (event.target instanceof Node && !selectRef.current?.contains(event.target)) {
+        onCancel();
+      }
+    };
+    // Capture also catches clicks on controls that stop propagation.
+    document.addEventListener('click', dismissOutside, true);
+    return () => document.removeEventListener('click', dismissOutside, true);
+  }, [isSelect, onCancel]);
+
   const commit = (v: unknown) => p.onCommit({ values: { [f.id]: v } });
 
-  if (f.kind === 'select' || f.kind === 'multi_select' || f.kind === 'people') {
+  if (isSelect) {
     const isMulti = f.kind !== 'select';
     const current: string[] = Array.isArray(p.value) ? p.value : p.value ? [String(p.value)] : [];
     const items =
@@ -1244,13 +1270,13 @@ function FieldEditor(p: CellProps & { field: FieldDef; value: unknown }) {
        * The click must not reach the cell.
        *
        * `onCommit` sets `editing` to false, but the same click then bubbled to
-       * the `<td>`, whose handler reads "already focused, so open the editor"
+       * the `<td>`, whose handler opens the editor on a cell click,
        * and set it straight back to true — so picking an option closed the
        * list and reopened it in the same frame, which looked like it had never
        * closed at all. Stopping the click here is what makes the choice the
        * last thing that happens.
        */
-      <div className="leaf" role="listbox" onClick={(e) => e.stopPropagation()}>
+      <div ref={selectRef} className="leaf" role="listbox" aria-label={f.name} aria-multiselectable={isMulti} onClick={(e) => e.stopPropagation()}>
         <button onClick={() => commit(null)}><span className="empty">Clear</span></button>
         {items.map((o) => (
           <button
@@ -1261,6 +1287,11 @@ function FieldEditor(p: CellProps & { field: FieldDef; value: unknown }) {
               ? (current.includes(o.id) ? current.filter((x) => x !== o.id) : [...current, o.id])
               : o.id)}
           >
+            {isMulti && (
+              <span className="selection-mark" aria-hidden="true">
+                {current.includes(o.id) ? '✓' : ''}
+              </span>
+            )}
             {f.kind !== 'people' && (
               <span className="swatch" style={{ ['--opt-hue' as string]: TAB_HUE(o.colorIndex) }} />
             )}

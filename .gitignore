@@ -7,4 +7,13 @@ data/import/
 .next/
 dist/
 *.log
-/db
+/db/*
+!/db/migrations/
+/db/migrations/*
+!/db/migrations/007_project_docs.sql
+!/db/migrations/008_doc_pages.sql
+!/db/migrations/009_doc_attachments.sql
+!/db/migrations/010_doc_tools.sql
+!/db/migrations/011_doc_comment_threads.sql
+/data/doc-assets/
+/data/doc-editor-*.png

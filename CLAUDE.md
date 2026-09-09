@@ -18,6 +18,7 @@ Project management for software delivery. Plan and reality are recorded separate
 | [`docs/spec/07-extraction-findings.md`](docs/spec/07-extraction-findings.md) | What the captured data actually contains |
 | [`docs/spec/08-operations.md`](docs/spec/08-operations.md) | Backup, restore, deployment shape |
 | [`docs/spec/09-roster.md`](docs/spec/09-roster.md) | Roster timeline — one lane per person, across projects |
+| [`docs/spec/10-docs.md`](docs/spec/10-docs.md) | Project documents — pages, templates, Markdown, assets |
 | [`db/schema.sql`](db/schema.sql) | Executable DDL — verified against PostgreSQL 18.4 |
 | [`db/tests.sql`](db/tests.sql) | Schema test suite, 13 groups, runs in a rolled-back transaction |
 | [`tests/node-rules.test.ts`](tests/node-rules.test.ts) | 46 domain rule tests, each naming the `D-nn` it defends |

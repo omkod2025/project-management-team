@@ -12,7 +12,7 @@ export default async function ProjectTimeline({ params }: { params: Promise<{ sl
   const { slug } = await params;
 
   try {
-    const { project, role, rows, holidays } = await loadLedger(userId, slug);
+    const { project, role, rows, holidays, fields, people } = await loadLedger(userId, slug);
     return (
       <TimelineView
         projectId={project.id}
@@ -20,6 +20,9 @@ export default async function ProjectTimeline({ params }: { params: Promise<{ sl
         slug={project.slug}
         rows={rows}
         holidays={holidays}
+        fields={fields}
+        people={people}
+        statusFieldId={project.statusFieldId}
         canEdit={can(role, 'node.editDates')}
         isAdmin={can(role, 'field.define')}
       />

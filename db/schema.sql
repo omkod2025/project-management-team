@@ -656,3 +656,78 @@ INSERT INTO pmt_holidays (holiday_date, holiday_name) VALUES
     ('2026-12-10', 'Constitution Day'),
     ('2026-12-31', 'New Year''s Eve')
 ON CONFLICT (holiday_date) DO NOTHING;
+
+-- Project document containers (spec 10). Pages are a separate document tree.
+CREATE TABLE pmt_docs (
+    doc_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    doc_project_id uuid NOT NULL REFERENCES pmt_projects(project_id) ON DELETE CASCADE,
+    doc_title text NOT NULL CHECK (char_length(btrim(doc_title)) BETWEEN 1 AND 200),
+    doc_version text NOT NULL DEFAULT '' CHECK (char_length(doc_version) <= 100),
+    doc_created_by uuid REFERENCES pmt_users(user_id) ON DELETE SET NULL,
+    doc_archived_at timestamptz,
+    doc_created_at timestamptz NOT NULL DEFAULT now(),
+    doc_updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX pmt_docs_project_idx ON pmt_docs(doc_project_id, doc_updated_at);
+
+CREATE TABLE pmt_doc_pages (
+  doc_page_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  doc_page_doc_id uuid NOT NULL REFERENCES pmt_docs(doc_id) ON DELETE CASCADE,
+  doc_page_parent_id uuid,
+  doc_page_depth smallint NOT NULL CHECK (doc_page_depth BETWEEN 1 AND 3),
+  doc_page_title text NOT NULL CHECK (char_length(btrim(doc_page_title)) BETWEEN 1 AND 200),
+  doc_page_slug text NOT NULL UNIQUE,
+  doc_page_template text NOT NULL CHECK (doc_page_template IN ('free', 'module')),
+  doc_page_node_id uuid REFERENCES pmt_nodes(node_id) ON DELETE SET NULL,
+  doc_page_content jsonb NOT NULL DEFAULT '{"body":""}',
+  doc_page_sort_order double precision NOT NULL DEFAULT 0,
+  doc_page_updated_by uuid REFERENCES pmt_users(user_id) ON DELETE SET NULL,
+  doc_page_updated_at timestamptz(3) NOT NULL DEFAULT now(),
+  doc_page_archived_at timestamptz,
+  UNIQUE (doc_page_id, doc_page_doc_id),
+  FOREIGN KEY (doc_page_parent_id, doc_page_doc_id) REFERENCES pmt_doc_pages(doc_page_id, doc_page_doc_id) ON DELETE RESTRICT,
+  CHECK (doc_page_parent_id IS DISTINCT FROM doc_page_id),
+  CHECK (doc_page_template = 'module' OR doc_page_node_id IS NULL)
+);
+CREATE INDEX pmt_doc_pages_doc_idx ON pmt_doc_pages(doc_page_doc_id);
+CREATE TABLE pmt_doc_page_revisions (
+  revision_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  revision_page_id uuid NOT NULL REFERENCES pmt_doc_pages(doc_page_id) ON DELETE CASCADE,
+  revision_editor_id uuid REFERENCES pmt_users(user_id) ON DELETE SET NULL,
+  revision_content jsonb NOT NULL,
+  revision_updated_at timestamptz(3) NOT NULL DEFAULT now()
+);
+CREATE INDEX pmt_doc_revisions_page_idx ON pmt_doc_page_revisions(revision_page_id, revision_updated_at);
+
+CREATE TABLE pmt_doc_assets (
+  asset_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  asset_project_id uuid NOT NULL REFERENCES pmt_projects(project_id) ON DELETE CASCADE,
+  asset_uploader_id uuid REFERENCES pmt_users(user_id) ON DELETE SET NULL,
+  asset_filename text NOT NULL,
+  asset_mime text NOT NULL CHECK (asset_mime IN ('image/png','image/jpeg','image/webp','image/gif','image/svg+xml','application/octet-stream')),
+  asset_bytes integer NOT NULL CHECK (asset_bytes BETWEEN 1 AND 5242880),
+  asset_created_at timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE pmt_doc_pages ADD COLUMN doc_page_settings jsonb NOT NULL DEFAULT '{}';
+ALTER TABLE pmt_doc_pages ADD COLUMN doc_page_protected boolean NOT NULL DEFAULT false;
+CREATE TABLE pmt_doc_comments (
+  comment_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  comment_page_id uuid NOT NULL REFERENCES pmt_doc_pages(doc_page_id) ON DELETE CASCADE,
+  comment_author_id uuid REFERENCES pmt_users(user_id) ON DELETE SET NULL,
+  comment_body text NOT NULL CHECK (char_length(btrim(comment_body)) BETWEEN 1 AND 10000),
+  comment_quote text NOT NULL DEFAULT '',
+  comment_resolved boolean NOT NULL DEFAULT false,
+  comment_created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX pmt_doc_comments_page_idx ON pmt_doc_comments(comment_page_id,comment_created_at);
+ALTER TABLE pmt_doc_comments ADD COLUMN comment_parent_id uuid REFERENCES pmt_doc_comments(comment_id) ON DELETE SET NULL;
+ALTER TABLE pmt_doc_comments ADD COLUMN comment_assignee_id uuid REFERENCES pmt_users(user_id) ON DELETE SET NULL;
+CREATE TABLE pmt_doc_templates (
+  template_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  template_project_id uuid NOT NULL REFERENCES pmt_projects(project_id) ON DELETE CASCADE,
+  template_title text NOT NULL CHECK (char_length(btrim(template_title)) BETWEEN 1 AND 200),
+  template_kind text NOT NULL CHECK (template_kind IN ('free','module')),
+  template_content jsonb NOT NULL,
+  template_created_at timestamptz NOT NULL DEFAULT now()
+);
