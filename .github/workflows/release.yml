@@ -104,7 +104,26 @@ jobs:
             echo "Pulling image: $IMAGE"
             docker pull "$IMAGE"
 
+            # Docker creates the host directory; the app runs as UID/GID 1001.
+            ASSET_DIR=/mnt/fieldbook-files
+            docker run --rm --user 0 \
+              --volume "$ASSET_DIR:/app/data/doc-assets" \
+              --entrypoint chown "$IMAGE" 1001:1001 /app/data/doc-assets
+
             if docker container inspect fieldbook-app >/dev/null 2>&1; then
+              CURRENT_ASSET_DIR=$(docker inspect --format '{{range .Mounts}}{{if eq .Destination "/app/data/doc-assets"}}{{.Source}}{{end}}{{end}}' fieldbook-app)
+              # Preserve files from releases that had no persistent mount.
+              # Keep this backup on the host if copying or deployment fails.
+              if [ "$CURRENT_ASSET_DIR" != "$ASSET_DIR" ]; then
+                ASSET_BACKUP=$(mktemp -d "$DEPLOY_PATH/doc-assets-backup.XXXXXX")
+                docker stop fieldbook-app
+                docker cp fieldbook-app:/app/data/doc-assets/. "$ASSET_BACKUP/"
+                docker run --rm --user 0 \
+                  --volume "$ASSET_BACKUP:/backup:ro" \
+                  --volume "$ASSET_DIR:/app/data/doc-assets" \
+                  --entrypoint sh "$IMAGE" -c \
+                  'cp -an /backup/. /app/data/doc-assets/ && chown -R 1001:1001 /app/data/doc-assets'
+              fi
               echo "Removing existing container: fieldbook-app"
               docker rm --force fieldbook-app
             fi
@@ -114,6 +133,8 @@ jobs:
               --name fieldbook-app \
               --restart unless-stopped \
               --env-file "$DEPLOY_PATH/.env" \
+              --env DOC_ASSET_DIR=/app/data/doc-assets \
+              --volume "$ASSET_DIR:/app/data/doc-assets" \
               --publish "${DEPLOY_PORT}:3000" \
               "$IMAGE"
 

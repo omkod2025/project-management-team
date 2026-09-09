@@ -5,10 +5,9 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      DOC_ASSET_DIR: /app/data/doc-assets
     ports:
       - "${APP_PORT:-3000}:3000"
     volumes:
-      - doc-assets:/app/data/doc-assets
-
-volumes:
-  doc-assets:
+      - ./files:/app/data/doc-assets
