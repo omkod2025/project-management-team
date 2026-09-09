@@ -199,11 +199,13 @@ export function decodeRich(value: string): RichNode | null {
             "type",
             "color",
             "backgroundColor",
+            "filterEnabled",
             "tone",
             "open",
           ].includes(key)
         )
           return false;
+        if (key === 'filterEnabled' && (!['tableCell', 'tableHeader'].includes(n.type) || typeof val !== 'boolean')) return false;
         if (val === null) continue;
         if (key === "align" && (!['tableCell','tableHeader'].includes(n.type) || !['left','center','right','justify'].includes(String(val)))) return false;
         if (key === "type" && (n.type !== 'orderedList' || !['1','a','A','i','I'].includes(String(val)))) return false;

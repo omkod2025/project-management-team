@@ -1,6 +1,7 @@
 import React, { type CSSProperties } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import FilterableTable from './filterable-table';
 import {
   decodeRich,
   safeColor,
@@ -144,6 +145,8 @@ export default function DocContent({ value }: { value: string }) {
           <code>{n.content?.map((c) => c.text ?? "").join("")}</code>
         </pre>
       );
+    if (n.type === 'table' && n.content?.[0]?.content?.length && n.content[0].content.every(cell => cell.type === 'tableHeader' && Number(cell.attrs?.rowspan ?? 1) === 1))
+      return <FilterableTable key={key} table={n} header={node(n.content[0], 0)} rows={n.content.slice(1).map(node)} />;
     if (n.type === "table")
       return (
         <table key={key}>
@@ -158,6 +161,7 @@ export default function DocContent({ value }: { value: string }) {
           key,
           colSpan: Number(a.colspan ?? 1),
           rowSpan: Number(a.rowspan ?? 1),
+          style: safeColor(a.backgroundColor) ? { backgroundColor: a.backgroundColor } : undefined,
         },
         children,
       );

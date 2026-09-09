@@ -11,6 +11,9 @@ import { docEditorExtensions } from '@/lib/doc-editor-extensions';
 import EditorToolbar from './editor-toolbar';
 import { downloadDocFile, isDocAssetLink } from '@/lib/doc-download';
 import { decodeRich, encodeRich, RICH_PREFIX, safeEmbed } from '@/lib/doc-rich-content';
+import { pasteSpreadsheetText, sliceHasTable } from '@/lib/doc-table-paste';
+import { colorTableBand } from '@/lib/doc-table-color';
+import { selectedRect } from '@tiptap/pm/tables';
 
 export default function RichEditor({ value, label, onChange, projectId, onProblem, onUploadChange, onAssetUploaded, autoFocus = false }: {
   value: string; label: string; onChange: (value: string) => void; projectId: string; onProblem: (message: string) => void; onUploadChange: (delta: number) => void; autoFocus?: boolean;
@@ -18,6 +21,8 @@ export default function RichEditor({ value, label, onChange, projectId, onProble
 }) {
   const [toolbarPosition, setToolbarPosition] = useState<'floating' | 'top'>('floating');
   const [inserting, setInserting] = useState(false);
+  const [tableColor, setTableColor] = useState('#dceaff');
+  const [tableControlsSlot, setTableControlsSlot] = useState<HTMLElement | null>(null);
   const [insertQuery, setInsertQuery] = useState('');
   const [anchor, setAnchor] = useState({ left: 0, top: 0, gutterTop: 0 });
   const menuRoot = useRef<HTMLDivElement>(null);
@@ -49,7 +54,13 @@ export default function RichEditor({ value, label, onChange, projectId, onProble
         if (!isDocAssetLink(href)) return false;
         event.preventDefault(); void download(href); return true;
       },
-      handlePaste: (_view, event) => {
+      handlePaste: (view, event, slice) => {
+        if (view.state.selection.$from.parent.type.spec.code) return false;
+        // Excel can include an image preview alongside its HTML table. Let the
+        // schema/TableKit paste the table, rather than uploading that preview.
+        if (event.clipboardData?.getData('text/html') && sliceHasTable(slice)) return false;
+        try { if (pasteSpreadsheetText(view, event)) return true; }
+        catch (error) { onProblem(error instanceof Error ? error.message : 'Could not paste this table. Try a smaller range.'); return true; }
         if (event.clipboardData?.files.length) { void uploadFiles(Array.from(event.clipboardData.files)); return true; }
         return false;
       },
@@ -61,6 +72,9 @@ export default function RichEditor({ value, label, onChange, projectId, onProble
     onUpdate: ({ editor }) => { const json=editor.getJSON(); try {onChange(encodeRich(json));}catch{onChange(RICH_PREFIX+JSON.stringify(json));onProblem('This draft contains unsupported formatting. Download the complete draft before reloading; it has not been saved.');} },
   });
   useEditorState({ editor, selector: ({ editor }) => editor?.state });
+  useEffect(() => {
+    setTableControlsSlot(editor?.view.dom.querySelector<HTMLElement>('.doc-table-config-anchor') ?? null);
+  });
   const selection = editor?.state.selection;
   const textBefore = selection?.empty && selection.$from.parent.type.name === 'paragraph'
     ? selection.$from.parent.textBetween(0, selection.$from.parentOffset, '', '') : '';
@@ -135,6 +149,11 @@ export default function RichEditor({ value, label, onChange, projectId, onProble
   };
   const formatting = <EditorToolbar editor={editor} position={toolbarPosition} onPosition={setToolbarPosition} onInsert={openInsert} />;
   const blockIndex=editor.state.selection.$from.index(0);
+  const activeTable = editor.isActive('table') ? selectedRect(editor.state) : null;
+  const filterHeaders: { label: string; pos: number; enabled: boolean }[] = [];
+  if (activeTable?.table.firstChild?.content.size && activeTable.table.firstChild.content.content.every(cell => cell.type.name === 'tableHeader')) {
+    activeTable.table.firstChild.forEach((cell, offset, index) => filterHeaders.push({ label: cell.textContent || `Column ${index + 1}`, pos: activeTable.tableStart + 1 + offset, enabled: cell.attrs.filterEnabled === true }));
+  }
   function moveBlock(direction:-1|1){
     if(!editor)return;const blocks:{node:import('@tiptap/pm/model').Node;pos:number}[]=[];editor.state.doc.forEach((node,pos)=>blocks.push({node,pos}));
     const current=blocks[blockIndex],neighbor=blocks[blockIndex+direction];if(!current||!neighbor)return;
@@ -180,7 +199,7 @@ export default function RichEditor({ value, label, onChange, projectId, onProble
     {linkBlock&&<form className="doc-block-form" onSubmit={e=>{e.preventDefault();if(!/^https?:\/\//i.test(blockUrl)||(linkBlock==='embed'&&!safeEmbed(blockUrl))){onProblem('Use a valid HTTPS embed URL from a supported provider, or an HTTP(S) button link.');return;}editor.chain().focus().insertContent(linkBlock==='button'?{type:'linkButton',attrs:{href:blockUrl,label:blockLabel}}:{type:'embed',attrs:{src:blockUrl}}).run();setLinkBlock(null);}}><label>{linkBlock==='embed'?'Embed URL':'Button URL'}<input type="url" required autoFocus value={blockUrl} onChange={e=>setBlockUrl(e.target.value)}/></label>{linkBlock==='button'&&<label>Button label<input required maxLength={200} value={blockLabel} onChange={e=>setBlockLabel(e.target.value)}/></label>}<button type="submit"><DocIcon name="plus" />Insert {linkBlock}</button><button type="button" onClick={()=>setLinkBlock(null)}><DocIcon name="close" />Cancel</button></form>}
     {isDocAssetLink(editor.getAttributes('link').href ?? '') && <button type="button" disabled={downloading} onClick={() => void download(editor.getAttributes('link').href)}><DocIcon name="download" />Download attachment</button>}
     {editor.isEmpty && <p className="doc-empty-hint">Type / for commands</p>}
-    {editor.isActive('table') && <div className="doc-table-tools" role="group" aria-label="Table actions">
+    {editor.isActive('table') && tableControlsSlot && createPortal(<div className="doc-table-tools" role="group" aria-label="Table actions">
       <button type="button" onClick={() => editor.chain().focus().addRowAfter().run()}><DocIcon name="table" />+ Row</button>
       <button type="button" onClick={() => editor.chain().focus().addColumnAfter().run()}><DocIcon name="columns" />+ Column</button>
       <button type="button" onClick={() => editor.chain().focus().deleteRow().run()}><DocIcon name="close" />Remove row</button>
@@ -188,8 +207,15 @@ export default function RichEditor({ value, label, onChange, projectId, onProble
       <button type="button" disabled={!editor.can().mergeCells()} onClick={() => editor.chain().focus().mergeCells().run()}><DocIcon name="table" />Merge cells</button>
       <button type="button" disabled={!editor.can().splitCell()} onClick={() => editor.chain().focus().splitCell().run()}><DocIcon name="table" />Split cell</button>
       <button type="button" onClick={() => editor.chain().focus().toggleHeaderRow().run()}><DocIcon name="table" />Header row</button>
+      <fieldset className="doc-table-filter-settings"><legend>Filter columns</legend>{filterHeaders.length ? filterHeaders.map(header => <label key={header.pos}><input type="checkbox" checked={header.enabled} onChange={event => {
+        const cell = editor.state.doc.nodeAt(header.pos);
+        if (cell) editor.view.dispatch(editor.state.tr.setNodeMarkup(header.pos, undefined, { ...cell.attrs, filterEnabled: event.target.checked }));
+      }} />{header.label}</label>) : <span>Enable Header row to choose filter columns.</span>}</fieldset>
+      <label className="doc-table-color">Fill color <input type="color" aria-label="Table fill color" value={tableColor} onChange={e => setTableColor(e.target.value)} /></label>
+      {(['row', 'column'] as const).map(axis => <button key={axis} type="button" onClick={() => { colorTableBand(axis, tableColor)(editor.state, editor.view.dispatch); editor.commands.focus(); }}>{axis === 'row' ? 'Row color' : 'Column color'}</button>)}
+      {(['row', 'column'] as const).map(axis => <button key={`clear-${axis}`} type="button" onClick={() => { colorTableBand(axis, null)(editor.state, editor.view.dispatch); editor.commands.focus(); }}>Clear {axis} color</button>)}
       <button type="button" onClick={() => editor.chain().focus().deleteTable().run()}><DocIcon name="close" />Remove table</button>
-    </div>}
+    </div>, tableControlsSlot)}
     {showCommands && createPortal(<div ref={menuRoot} className="editor-commands doc-command-popover" style={{ left: anchor.left, top: anchor.top }} role="region" aria-label="Insert block">
       <div className="editor-command-heading">Insert block <span>↑ ↓ to navigate · Enter to insert · Esc to close</span></div>
       {inserting && <input aria-label="Search blocks" placeholder="Search blocks…" autoFocus value={insertQuery} onChange={(e) => { setInsertQuery(e.target.value); setChoice(0); }} onKeyDown={(e) => { if (handleCommandKey.current(e.nativeEvent)) e.preventDefault(); }} />}
