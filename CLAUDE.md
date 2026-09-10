@@ -17,7 +17,7 @@ Project management for software delivery. Plan and reality are recorded separate
 | [`docs/spec/06-clickup-migration.md`](docs/spec/06-clickup-migration.md) | Extraction and import |
 | [`docs/spec/07-extraction-findings.md`](docs/spec/07-extraction-findings.md) | What the captured data actually contains |
 | [`docs/spec/08-operations.md`](docs/spec/08-operations.md) | Backup, restore, deployment shape |
-| [`docs/spec/09-roster.md`](docs/spec/09-roster.md) | Roster timeline — one lane per person, across projects |
+| [`docs/spec/09-roster.md`](docs/spec/09-roster.md) | All Timeline (the roster) — one lane per person, across projects |
 | [`docs/spec/10-docs.md`](docs/spec/10-docs.md) | Project documents — pages, templates, Markdown, assets |
 | [`db/schema.sql`](db/schema.sql) | Executable DDL — verified against PostgreSQL 18.4 |
 | [`db/tests.sql`](db/tests.sql) | Schema test suite, 13 groups, runs in a rolled-back transaction |
@@ -29,7 +29,8 @@ Project management for software delivery. Plan and reality are recorded separate
 | [`tests/e2e/roster.test.ts`](tests/e2e/roster.test.ts) | 12 end-to-end tests: assignment, the membership boundary, read-only |
 | [`tests/e2e/profile.test.ts`](tests/e2e/profile.test.ts) | 11 end-to-end tests: renaming yourself, and admin-issued password resets |
 | [`tests/roster-pack.test.ts`](tests/roster-pack.test.ts) | 23 tests: lane packing, occupancy, contention |
-| [`tests/list-sort.test.ts`](tests/list-sort.test.ts) | 19 tests: the List's multi-column sort — empty cells, tie-breaks, direction per column |
+| [`tests/list-sort.test.ts`](tests/list-sort.test.ts) | 24 tests: the List's multi-column sort — empty cells, tie-breaks, direction per column, modules by name |
+| [`tests/list-columns.test.ts`](tests/list-columns.test.ts) | 18 tests: moving the List's columns — bands travel whole, nothing is ever lost |
 | [`tests/doc-publish.test.ts`](tests/doc-publish.test.ts) | 18 tests: the published read-only link — token shape, what a stranger may follow, which files a token may read |
 | [`docs/TASKS.md`](docs/TASKS.md) | Build plan T0–T9 with per-task checklists |
 | [`docs/wireframes/index.html`](docs/wireframes/index.html) | Rendered wireframes for both views |

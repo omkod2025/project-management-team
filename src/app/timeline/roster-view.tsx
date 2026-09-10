@@ -183,10 +183,10 @@ export default function RosterView({ roster }: { roster: Roster }) {
       <div className="sheet">
         <header className="head">
           <a className="shelf label" href="/">‹ Home</a>
-          <h1>Roster</h1>
+          <h1>All Timeline</h1>
           <div className="views label">
             <a href="/">Projects</a>
-            <span aria-current="page">Roster</span>
+            <span aria-current="page">All Timeline</span>
             <a href="/people">People</a>
           </div>
         </header>
@@ -240,7 +240,7 @@ export default function RosterView({ roster }: { roster: Roster }) {
           )}
         </div>
 
-        <div className="timeline-filters" role="search" aria-label="Filter roster tasks">
+        <div className="timeline-filters" role="search" aria-label="Filter tasks">
           <label>
             Module
             <input

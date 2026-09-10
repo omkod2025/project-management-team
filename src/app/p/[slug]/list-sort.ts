@@ -52,6 +52,29 @@ export type SortableRow = {
   led_custom_values: Record<string, unknown> | null;
 };
 
+/**
+ * The order modules stand in, when nothing else has been asked for.
+ *
+ * **By name, not by filed position.** A module is a permanent division of the
+ * project — six or eight of them, named once and then read hundreds of times —
+ * and the only reason its filed position ever differed from alphabetical is
+ * the accident of which one was created first. Tasks are the opposite: their
+ * order inside a module is a decision somebody made, so it is left alone. This
+ * is the one place in the run where the filed order is not the baseline.
+ *
+ * `Intl.Collator` rather than `<`, for two reasons that both show up here:
+ * content is Thai (`th` first, `en` behind it), and `numeric` puts *Module 2*
+ * before *Module 10* instead of after it, which is how anybody numbering
+ * modules expects them to read.
+ *
+ * A tie falls back to the filed order so the run is still stable.
+ */
+const moduleCollator = new Intl.Collator(['th', 'en'], { numeric: true, sensitivity: 'base' });
+
+export function compareModuleNames(a: SortableRow, b: SortableRow): number {
+  return moduleCollator.compare(a.led_name, b.led_name) || a.led_sort_order - b.led_sort_order;
+}
+
 /** A gutter has nothing in it; everything else can be ranked. */
 export function isSortable(column: SortableColumn): boolean {
   return column.kind !== 'gutter' && column.field?.kind !== 'image';

@@ -10,7 +10,7 @@ import test, { describe } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  makeComparator, rankOf, isSortable,
+  makeComparator, rankOf, isSortable, compareModuleNames,
   type SortableColumn, type SortableRow,
 } from '../src/app/p/[slug]/list-sort.ts';
 
@@ -191,6 +191,47 @@ describe('by closed', () => {
 
   test('a leaf has nothing to rank', () => {
     assert.equal(rankOf(row({ led_name: 'leaf', led_sort_order: 1 }), CLOSED), null);
+  });
+});
+
+describe('the module order', () => {
+  const named = (name: string, order: number) => row({ led_name: name, led_sort_order: order });
+  const modules = (rows: SortableRow[]) =>
+    [...rows].sort(compareModuleNames).map((r) => r.led_name);
+
+  /* The one place in the run where the filed order is not the baseline: a
+     module is a permanent division, named once and read constantly, and its
+     filed position is only the accident of which was created first. */
+  test('is alphabetical, not filed', () => {
+    assert.deepEqual(
+      modules([named('Vision', 1), named('Backend', 2), named('Hardware', 3)]),
+      ['Backend', 'Hardware', 'Vision'],
+    );
+  });
+
+  test('puts Module 2 before Module 10, as anybody numbering them expects', () => {
+    assert.deepEqual(
+      modules([named('Module 10', 1), named('Module 2', 2), named('Module 1', 3)]),
+      ['Module 1', 'Module 2', 'Module 10'],
+    );
+  });
+
+  test('does not care about case', () => {
+    assert.deepEqual(modules([named('beta', 1), named('Alpha', 2)]), ['Alpha', 'beta']);
+  });
+
+  /* Content is Thai. A byte comparison would order these by code point, which
+     is not the order a Thai reader looks them up in. */
+  test('orders Thai names by the Thai collation', () => {
+    assert.deepEqual(
+      modules([named('ระบบแจ้งเตือน', 1), named('กล้อง', 2), named('ทะเบียนรถ', 3)]),
+      ['กล้อง', 'ทะเบียนรถ', 'ระบบแจ้งเตือน'],
+    );
+  });
+
+  test('and two identical names fall back to the filed order', () => {
+    const rows = [named('Same', 2), named('Same', 1)];
+    assert.deepEqual(rows.sort(compareModuleNames).map((r) => r.led_sort_order), [1, 2]);
   });
 });
 

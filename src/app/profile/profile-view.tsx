@@ -119,7 +119,7 @@ export default function ProfileView({ profile, signOut }: Props) {
           <div className="prof-block-head">
             <h2 id="prof-name">Name</h2>
             <p>
-              Drawn on every task you are assigned, on your roster lane and
+              Drawn on every task you are assigned, on your lane in All Timeline and
               beside anything you created. Change it as often as it needs
               changing.
             </p>

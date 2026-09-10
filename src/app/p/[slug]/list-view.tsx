@@ -11,7 +11,10 @@ import ConfirmArchive from './confirm-archive';
 import {
   loadSet, saveSet, loadRecord, saveRecord, selectedFromUrl, writeSelectedToUrl, siblingHref,
 } from './view-state';
-import { makeComparator, isSortable, type SortTerm, type SortableColumn } from './list-sort';
+import {
+  makeComparator, isSortable, compareModuleNames, type SortTerm, type SortableColumn,
+} from './list-sort';
+import { blocksOf, arrangeColumns, moveBlock } from './list-columns';
 import './list.css';
 
 /**
@@ -91,6 +94,10 @@ export default function ListView({
   /** Columns the run is ordered by, first one first. Empty means filed order. */
   const [sortTerms, setSortTerms] = useState<SortTerm[]>([]);
   const [sortOpen, setSortOpen] = useState(false);
+  /** The reader's column arrangement, as block keys. Empty means as filed. */
+  const [columnOrder, setColumnOrder] = useState<string[]>([]);
+  const [columnsOpen, setColumnsOpen] = useState(false);
+  const [dragging, setDragging] = useState<string | null>(null);
   const [saving, setSaving] = useState<Set<string>>(new Set());
   const [failure, setFailure] = useState<{ cell: string; message: string } | null>(null);
   const [pendingArchive, setPendingArchive] = useState<LedgerRow | null>(null);
@@ -98,6 +105,7 @@ export default function ListView({
   const [ready, setReady] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const sortRef = useRef<HTMLDivElement>(null);
+  const columnsRef = useRef<HTMLDivElement>(null);
   const chord = useRef<string | null>(null);
 
   /* ------------------------------------------------- restore view state */
@@ -116,6 +124,7 @@ export default function ListView({
     // not to the project. Somebody triaging by date must not reorder the page
     // for everyone else, and the filed order is what `led_sort_order` is for.
     setSortTerms(loadRecord<SortTerm[]>(slug, 'sort', []));
+    setColumnOrder(loadRecord<string[]>(slug, 'columns', []));
     const carried = selectedFromUrl();
     if (carried) setSelected(carried);
     setReady(true);
@@ -123,11 +132,13 @@ export default function ListView({
 
   useEffect(() => { if (ready) saveSet(slug, 'expanded', expanded); }, [ready, slug, expanded]);
   useEffect(() => { if (ready) saveRecord(slug, 'sort', sortTerms); }, [ready, slug, sortTerms]);
+  useEffect(() => { if (ready) saveRecord(slug, 'columns', columnOrder); }, [ready, slug, columnOrder]);
   useEffect(() => { if (ready) writeSelectedToUrl(selected); }, [ready, selected]);
 
   /* ------------------------------------------------------------ columns */
 
-  const columns = useMemo<Column[]>(() => {
+  /** The grid as the project files it, before the reader rearranges anything. */
+  const filedColumns = useMemo<Column[]>(() => {
     const live = fields.filter((f) => !f.archived).sort((a, b) => a.position - b.position);
     const status = live.find((f) => f.id === statusFieldId);
     const rest = live.filter((f) => f.id !== statusFieldId);
@@ -174,6 +185,37 @@ export default function ListView({
     ];
   }, [fields, statusFieldId]);
 
+  /**
+   * The blocks a reader may pick up, and the grid in their order.
+   *
+   * A band travels whole and the name column is pinned — see `list-columns.ts`
+   * for why. Everything downstream of here reads `columns`, so the arrangement
+   * reaches the heads, the cells, the keyboard's column index and the group
+   * band without any of them knowing it happened.
+   */
+  const blocks = useMemo(() => blocksOf(filedColumns), [filedColumns]);
+  const columns = useMemo(
+    () => arrangeColumns(filedColumns, columnOrder),
+    [filedColumns, columnOrder],
+  );
+  const movableBlocks = useMemo(
+    () => blocksOf(columns).filter((b) => !b.pinned),
+    [columns],
+  );
+
+  const moveColumn = useCallback(
+    (key: string, to: number | 'left' | 'right') =>
+      setColumnOrder(moveBlock(blocks, columnOrder, key, to)),
+    [blocks, columnOrder],
+  );
+
+  /** Which block a head belongs to, so dragging any head moves its whole band. */
+  const blockOf = useCallback(
+    (columnKey: string) =>
+      movableBlocks.find((b) => b.columns.some((c) => c.key === columnKey)) ?? null,
+    [movableBlocks],
+  );
+
   /* ------------------------------------------------------------ sorting */
 
   /**
@@ -213,22 +255,30 @@ export default function ListView({
       return next;
     });
 
-  /* The panel is a menu, not a mode: anything outside it, or Escape, ends it. */
+  /* Both panels are menus, not modes: anything outside, or Escape, ends them. */
   useEffect(() => {
-    if (!sortOpen) return;
+    const open = sortOpen || columnsOpen;
+    if (!open) return;
     const away = (e: MouseEvent) => {
-      if (e.target instanceof Node && !sortRef.current?.contains(e.target)) setSortOpen(false);
+      if (!(e.target instanceof Node)) return;
+      if (!sortRef.current?.contains(e.target)) setSortOpen(false);
+      if (!columnsRef.current?.contains(e.target)) setColumnsOpen(false);
     };
-    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') setSortOpen(false); };
+    const key = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { setSortOpen(false); setColumnsOpen(false); }
+    };
     document.addEventListener('mousedown', away, true);
     document.addEventListener('keydown', key);
     return () => {
       document.removeEventListener('mousedown', away, true);
       document.removeEventListener('keydown', key);
     };
-  }, [sortOpen]);
+  }, [sortOpen, columnsOpen]);
 
   /* --------------------------------------------------------------- tree */
+
+  /** The project row. The grid never prints it: it is the page, not a row. */
+  const root = rows.find((r) => r.led_depth === 1) ?? null;
 
   /**
    * Sorting reorders each parent's children among themselves; the tree stands.
@@ -246,24 +296,34 @@ export default function ListView({
       list.push(r);
       m.set(r.led_parent_id, list);
     }
-    for (const list of m.values()) list.sort(comparator);
+    for (const [parentId, list] of m) {
+      // Modules stand in name order unless the reader has asked for something
+      // else; everything below them keeps the order it was filed in. See
+      // `compareModuleNames` for why the two differ.
+      const isModuleRow = parentId === (root?.led_node_id ?? null);
+      list.sort(isModuleRow && sortTerms.length === 0 ? compareModuleNames : comparator);
+    }
     return m;
-  }, [rows, comparator]);
+  }, [rows, comparator, sortTerms, root]);
 
   const byId = useMemo(() => new Map(rows.map((r) => [r.led_node_id, r])), [rows]);
-  const root = rows.find((r) => r.led_depth === 1) ?? null;
+
+  /** The modules as the run shows them: by name, or by whatever was sorted. */
+  const modules = byParent.get(root?.led_node_id ?? null) ?? [];
+
   /**
-   * The modules in *filed* order, not in the sorted one.
+   * The same modules in *filed* order, which is what the hues are numbered by.
    *
-   * A module's hue is its identity — the one thing that has to survive
-   * switching views (and now, switching sort). Numbering the tabs from the
-   * displayed order would repaint the whole rail the moment somebody sorted by
-   * date, which turns the index into decoration.
+   * A module's colour is its identity — the one thing that has to survive
+   * switching views, switching sort, and now standing in a different place in
+   * the run. Numbering from the displayed order would repaint the whole rail
+   * the moment a module was renamed, which turns the index into decoration.
+   * The project Timeline numbers from `led_sort_order` too; that is what keeps
+   * the two views agreeing.
    */
-  const modules = useMemo(
-    () => [...(byParent.get(root?.led_node_id ?? null) ?? [])]
-      .sort((a, b) => a.led_sort_order - b.led_sort_order),
-    [byParent, root],
+  const filedModules = useMemo(
+    () => [...modules].sort((a, b) => a.led_sort_order - b.led_sort_order),
+    [modules],
   );
 
   /**
@@ -276,7 +336,7 @@ export default function ListView({
    */
   const moduleIndex = useMemo(() => {
     const m = new Map<string, number>();
-    modules.forEach((n, i) => {
+    filedModules.forEach((n, i) => {
       const mark = (node: LedgerRow) => {
         m.set(node.led_node_id, i + 1);
         for (const k of byParent.get(node.led_node_id) ?? []) mark(k);
@@ -284,7 +344,7 @@ export default function ListView({
       mark(n);
     });
     return m;
-  }, [byParent, modules]);
+  }, [byParent, filedModules]);
 
   const descendantCount = useCallback(
     (id: string): number => {
@@ -683,12 +743,19 @@ export default function ListView({
   return (
     <div className="book">
       <nav className="rail" aria-label="Modules">
-        {modules.map((m, i) => (
+        {/* The tabs stand in the run's order, so the rail reads down the page
+            as the page does — but each keeps the hue its module owns, which is
+            numbered from the filed order and never from where it happens to
+            sit. */}
+        {modules.map((m) => (
           <button
             key={m.led_node_id}
             className="tab label"
             title={m.led_name}
-            style={{ ['--tab-hue' as string]: TAB_HUE(i + 1), flex: `${descendantCount(m.led_node_id) + 1} 1 0` }}
+            style={{
+              ['--tab-hue' as string]: TAB_HUE(moduleIndex.get(m.led_node_id) ?? 1),
+              flex: `${descendantCount(m.led_node_id) + 1} 1 0`,
+            }}
             aria-current={selected === m.led_node_id}
             onClick={() => {
               setSelected(m.led_node_id);
@@ -837,6 +904,66 @@ export default function ListView({
             )}
           </div>
 
+          {/* Dragging a head is the fast way and the only one a mouse needs;
+              this is the same act for a hand that is not holding one, and the
+              only one a screen reader can reach at all. */}
+          <div className="sortby" ref={columnsRef}>
+            <button
+              type="button"
+              className="sortby-open"
+              aria-expanded={columnsOpen}
+              onClick={() => setColumnsOpen((o) => !o)}
+              title="Move the columns. Drag a column head to do the same."
+            >
+              Columns
+              {columnOrder.length > 0 && <span className="figure sortby-count">·</span>}
+            </button>
+
+            {columnsOpen && (
+              <div className="sortby-panel" role="group" aria-label="Column order">
+                <ol className="sortby-terms">
+                  {movableBlocks.map((b, i) => (
+                    <li key={b.key}>
+                      <span className="figure sortby-rank">{i + 1}</span>
+                      <span className="sortby-name">{b.label}</span>
+                      <button
+                        type="button"
+                        onClick={() => moveColumn(b.key, 'left')}
+                        disabled={i === 0}
+                        aria-label={`Move ${b.label} left`}
+                        title="Left"
+                      >
+                        ‹
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => moveColumn(b.key, 'right')}
+                        disabled={i === movableBlocks.length - 1}
+                        aria-label={`Move ${b.label} right`}
+                        title="Right"
+                      >
+                        ›
+                      </button>
+                    </li>
+                  ))}
+                </ol>
+
+                {columnOrder.length > 0 && (
+                  <div className="sortby-add">
+                    <button type="button" onClick={() => setColumnOrder([])}>
+                      Back to the filed order
+                    </button>
+                  </div>
+                )}
+
+                <p className="sortby-note">
+                  Estimate, Actual, Slip and Closed each move whole: the band above
+                  the heads is what says which is the plan. Name stays first.
+                </p>
+              </div>
+            )}
+          </div>
+
           {/* The add row at the foot of the run is where a module is added in
               the flow of reading it. This is the same act reached from the top
               of the page — a long run puts that row a scroll away, and a
@@ -882,11 +1009,37 @@ export default function ListView({
                     {columns.map((c) => {
                       const at = sortTerms.findIndex((t) => t.key === c.key);
                       const term = at === -1 ? null : sortTerms[at]!;
+                      const block = blockOf(c.key);
                       return (
                       <th
                         key={c.key}
                         scope="col"
                         aria-sort={term ? (term.descending ? 'descending' : 'ascending') : undefined}
+                        /* Dragging any head of a band picks up the whole band.
+                           The gutter is part of the block too, so a seam
+                           travels with what it opens in front of. */
+                        draggable={!!block}
+                        onDragStart={(e) => {
+                          if (!block) return;
+                          setDragging(block.key);
+                          e.dataTransfer.effectAllowed = 'move';
+                          // Firefox will not start a drag without payload.
+                          e.dataTransfer.setData('text/plain', block.key);
+                        }}
+                        onDragEnd={() => setDragging(null)}
+                        onDragOver={(e) => {
+                          if (!block || !dragging || dragging === block.key) return;
+                          e.preventDefault();
+                          e.dataTransfer.dropEffect = 'move';
+                        }}
+                        onDrop={(e) => {
+                          if (!block || !dragging || dragging === block.key) return;
+                          e.preventDefault();
+                          moveColumn(dragging, movableBlocks.findIndex((b) => b.key === block.key));
+                          setDragging(null);
+                        }}
+                        data-drop={!!block && !!dragging && dragging !== block.key ? '' : undefined}
+                        data-dragging={block && dragging === block.key ? '' : undefined}
                         /* The band is the eye's disambiguator, and it is
                            aria-hidden so it is not announced twice. Three
                            columns now read "Start" and three read "Days", so

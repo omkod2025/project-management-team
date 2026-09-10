@@ -390,6 +390,13 @@
   text-transform: inherit;
 }
 .head-sort:hover { color: var(--cu-ink); }
+
+/* Moving a column. The head being carried goes quiet, and the one it would
+   land in front of grows a rule down its leading edge — the drop is drawn as
+   a seam in the page, not as a floating box over it. */
+.run thead tr.heads th[draggable='true'] { cursor: grab; }
+.run thead tr.heads th[data-dragging] { opacity: .45; cursor: grabbing; }
+.run thead tr.heads th[data-drop] { box-shadow: inset 2px 0 0 var(--color-ink-graphite), inset 0 -1px 0 var(--cu-line); }
 .head-mark { color: var(--cu-ink); }
 .head-mark .figure { font-family: var(--font-figure), monospace; font-size: 10px; }
 

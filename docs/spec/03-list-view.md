@@ -84,7 +84,21 @@ Every non-archived field definition of the project, in `position` order, appende
 
 ### 2.3 Column visibility
 
-A `⌗` control opens a hinged leaf listing every column with a checkbox. Hiding is per user, stored locally. There is no column reordering in phase one; order is `position` on the definition, which an Admin can change in field settings.
+A `⌗` control opens a hinged leaf listing every column with a checkbox. Hiding is per user, stored locally.
+
+### 2.4 Moving a column
+
+~~There is no column reordering in phase one.~~ **Added 2026-09-10.** A reader may rearrange the grid; the arrangement is theirs, stored locally, and never touches `position` on the field definition, which stays the project's filed order and an Admin's to change.
+
+**What moves is a block, not a column.** Six columns belong to bands — Estimate is `Start · End · Days`, Actual the same three — and the band above the heads is the only thing on the page saying which half is the plan and which is the record. Drag `Actual end` into the middle of Estimate and that sentence stops being true: the band would span a lie, or fragment into captions over single columns, which is a second header row. So:
+
+- **Estimate, Actual, Slip and Closed each travel whole**, each carrying its own leading gutter, so a moved band arrives with its seam still opening in front of it.
+- **Status and each custom field are their own block** and move alone.
+- **Name never moves.** It is sticky to the left edge, and a column that scrolled past it could not pin to the same edge.
+
+Two ways in, because a drag is not reachable by every hand: **drag a column head** (any head of a band picks up the band; the head being carried goes quiet and the one it would land in front of grows a rule down its leading edge), or open **Columns** in the toolbar and move a block left or right by button. The same panel returns the grid to the filed order.
+
+A stored arrangement can never lose a column. A key for a column that no longer exists is ignored, and a block the arrangement has never heard of — a field added since it was saved — keeps its filed place beside the neighbour it was filed next to: not missing, which reads as a bug in the field, and not last, where nobody is looking.
 
 ---
 
@@ -171,7 +185,12 @@ Group by exactly one column. Default: module (the node's level-2 ancestor).
 
 ## 6a. Sorting
 
-Sort by any number of columns at once. Default: none — the filed order (`led_sort_order`).
+Sort by any number of columns at once. Default: none — the filed order (`led_sort_order`), **except modules, which stand in name order** (added 2026-09-10).
+
+- A module is a permanent division of the project: six or eight of them, named once and then read hundreds of times. The only thing its filed position records is which was created first, which is not a fact anybody looks a module up by. Tasks are the opposite — their order inside a module is a decision somebody made, so it is left exactly as filed.
+- The comparison is `Intl.Collator(['th','en'], { numeric: true })`: content is Thai, and *Module 2* has to come before *Module 10*. Identical names fall back to the filed order.
+- **Module hues are still numbered from the filed order**, never from where a module now sits. A colour is the module's identity and has to survive renaming, sorting and switching views — the project Timeline numbers from `led_sort_order` too, and that is what keeps the two agreeing. The fore-edge tabs follow the run's order while each keeps its own hue.
+- An explicit sort overrides it, modules included: having asked for the whole run in date order, a reader does not want the top level held back in alphabetical.
 
 - **Sorting reorders siblings inside their parent; the tree stands.** The Timeline makes the opposite choice and flattens, because a picture of time that restarts at every module is not in date order. Here the indent, the bracket, the module chip and the per-module add row all say where a task is filed, and a flat run would make every one of them a lie.
 - Terms apply in the order they were added: the first column that separates two rows decides them, and when every term ties the filed order does — so the run is stable.

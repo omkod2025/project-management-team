@@ -1,4 +1,6 @@
-# 09 — Roster timeline
+# 09 — All Timeline (the roster)
+
+**Named "All Timeline" in the interface, renamed 2026-09-10.** "Roster" stays as the word for the thing itself — the read, `lib/roster.ts`, the lane packer, these rules — because it is precise and the code is written in it. On screen it says **All Timeline**, which tells a reader arriving from a project's Timeline what is different about this one: same instrument, every project at once.
 
 The shelf's own view. One lane per person, every project they are in, on one date scale.
 
@@ -20,7 +22,7 @@ It is therefore filed at `/timeline`, beside `/` and `/people`, not under `/p/<s
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│  ‹ Field Book   Roster                        PROJECTS · ROSTER · PEOPLE      │
+│  ‹ Field Book   All Timeline            PROJECTS · ALL TIMELINE · PEOPLE     │
 ├──────────────────────────────────────────────────────────────────────────────┤
 │ [TODAY] [EST|ACT|BOTH] [D|W|M]  ●Bannayuu ●Dev.JO ○RSU ●VMS      72 dated     │
 ├────────────────────┬─────────────────────────────────────────────────────────┤

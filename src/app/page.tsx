@@ -135,11 +135,12 @@ export default async function Home() {
             Projects
             <span className="sh-nav-count figure">{rows.length}</span>
           </span>
-          {/* The roster reads across every project at once, so it belongs
-              beside the shelf rather than inside any one of them. */}
+          {/* It reads across every project at once, so it belongs beside the
+              shelf rather than inside any one of them — which is what the
+              name says: All Timeline, as against a project's own. */}
           <Link className="sh-nav-item" href="/timeline">
             <IconTimeline />
-            Roster timeline
+            All Timeline
           </Link>
           {/* The shelf is the only level at which "who can reach what" is a
               whole question — inside a project you can only ever see that
