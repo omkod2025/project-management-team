@@ -19,6 +19,7 @@ Project management for software delivery. Plan and reality are recorded separate
 | [`docs/spec/08-operations.md`](docs/spec/08-operations.md) | Backup, restore, deployment shape |
 | [`docs/spec/09-roster.md`](docs/spec/09-roster.md) | All Timeline (the roster) — one lane per person, across projects |
 | [`docs/spec/10-docs.md`](docs/spec/10-docs.md) | Project documents — pages, templates, Markdown, assets |
+| [`docs/spec/11-notifications.md`](docs/spec/11-notifications.md) | The bell — being told when your name is put on a task |
 | [`db/schema.sql`](db/schema.sql) | Executable DDL — verified against PostgreSQL 18.4 |
 | [`db/tests.sql`](db/tests.sql) | Schema test suite, 13 groups, runs in a rolled-back transaction |
 | [`tests/node-rules.test.ts`](tests/node-rules.test.ts) | 46 domain rule tests, each naming the `D-nn` it defends |
@@ -32,6 +33,8 @@ Project management for software delivery. Plan and reality are recorded separate
 | [`tests/list-sort.test.ts`](tests/list-sort.test.ts) | 24 tests: the List's multi-column sort — empty cells, tie-breaks, direction per column, modules by name |
 | [`tests/list-move.test.ts`](tests/list-move.test.ts) | 20 tests: where a dragged row lands — promote, demote, reorder, cross a module, and the two refusals |
 | [`tests/list-columns.test.ts`](tests/list-columns.test.ts) | 18 tests: moving the List's columns — bands travel whole, nothing is ever lost |
+| [`tests/notification-rules.test.ts`](tests/notification-rules.test.ts) | 18 tests: what counts as an assignment when there is no assignee column — added only, never yourself, per field |
+| [`tests/e2e/notifications.test.ts`](tests/e2e/notifications.test.ts) | 21 end-to-end tests: the write on the one path that reaches it, and the read stopping at membership |
 | [`tests/doc-publish.test.ts`](tests/doc-publish.test.ts) | 18 tests: the published read-only link — token shape, what a stranger may follow, which files a token may read |
 | [`docs/TASKS.md`](docs/TASKS.md) | Build plan T0–T9 with per-task checklists |
 | [`docs/wireframes/index.html`](docs/wireframes/index.html) | Rendered wireframes for both views |
@@ -59,9 +62,9 @@ npm run db:seed -- <email> <password>
 
 ```bash
 npm run check      # typecheck + domain tests — the pre-commit bar
-npm test           # 126 domain rule tests (nodes, admin, timeline sort), no database needed
+npm test           # 272 domain rule tests (nodes, admin, list, roster, notifications), no database needed
 npm run db:test    # 13 SQL groups, rolled back
-npm run test:e2e   # 114 API tests — REQUIRES `npm run dev` in another terminal
+npm run test:e2e   # 141 API tests — REQUIRES `npm run dev` in another terminal
 npm run test:acceptance  # 15 acceptance criteria, same requirement
 ```
 

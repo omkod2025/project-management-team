@@ -766,3 +766,67 @@ ALTER TABLE pmt_projects
   ADD COLUMN project_column_order jsonb NOT NULL DEFAULT '[]'::jsonb
     CHECK (jsonb_typeof(project_column_order) = 'array'
            AND jsonb_array_length(project_column_order) <= 100);
+
+-- Being told your name was put on something (spec 11).
+--
+-- This table exists because nothing else in the database could answer the
+-- question. `node_custom_values` is a jsonb column that is overwritten in
+-- place: there is no history anywhere in this schema, so an assignment that
+-- is not recorded at the moment it happens is unrecoverable a second later.
+-- The notification row *is* the record.
+--
+-- It is an event log, not a mirror of who is currently assigned. Taking a
+-- name back off a field does not delete the row — you were assigned, and
+-- being told so afterwards is still true and still worth reading. What the
+-- row cannot outlive is *reach*: a project you are no longer a member of, an
+-- archived project, and an archived node are all filtered on read (see
+-- `loadNotifications`), never deleted here, so a restore brings them back.
+--
+-- No trigger writes this. The rule lives in `notification-rules.ts` and is
+-- applied by `updateNode`, which is the single path a person's assignment can
+-- change through. `clickup-load.mjs` writes `node_custom_values` with raw SQL
+-- and therefore imports silently, which is the behaviour we want: nobody
+-- should receive four hundred notifications for work that predates the app.
+CREATE TABLE pmt_notifications (
+  notification_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+
+  -- Who is being told. CASCADE: a deleted account takes its unread bell with it.
+  notification_user_id uuid NOT NULL REFERENCES pmt_users(user_id) ON DELETE CASCADE,
+
+  -- Who did it. SET NULL rather than CASCADE — the event still happened after
+  -- the person who caused it is gone, and the row reads "somebody" instead of
+  -- vanishing.
+  notification_actor_id uuid REFERENCES pmt_users(user_id) ON DELETE SET NULL,
+
+  notification_project_id uuid NOT NULL REFERENCES pmt_projects(project_id) ON DELETE CASCADE,
+  notification_node_id uuid NOT NULL REFERENCES pmt_nodes(node_id) ON DELETE CASCADE,
+
+  -- Which people field carried the name. There is no assignee column in this
+  -- product: a project may define several people fields under any names it
+  -- likes, and the roster reads all of them (spec 09). So the notification has
+  -- to say which one, or "Owner" and "Reviewer" become the same sentence.
+  notification_field_id uuid REFERENCES pmt_field_definitions(field_id) ON DELETE SET NULL,
+
+  -- The field's name as it read at the time, copied rather than joined. A
+  -- field can be renamed or archived, and an event log that silently rewrites
+  -- its own past is not a log.
+  notification_field_name text NOT NULL
+    CHECK (char_length(btrim(notification_field_name)) BETWEEN 1 AND 200),
+
+  notification_created_at timestamptz NOT NULL DEFAULT now(),
+
+  -- NULL until the reader follows it through to the task. Per row, not a
+  -- single "last opened the bell" watermark, because the bell's count is meant
+  -- to mean "work I have not gone and looked at" — opening the panel to glance
+  -- at it is not the same as having dealt with anything.
+  notification_read_at timestamptz,
+
+  -- Assigning yourself is not news. Enforced here as well as in the rule so a
+  -- future caller cannot reintroduce it.
+  CONSTRAINT pmt_notifications_not_self_ck CHECK (notification_user_id <> notification_actor_id)
+);
+
+-- Every read is "this person's, newest first", and the unread count is the
+-- same scan with one more predicate.
+CREATE INDEX pmt_notifications_user_idx
+  ON pmt_notifications(notification_user_id, notification_created_at DESC);

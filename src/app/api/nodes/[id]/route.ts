@@ -73,7 +73,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     if (patch.values) await authorize(userId, node.projectId, 'node.editValues');
     if (patch.name !== undefined) await authorize(userId, node.projectId, 'node.rename');
 
-    return NextResponse.json(await updateNode(id, patch));
+    return NextResponse.json(await updateNode(id, patch, userId));
   } catch (err) {
     if (err instanceof DomainError) {
       return NextResponse.json(err.toJSON(), { status: err.status });

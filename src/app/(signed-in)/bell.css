@@ -1,0 +1,349 @@
+/*
+ * The bell, its leaf, and the slip (spec 11 §6).
+ *
+ * Written in the language the signed-in pages actually speak today, not the
+ * one DESIGN.md describes. `list.css`, `shelf.css` and `people.css` all
+ * departed to the ClickUp/dashboard restyle by explicit instruction on
+ * 2026-09-08 — white grounds, cool grey hairlines, 4–6px radii, a soft hover
+ * ground, and indigo `--brand` as the base pair. The bell is drawn on every
+ * one of those pages, so it follows them; a cream paper leaf hinged off a
+ * white toolbar was the first version of this file and read as a control from
+ * a different product.
+ *
+ * Like `people.css`, the palette is redeclared locally rather than reached for
+ * across sheets, so this file has no dependency on `list.css` loading first.
+ * `tokens.css` is generated from DESIGN.md and stays untouched.
+ *
+ * What the restyle does NOT get to change, and what this file therefore still
+ * obeys:
+ *
+ *   - **vermilion means out of closure and nothing else.** An unread count is
+ *     not a variance. `--color-vermilion` appears nowhere below, and
+ *     acceptance test A8 measures the distance.
+ *   - hue says *whose*, never how it is going. Nothing here is tinted by a
+ *     verdict.
+ *   - figures are set in the figure face, like every other number.
+ *   - Thai is never letter-spaced, never upper-cased, never below 13px. The
+ *     small caps below are on English chrome only.
+ */
+
+.noti,
+.noti-slip {
+  --nb-panel: #ffffff;
+  --nb-line: #e4e7f0;
+  --nb-line-soft: #edeff6;
+  --nb-ink: #292d34;
+  --nb-ink-soft: #7c828d;
+  --nb-ink-faint: #a5abb5;
+  --nb-hover: #f6f7fc;
+  --nb-r: 4px;
+  --nb-r-lg: 6px;
+}
+
+/*
+ * The bell sits in each page's own header, immediately before its view nav
+ * (spec 11 §6). It is an inline control, not a corner overlay — the first
+ * version was `position: fixed` in the top right and landed on top of the
+ * List's "Sign out" button, which is what a control belonging to no page does
+ * on a product where every page draws its own header.
+ *
+ * `position: relative` only, so the leaf can hang from it.
+ */
+.noti {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  /*
+   * Above the sheet it hangs over. The List's own stacking runs to 40 (the
+   * sort and column panels), the sticky name column sits at 3–6, and a leaf
+   * left on `z-index: auto` was painted *under* the table rows — the panel
+   * was there, white and correctly sized, with the run showing straight
+   * through it. Measured, not guessed: the computed background was already
+   * `rgb(255,255,255)`.
+   */
+  z-index: 60;
+  font-family: var(--font-read), system-ui, sans-serif;
+}
+
+/*
+ * Take the spacer the nav was using.
+ *
+ * Every one of these heads is a flex row whose nav carries `margin-left: auto`
+ * to push the whole right-hand cluster over. Dropping the bell in front of the
+ * nav without moving that spacer leaves it stranded beside the project title,
+ * half the header away from the group it belongs to — which is exactly what
+ * happened on the first attempt, measured at x=436 against a nav at x=1437.
+ * The bell takes the auto margin and the nav gives it up, so the two travel
+ * together as one cluster.
+ */
+.head .noti,
+.people-out .noti,
+.prof-out .noti,
+.sh-work-head .noti { margin-left: auto; }
+
+.head .noti ~ .views,
+.head .noti ~ nav.views { margin-left: 0; }
+
+/* ------------------------------------------------------------------ bell */
+
+/* The toolbar button of the restyle: transparent until touched, a hairline
+   border, quiet ink. Same shape as the List's own Sort and Columns buttons so
+   it reads as one more control on that bar rather than an applique. */
+.noti-bell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 8px;
+  border: 1px solid var(--nb-line);
+  border-radius: var(--nb-r);
+  background: var(--nb-panel);
+  color: var(--nb-ink-soft);
+  cursor: pointer;
+}
+
+.noti-bell:hover,
+.noti-bell[aria-expanded='true'] {
+  background: var(--nb-hover);
+  color: var(--nb-ink);
+  border-color: #dcdfe4;
+}
+
+.noti-bell:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+/* Indigo, because indigo is this product's base pair and carries its primary
+   actions everywhere else. Deliberately not a red dot: red here would be the
+   one colour that already means something. */
+.noti-count {
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--brand);
+  color: #fff;
+  font-family: var(--font-figure), monospace;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 16px;
+  text-align: center;
+}
+
+/* Unread but unopened: a ring, so the bell reads as live even at a glance
+   away from the number. */
+.noti-bell:has(.noti-count) { border-color: color-mix(in srgb, var(--brand) 30%, var(--nb-line)); }
+
+/*
+ * Match the height of whatever the surrounding head uses.
+ *
+ * The project heads carry 24–30px toolbar controls, which is what the base
+ * rule above is sized for. The shelf and the two account pages carry 34px
+ * buttons, and a 26px bell beside a 34px "+ New project" reads as an
+ * afterthought — measured, not eyeballed: 26 against 34 in the same row.
+ */
+.sh-work-head .noti-bell,
+.people-out .noti-bell,
+.prof-out .noti-bell {
+  height: 34px;
+  padding: 0 11px;
+  border-radius: 6px;
+}
+
+/* ------------------------------------------------------------------ leaf */
+
+.noti-leaf {
+  position: absolute;
+  top: calc(100% + 8px);
+  /* Anchored left, because the bell is no longer near the right edge; the
+     leaf would otherwise hang back across the page title. */
+  left: 0;
+  width: 348px;
+  max-width: min(348px, calc(100vw - 32px));
+  max-height: 70vh;
+  overflow-y: auto;
+  border: 1px solid var(--nb-line);
+  border-radius: var(--nb-r-lg);
+  background: var(--nb-panel);
+  /* The lifted-sheet shadow `people.css` uses for its floating sheet, tinted
+     toward the base rather than left neutral grey. */
+  box-shadow: 0 1px 2px rgba(43, 58, 143, 0.06), 0 12px 32px -12px rgba(43, 58, 143, 0.22);
+  overflow: hidden auto;
+}
+
+/* Opens in two frames from the edge it is hinged to. Nothing in this product
+   eases or fades, and the restyle did not change that. */
+@keyframes noti-hinge {
+  from { transform: scaleY(0.6); opacity: 0; }
+  to { transform: scaleY(1); opacity: 1; }
+}
+.noti-leaf {
+  transform-origin: top left;
+  animation: noti-hinge 90ms steps(2) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .noti-leaf { animation: none; }
+}
+
+.noti-leaf-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 14px 8px;
+  background: var(--nb-panel);
+  border-bottom: 1px solid var(--nb-line);
+  font-family: var(--font-struct), sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--nb-ink-faint);
+}
+
+.noti-clear {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: var(--brand);
+  cursor: pointer;
+}
+.noti-clear:hover { text-decoration: underline; }
+
+.noti-empty {
+  margin: 0;
+  padding: 16px 14px 18px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--nb-ink-faint);
+}
+
+/* ------------------------------------------------------------------ list */
+
+.noti-list { margin: 0; padding: 0; list-style: none; }
+
+.noti-item + .noti-item { border-top: 1px solid var(--nb-line-soft); }
+
+.noti-item a {
+  display: block;
+  position: relative;
+  padding: 10px 14px 10px 26px;
+  color: var(--nb-ink);
+  text-decoration: none;
+}
+
+/* A soft hover ground — the one thing the field-book sheet refused and every
+   restyled sheet now uses. */
+.noti-item a:hover { background: var(--nb-hover); }
+
+.noti-item a:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: -2px;
+  border-radius: var(--nb-r);
+}
+
+/* Unread carries a dot in the margin and full-strength ink; read is the same
+   sentence, quieter. Weight and ink do the work, so nothing moves when a line
+   changes state. */
+.noti-unread a::before {
+  content: '';
+  position: absolute;
+  left: 11px;
+  top: 15px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--brand);
+}
+
+.noti-text {
+  display: block;
+  /* Content, and usually Thai: body face, 13px, never transformed. */
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--nb-ink-soft);
+}
+.noti-unread .noti-text { color: var(--nb-ink); font-weight: 500; }
+
+.noti-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--nb-ink-faint);
+}
+
+.noti-project { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.noti-when { flex: none; font-family: var(--font-figure), monospace; }
+
+/* ------------------------------------------------------------------ slip */
+
+/*
+ * In normal flow at the top of the signed-in layout, so it moves the page down
+ * rather than covering it. Every page here draws its own header with its own
+ * controls, and a bar floating over them would eventually cover one on a
+ * screen nobody looked at.
+ *
+ * A washed indigo band, not a toast and not a red alert: it is telling you
+ * something arrived, which is information, not a fault.
+ */
+.noti-slip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 16px;
+  background: var(--brand-wash);
+  border-bottom: 1px solid color-mix(in srgb, var(--brand) 18%, var(--nb-line));
+  font-family: var(--font-read), system-ui, sans-serif;
+  font-size: 13px;
+  color: var(--nb-ink);
+  animation: noti-drop 90ms steps(2) both;
+}
+
+@keyframes noti-drop {
+  from { transform: translateY(-100%); }
+  to { transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .noti-slip { animation: none; }
+}
+
+.noti-slip-text { flex: 1; min-width: 0; }
+
+.noti-slip button {
+  flex: none;
+  height: 26px;
+  padding: 0 12px;
+  border: 1px solid var(--nb-line);
+  border-radius: var(--nb-r);
+  background: var(--nb-panel);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--nb-ink-soft);
+  cursor: pointer;
+}
+.noti-slip button:hover { background: var(--nb-hover); color: var(--nb-ink); }
+
+/* The primary of the pair takes the base fill, as every primary action on the
+   restyled pages does. */
+.noti-slip-open {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+  font-weight: 600;
+}
+.noti-slip-open:hover {
+  background: color-mix(in srgb, var(--brand) 88%, #000);
+  border-color: color-mix(in srgb, var(--brand) 88%, #000);
+  color: #fff;
+}

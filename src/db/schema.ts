@@ -225,6 +225,30 @@ export const holidays = pgTable('pmt_holidays', {
   createdAt: timestamp('holiday_created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+/* --------------------------------------------------------- notifications */
+
+/**
+ * The assignment log (spec 11). An append-only record of somebody's name being
+ * put on a node, written by `updateNode` because that is the only path a
+ * people field can change through — there is no trigger, and the importer's
+ * raw-SQL writes deliberately do not reach it.
+ *
+ * `fieldName` is a copy, not a join: a field may be renamed or archived, and
+ * "Reviewer put you on this" must keep saying what it said on the day.
+ */
+export const notifications = pgTable('pmt_notifications', {
+  id: uuid('notification_id').primaryKey().defaultRandom(),
+  userId: uuid('notification_user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  actorId: uuid('notification_actor_id').references(() => users.id, { onDelete: 'set null' }),
+  projectId: uuid('notification_project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  nodeId: uuid('notification_node_id').notNull().references(() => nodes.id, { onDelete: 'cascade' }),
+  fieldId: uuid('notification_field_id').references(() => fieldDefinitions.id, { onDelete: 'set null' }),
+  fieldName: text('notification_field_name').notNull(),
+  createdAt: timestamp('notification_created_at', { withTimezone: true }).notNull().defaultNow(),
+  /** NULL until the reader followed it through to the task itself. */
+  readAt: timestamp('notification_read_at', { withTimezone: true }),
+}, (t) => [index('pmt_notifications_user_idx').on(t.userId, t.createdAt)]);
+
 /* ----------------------------------------------------------- jsonb types */
 
 export type FieldSettings = {

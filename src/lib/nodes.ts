@@ -5,6 +5,7 @@ import { db, rawQuery } from '@/db/client';
 import { docAssets, fieldDefinitions, fieldOptions, nodes, projects } from '@/db/schema';
 import type { CustomValues, LedgerRow } from '@/db/schema';
 import { domainError } from '@/lib/errors';
+import { recordAssignments } from '@/lib/notifications';
 import {
   planDateWrite,
   planAutoCapture,
@@ -46,16 +47,26 @@ function todayInBangkok(): string {
   return new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10);
 }
 
-export async function updateNode(nodeId: string, patch: NodePatch): Promise<LedgerRow> {
+/**
+ * `actorId` is who is making the change, and it is here for one reason: a
+ * people field gaining a name has to say *whose* doing it was (spec 11). It is
+ * optional so that a caller with no acting user — a script, a repair — writes
+ * an honest "Somebody" rather than being unable to write at all.
+ */
+export async function updateNode(
+  nodeId: string, patch: NodePatch, actorId?: string,
+): Promise<LedgerRow> {
   const [node] = await db.select({ projectId: nodes.projectId }).from(nodes).where(eq(nodes.id, nodeId));
   if (!node) throw domainError('E_NOT_FOUND', 'No such task.');
   const result = await db.transaction(async tx => {
     await lockAssetReferences(tx, node.projectId);
-    return updateNodeWithAssets(tx, nodeId, patch);
+    return updateNodeWithAssets(tx, nodeId, patch, actorId);
   });
   return result;
 }
-async function updateNodeWithAssets(tx: AssetTransaction, nodeId: string, patch: NodePatch): Promise<LedgerRow> {
+async function updateNodeWithAssets(
+  tx: AssetTransaction, nodeId: string, patch: NodePatch, actorId?: string,
+): Promise<LedgerRow> {
   const query = async <T,>(text: string, values: unknown[] = []): Promise<T[]> => {
     const chunks = text.split(/(\$\d+)/g).map(chunk => /^\$\d+$/.test(chunk)
       ? sql`${values[Number(chunk.slice(1)) - 1]}` : sql.raw(chunk));
@@ -206,6 +217,22 @@ async function updateNodeWithAssets(tx: AssetTransaction, nodeId: string, patch:
           AND node_actual_end < node_actual_start`,
       [nodeId],
     );
+  }
+
+  /* --------------------------------------------- telling people (spec 11)
+   * Inside the same transaction as the write, so a save that fails cannot
+   * leave a notification claiming it succeeded. `node.customValues` is the row
+   * as it was read at the top of this function, and `values` is the settled
+   * result — the sparse patch is no use here, since a field it does not
+   * mention has not been cleared. */
+  if (values !== undefined) {
+    await recordAssignments(tx, {
+      nodeId,
+      projectId: node.projectId,
+      actorId: actorId ?? null,
+      before: node.customValues,
+      after: values,
+    });
   }
 
   const [row] = await query<LedgerRow>(

@@ -13,7 +13,7 @@ import assert from 'node:assert/strict';
 import {
   blocksOf, arrangeBlocks, arrangeColumns, moveBlock,
   type ArrangeableColumn,
-} from '../src/app/p/[slug]/list-columns.ts';
+} from '../src/app/(signed-in)/p/[slug]/list-columns.ts';
 
 /** The grid as `list-view.tsx` files it, trimmed to what arranging reads. */
 const filed: ArrangeableColumn[] = [

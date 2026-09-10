@@ -8,7 +8,7 @@
 import test, { describe } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { makeComparator, rankOf, orderRows, SORTS, DEFAULT_SORT, type SortableRow } from '../src/app/p/[slug]/timeline/sort.ts';
+import { makeComparator, rankOf, orderRows, SORTS, DEFAULT_SORT, type SortableRow } from '../src/app/(signed-in)/p/[slug]/timeline/sort.ts';
 
 const row = (over: Partial<SortableRow> & { led_name: string; led_sort_order: number }): SortableRow => ({
   led_estimate_start: null,

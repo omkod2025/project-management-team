@@ -13,7 +13,7 @@ import assert from 'node:assert/strict';
 
 import {
   planDrop, zoneFor, subtreeHeightOf, type MovableRow,
-} from '../src/app/p/[slug]/list-move.ts';
+} from '../src/app/(signed-in)/p/[slug]/list-move.ts';
 
 const MAX_DEPTH = 5;
 

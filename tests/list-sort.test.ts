@@ -12,7 +12,7 @@ import assert from 'node:assert/strict';
 import {
   makeComparator, rankOf, isSortable, compareModuleNames,
   type SortableColumn, type SortableRow,
-} from '../src/app/p/[slug]/list-sort.ts';
+} from '../src/app/(signed-in)/p/[slug]/list-sort.ts';
 
 const col = (over: Partial<SortableColumn> & { key: string; kind: SortableColumn['kind'] }): SortableColumn => ({
   label: over.key,

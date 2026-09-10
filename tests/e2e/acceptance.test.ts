@@ -349,7 +349,7 @@ describe('A7 — a viewer is refused by every writing endpoint', () => {
 
 describe('A8 — estimate and actual are distinguishable without colour', () => {
   test('the two bars differ in position, height and fill, not only ink', () => {
-    const css = readFileSync(join('src', 'app', 'p', '[slug]', 'timeline', 'timeline.css'), 'utf8');
+    const css = readFileSync(join('src', 'app', '(signed-in)', 'p', '[slug]', 'timeline', 'timeline.css'), 'utf8');
 
     const est = css.match(/\.bar\.est\s*\{([^}]*)\}/)?.[1] ?? '';
     const act = css.match(/\.bar\.act\s*\{([^}]*)\}/)?.[1] ?? '';
@@ -365,7 +365,7 @@ describe('A8 — estimate and actual are distinguishable without colour', () => 
   });
 
   test('vermilion is reserved for being out of tolerance', () => {
-    const css = readFileSync(join('src', 'app', 'p', '[slug]', 'list.css'), 'utf8');
+    const css = readFileSync(join('src', 'app', '(signed-in)', 'p', '[slug]', 'list.css'), 'utf8');
     const uses = [...css.matchAll(/([.\w-]+)\s*\{[^}]*--color-vermilion[^}]*\}/g)].map((m) => m[1]);
     // The slip is the misclosure marker; the failed cell is a save that did not land.
     for (const selector of uses) {
@@ -410,8 +410,8 @@ describe('A8 — estimate and actual are distinguishable without colour', () => 
     // page's primary read, so its share is deliberately the higher of the two.
     // A ceiling that only binds on the lower one is not a ceiling.
     const fields: Array<[string, string]> = [
-      ['timeline.css', readFileSync(join('src', 'app', 'p', '[slug]', 'timeline', 'timeline.css'), 'utf8')],
-      ['roster.css', readFileSync(join('src', 'app', 'timeline', 'roster.css'), 'utf8')],
+      ['timeline.css', readFileSync(join('src', 'app', '(signed-in)', 'p', '[slug]', 'timeline', 'timeline.css'), 'utf8')],
+      ['roster.css', readFileSync(join('src', 'app', '(signed-in)', 'timeline', 'roster.css'), 'utf8')],
     ];
 
     for (const [where, css] of fields) {
@@ -557,7 +557,7 @@ describe('A10 — the client report is a document, not a door', () => {
   });
 
   test('no money field is on by default anywhere in the report code', () => {
-    const src = readFileSync(join('src', 'app', 'p', '[slug]', 'report', 'report-view.tsx'), 'utf8');
+    const src = readFileSync(join('src', 'app', '(signed-in)', 'p', '[slug]', 'report', 'report-view.tsx'), 'utf8');
     // The default is computed from the field's kind, not its name, so the next
     // money column added is safe without anybody remembering this rule.
     assert.match(src, /f\.kind !== 'money'/,

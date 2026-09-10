@@ -5,6 +5,7 @@ import { useRef, useState } from 'react';
 import type { DocSummary } from '@/lib/doc-rules';
 import '../list.css';
 import './docs.css';
+import Bell from '../../../bell';
 
 type Props = {
   project: { id: string; name: string; slug: string };
@@ -67,6 +68,10 @@ export default function DocsView({ project, initialDocs, canCreate }: Props) {
         <header className="head">
           <a className="shelf label" href="/">Projects</a>
           <span className="docs-project">{project.name}</span>
+          {/* The bell stands immediately before the view nav, so notice and
+              navigation sit together in the one cluster this header already
+              uses for "where do I go from here" (spec 11 §6). */}
+          <Bell />
           <nav className="views label" aria-label="Project views">
             <a href={base}>List</a><a href={`${base}/timeline`}>Timeline</a>
             <a href={`${base}/report`}>Report</a><span aria-current="page">Docs</span>

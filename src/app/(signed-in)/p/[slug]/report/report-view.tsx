@@ -6,6 +6,7 @@ import type { FieldDef, Person } from '@/lib/ledger';
 import { loadRecord, saveRecord } from '../view-state';
 import '../list.css';
 import './report.css';
+import Bell from '../../../bell';
 
 /**
  * The client report (Q4).
@@ -140,6 +141,10 @@ export default function ReportView({ projectName, slug, rows, fields, people, st
               grouping-by-adjacency this page has been unpicking. */}
           <a className="shelf label" href="/">‹ Field Book</a>
           <h1>{projectName}</h1>
+          {/* The bell stands immediately before the view nav, so notice and
+              navigation sit together in the one cluster this header already
+              uses for "where do I go from here" (spec 11 §6). */}
+          <Bell />
           <div className="views label">
             <a href={`/p/${slug}`}>List</a>
             <span style={{ color: 'var(--color-rule)' }}>·</span>

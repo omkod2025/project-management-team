@@ -14,7 +14,7 @@ import assert from 'node:assert/strict';
 
 import {
   contendedRuns, occupancy, pack, span, unpack, type Packable,
-} from '../src/app/timeline/pack.ts';
+} from '../src/app/(signed-in)/timeline/pack.ts';
 
 /** An item with an estimate only — the shape 122 of the 174 real tasks have. */
 const est = (s: string | null, e: string | null): Packable =>

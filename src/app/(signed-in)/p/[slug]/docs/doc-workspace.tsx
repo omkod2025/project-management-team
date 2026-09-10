@@ -13,6 +13,7 @@ import DocContent from './doc-content';
 import '../list.css';
 import './docs.css';
 import './editor.css';
+import Bell from '../../../bell';
 
 const PageEditor = dynamic(() => import('./page-editor'), { ssr: false, loading: () => <p role="status">Loading editor…</p> });
 type Props = {
@@ -96,6 +97,7 @@ export default function DocWorkspace({ project, doc, pages, page: serverPage, ar
 
   return <div className="book docs-book"><main className="docs-main">
     <header className="head"><a href={base}>Docs</a><span className="docs-project">{project.name}</span>
+      <Bell />
       <nav className="views" aria-label="Project views"><a href={`/p/${project.slug}`}>List</a><a href={`/p/${project.slug}/timeline`}>Timeline</a><a href={base} aria-current="page">Docs</a></nav>
     </header>
     <div className="doc-workspace">

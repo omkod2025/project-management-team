@@ -64,6 +64,16 @@ Held in `pmt_project_members(member_project_id, member_user_id, member_role)`. A
 | Edit the holiday calendar | ● | | |
 | Create users | ● | | |
 
+**Notifications have no row in this table**, and the omission is deliberate.
+A notification belongs to a person, not to a project: there is no role that can
+read somebody else's, including admin, who would have to become a different
+person to have one. Every read is scoped to the caller's own id and joined to
+`pmt_project_members`, so a reader who loses membership stops seeing that
+project's notifications without anything being deleted — see
+[11-notifications](11-notifications.md) §3. Any role may be assigned and so any
+role, viewer included, may receive them; what they can *do* on arrival is
+unchanged by having been told.
+
 Roles are surfaced in two places, which are the same data asked from opposite ends:
 
 | Surface | Question it answers |

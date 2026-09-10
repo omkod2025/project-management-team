@@ -3,8 +3,8 @@ import { notFound } from 'next/navigation';
 import { loadPublishedPage } from '@/lib/doc-publish';
 import { DomainError } from '@/lib/errors';
 import { pageSections } from '@/lib/doc-rules';
-import DocContent from '../../p/[slug]/docs/doc-content';
-import '../../p/[slug]/docs/editor.css';
+import DocContent from '../../(signed-in)/p/[slug]/docs/doc-content';
+import '../../(signed-in)/p/[slug]/docs/editor.css';
 import './published.css';
 
 /**

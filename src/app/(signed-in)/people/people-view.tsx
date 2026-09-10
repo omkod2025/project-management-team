@@ -5,6 +5,7 @@ import type { AccessBoard, PersonAccess } from '@/lib/people';
 import { MIN_PASSWORD_LENGTH, PROTECTED_EMAIL, type Role } from '@/lib/admin-rules';
 import InviteLink, { inviteUrl } from '../invite-link';
 import './people.css';
+import Bell from '../bell';
 
 /**
  * The access board.
@@ -593,6 +594,7 @@ function Head({ signOut }: { signOut: React.ReactNode }) {
       {/* Both of these change what level you are on rather than what you are
           looking at, so they share the head's edge. */}
       <div className="people-out">
+        <Bell />
         <a className="shelf-link" href="/">‹ Home</a>
         {signOut}
       </div>

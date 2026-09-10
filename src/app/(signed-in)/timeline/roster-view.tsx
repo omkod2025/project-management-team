@@ -9,6 +9,7 @@ import { addDays, contendedRuns, occupancy, pack, span, unpack } from './pack';
 import '../p/[slug]/list.css';
 import '../p/[slug]/timeline/timeline.css';
 import './roster.css';
+import Bell from '../bell';
 
 /**
  * The roster timeline — the shelf's own view (brief 2026-09-08).
@@ -184,6 +185,10 @@ export default function RosterView({ roster }: { roster: Roster }) {
         <header className="head">
           <a className="shelf label" href="/">‹ Home</a>
           <h1>All Timeline</h1>
+          {/* The bell stands immediately before the view nav, so notice and
+              navigation sit together in the one cluster this header already
+              uses for "where do I go from here" (spec 11 §6). */}
+          <Bell />
           <div className="views label">
             <a href="/">Projects</a>
             <span aria-current="page">All Timeline</span>
