@@ -57,6 +57,7 @@ Held in `pmt_project_members(member_project_id, member_user_id, member_role)`. A
 | Create, archive, reorder field definitions | ● | | |
 | Add / archive select options | ● | | |
 | Set the project's status field | ● | | |
+| Arrange the List's columns — everybody sees one order (spec 03 §2.4) | ● | | |
 | Add / remove project members, change roles | ● | | |
 | _(a project must always keep at least one admin)_ | | | |
 | Rename or archive the project | ● | | |

@@ -391,6 +391,31 @@
 }
 .head-sort:hover { color: var(--cu-ink); }
 
+/* ---- moving a row ----
+
+   The row in hand goes quiet; the row under the pointer says where it would
+   land. Between two rows that is a 2px rule on the edge it would arrive at —
+   the same weight as the rule between module blocks, because it is the same
+   statement: a seam in the run. Into a row it is a wash across the row plus a
+   bracket down the leading edge, which is the indent the row would take.
+
+   A refused drop draws *nothing*. Vermilion was tried and removed: acceptance
+   test A8 reads this file and refuses any use of it outside slip, failed and
+   errata, and it was right to — "you cannot drop that here" is a hover state,
+   and the colour law says vermilion means out of closure and nothing else. The
+   `no-drop` cursor says it instead, and dropping anyway says it in words. */
+.run tbody tr[data-dragging] { opacity: .4; }
+.run tbody tr[data-dragging] td { cursor: grabbing; }
+
+.run tbody tr[data-drop='before'] td { box-shadow: inset 0 2px 0 var(--color-ink-graphite); }
+.run tbody tr[data-drop='after'] td { box-shadow: inset 0 -2px 0 var(--color-ink-graphite); }
+.run tbody tr[data-drop='into'] td {
+  background: color-mix(in srgb, var(--row-hue, var(--color-ink-graphite)) 10%, var(--cu-canvas));
+}
+.run tbody tr[data-drop='into'] td.nm { box-shadow: inset 3px 0 0 var(--row-hue, var(--color-ink-graphite)); }
+
+.run tbody tr[data-drop]:not([data-drop-ok]) td { background: none; box-shadow: none; cursor: no-drop; }
+
 /* Moving a column. The head being carried goes quiet, and the one it would
    land in front of grows a rule down its leading edge — the drop is drawn as
    a seam in the page, not as a floating box over it. */

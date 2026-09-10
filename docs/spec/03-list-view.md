@@ -88,7 +88,13 @@ A `⌗` control opens a hinged leaf listing every column with a checkbox. Hiding
 
 ### 2.4 Moving a column
 
-~~There is no column reordering in phase one.~~ **Added 2026-09-10.** A reader may rearrange the grid; the arrangement is theirs, stored locally, and never touches `position` on the field definition, which stays the project's filed order and an Admin's to change.
+~~There is no column reordering in phase one.~~ **Added 2026-09-10.** The grid can be rearranged, and **the arrangement belongs to the project: one order, everybody sees it.** It is stored on `pmt_projects.project_column_order` as a list of block keys, and only an **Admin** may change it (`project.layout`) — the same line the whole product draws, that content is a Member's and structure is an Admin's. A per-reader arrangement was built first and replaced on the owner's instruction; the reason it is not per-reader is that a shared order is what makes "the third column" mean the same thing in two people's mouths.
+
+The controls are absent for everybody else rather than disabled: a row of dead buttons teaches a Member nothing except that the page is broken.
+
+It does not touch `position` on the field definition, which remains what the columns are *filed* in and is set in field settings. An arrangement is a view of that filed order, not a replacement for it — which is why "Back to the filed order" is always one press away.
+
+Moving is optimistic: the grid rearranges under the hand that moved it and the write follows. A refusal puts the previous order back and says so, rather than leaving one reader looking at an arrangement nobody else has.
 
 **What moves is a block, not a column.** Six columns belong to bands — Estimate is `Start · End · Days`, Actual the same three — and the band above the heads is the only thing on the page saying which half is the plan and which is the record. Drag `Actual end` into the middle of Estimate and that sentence stops being true: the band would span a lie, or fragment into captions over single columns, which is a second header row. So:
 
@@ -96,7 +102,7 @@ A `⌗` control opens a hinged leaf listing every column with a checkbox. Hiding
 - **Status and each custom field are their own block** and move alone.
 - **Name never moves.** It is sticky to the left edge, and a column that scrolled past it could not pin to the same edge.
 
-Two ways in, because a drag is not reachable by every hand: **drag a column head** (any head of a band picks up the band; the head being carried goes quiet and the one it would land in front of grows a rule down its leading edge), or open **Columns** in the toolbar and move a block left or right by button. The same panel returns the grid to the filed order.
+Two ways in for an Admin, because a drag is not reachable by every hand: **drag a column head** (any head of a band picks up the band; the head being carried goes quiet and the one it would land in front of grows a rule down its leading edge), or open **Columns** in the toolbar and move a block left or right by button. The same panel returns the grid to the filed order. The panel says plainly that everybody on the project sees this order.
 
 A stored arrangement can never lose a column. A key for a column that no longer exists is ignored, and a block the arrangement has never heard of — a field added since it was saved — keeps its filed place beside the neighbour it was filed next to: not missing, which reads as a bug in the field, and not last, where nobody is looking.
 
@@ -147,7 +153,8 @@ This is the feature that decides whether the product beats the tool it replaces.
 | `N` | New sibling below the focused row |
 | `Shift+N` | New child of the focused row (rejected at depth 6) |
 | `Alt+→` | Indent — become a child of the row above at the same level (D-3) |
-| `Alt+←` | Outdent — become a sibling of the parent |
+| `Alt+←` | Outdent — become a sibling of the parent, directly below the block just left |
+| `Alt+↓` `Alt+↑` | Move the row one place down / up among the rows it sits with |
 | `Cmd/Ctrl+↑ ↓` | Jump to first / last row of the group |
 | `/` | Focus search |
 | `G` then `T` | Switch to Timeline, carrying the selection |
@@ -157,6 +164,30 @@ Focus is a 2px square graphite outline offset 1px. It is always visible — no f
 **The keys are printed at the foot of the sheet**, on the page's bottom rule, as a colophon line. They sat in the toolbar until 2026-09-07 — permanent teaching content occupying the position the page's primary controls should hold, and at narrow widths it wrapped to a second line and pushed the run down. At the foot it is always there for a hand that goes looking and never in the way of the work; below 900px it is dropped entirely, since there is no keyboard to teach.
 
 The triage path, measured against the goal: `↓ ↓ Enter r Enter` changes a status. Five keystrokes, no pointer, no modal, no reload.
+
+## 4b. Moving a row
+
+Added 2026-09-10. **Every move is a parent and a position** — there is no separate promote, demote or reorder operation, because each of them is one `PATCH /api/nodes/:id` carrying `parentId`, `afterId`, or both. That is what makes "make this a subtask", "make this a task", "put it under a different module" and "move it up two" the same act with the same refusals.
+
+**Drag a row** to move it. The pointer answers two questions at once: which row it is over, and which third of that row.
+
+| Where the pointer is | What it means | Drawn as |
+|---|---|---|
+| Top third | Immediately before that row, as its sibling | 2px rule on the row's top edge |
+| Bottom third | Immediately after that row, as its sibling | 2px rule on the row's bottom edge |
+| Middle | Inside it, as its last child | The row washed in its module hue, with a bracket down the indent |
+
+The rule is 2px, the same weight as the rule between module blocks, because it is the same statement: a seam in the run. On a row already at the depth ceiling the middle third is not offered — the row splits in half and reads as purely "between" — since an offer that always fails is worse than no offer (D-1).
+
+A refused drop draws **nothing** and takes the `no-drop` cursor. Vermilion was tried here and removed: acceptance test A8 reads `list.css` and refuses vermilion outside slip, failed and errata, and it is right to — "you cannot drop that here" is a hover state, and vermilion means out of closure and nothing else.
+
+**Everything the drag does is on the keyboard too**, which is not a courtesy: this grid is primarily keyboard-operated, and a move that needed a pointer would be the one structural edit that dropped out of the triage path. `Alt+←→` changes the parent, `Alt+↑↓` changes the place.
+
+Two refusals, both checked in the browser so the answer arrives before the drop, and again on the server because the browser is not the authority: a row into itself, and a row into its own subtree (a cycle would make it vanish from every view and the roll-up never terminate). The depth ceiling is the third.
+
+`afterId: null` means the front of the run and is deliberately not the same as omitting it, which means the end — a row dropped above the first child of a module has to land *first*. (`POST /api/nodes` reads a `null` the other way, as "no particular sibling", because the `+ Add task` row appends; the translation lives in `createNode`.)
+
+Sort order is a `double precision`, so inserting between two rows writes **one** row rather than renumbering the run.
 
 ---
 

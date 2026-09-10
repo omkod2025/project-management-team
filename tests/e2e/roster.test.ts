@@ -117,7 +117,9 @@ describe('reaching the roster at all', () => {
   test('a signed-in member gets the page', async () => {
     const { status, html } = await roster(admin);
     assert.equal(status, 200);
-    assert.match(html, /Roster/);
+    // Named "All Timeline" on screen since 2026-09-10; "roster" remains the
+    // word for the read itself, and for this file.
+    assert.match(html, /All Timeline/);
   });
 });
 

@@ -13,6 +13,7 @@ import {
   assertWritableKey,
   childDepth,
   coerceValue,
+  placeAmong,
   planMove,
   type DateWrite,
   type FieldSpec,
@@ -223,6 +224,23 @@ async function updateNodeWithAssets(tx: AssetTransaction, nodeId: string, patch:
  * order is a float placed midway between neighbours, so inserting between two
  * rows never rewrites the rest of the list (D-5).
  */
+/**
+ * A parent's live children, in the order they sit, as `placeAmong` wants them.
+ * Archived rows are excluded: they are not in the run, so they are not
+ * neighbours, and ranking against one would leave a visible gap in the order.
+ */
+async function siblingsOf(parentId: string, excludeId?: string) {
+  const rows = await rawQuery<{ node_id: string; node_sort_order: number }>(
+    `SELECT node_id, node_sort_order FROM pmt_nodes
+      WHERE node_parent_id = $1 AND node_archived_at IS NULL
+      ORDER BY node_sort_order`,
+    [parentId],
+  );
+  return rows
+    .filter((r) => r.node_id !== excludeId)
+    .map((r) => ({ id: r.node_id, sortOrder: r.node_sort_order }));
+}
+
 export async function createNode(
   parentId: string,
   name: string,
@@ -233,22 +251,13 @@ export async function createNode(
 
   const depth = childDepth(parent.depth);            // throws E_MAX_DEPTH at the ceiling
 
-  const siblings = await rawQuery<{ node_id: string; node_sort_order: number }>(
-    `SELECT node_id, node_sort_order FROM pmt_nodes
-      WHERE node_parent_id = $1 AND node_archived_at IS NULL
-      ORDER BY node_sort_order`,
-    [parentId],
-  );
-
-  let sortOrder: number;
-  const at = afterId ? siblings.findIndex((s) => s.node_id === afterId) : siblings.length - 1;
-  const before = at >= 0 ? siblings[at] : undefined;
-  const after = at >= 0 ? siblings[at + 1] : siblings[0];
-
-  if (before && after) sortOrder = (before.node_sort_order + after.node_sort_order) / 2;
-  else if (before) sortOrder = before.node_sort_order + 1;
-  else if (after) sortOrder = after.node_sort_order - 1;
-  else sortOrder = 0;
+  /* `afterId ?? undefined`, deliberately. For a *move*, `null` means the front
+     of the run — that is how a row dropped above the first child lands first.
+     For a create it has always meant "no particular sibling", which is the end:
+     the "+ Add task" row at the foot of a module passes null and must append,
+     not jump the queue. Same word, two acts, and the translation belongs here
+     rather than in a rule that would then need a flag. */
+  const sortOrder = placeAmong(await siblingsOf(parentId), afterId ?? undefined);
 
   const [created] = await rawQuery<{ node_id: string }>(
     `INSERT INTO pmt_nodes (node_project_id, node_parent_id, node_depth, node_name, node_sort_order)
@@ -267,16 +276,31 @@ export async function createNode(
 
 
 /**
- * Re-parent a node, taking its whole subtree with it (D-3).
+ * Move a node: to another parent, to another place among its siblings, or both
+ * (D-3).
  *
- * Three checks, in the order that makes the failure message useful: the target
- * must be in the same project, it must not be inside the node's own subtree,
- * and it must sit exactly one level above (which today means the depth cannot
- * change — see `planMove`).
+ * One entry point for every kind of move the List offers — promoting a subtask
+ * to a task, demoting a task under another, carrying a subtree across to a
+ * different module, or just sliding a row up two places. They differ only in
+ * which of `parentId` and `afterId` are given, and treating them as one act is
+ * what keeps the cycle check and the depth ceiling in front of all of them
+ * rather than in front of some.
+ *
+ * `parentId` omitted means "stay where you are"; `afterId` omitted means "keep
+ * your place in the order", and `null` means the front of the run.
+ *
+ * The checks run in the order that makes the failure message useful: the
+ * target must be in the same project, it must not be inside the node's own
+ * subtree, and the deepest descendant must still fit under the ceiling.
  */
-export async function moveNode(nodeId: string, newParentId: string): Promise<LedgerRow> {
+export type MovePlacement = { parentId?: string; afterId?: string | null };
+
+export async function moveNode(nodeId: string, placement: MovePlacement): Promise<LedgerRow> {
   const [node] = await db.select().from(nodes).where(eq(nodes.id, nodeId)).limit(1);
   if (!node) throw domainError('E_NOT_FOUND', 'No such task.');
+
+  const newParentId = placement.parentId ?? node.parentId;
+  if (!newParentId) throw domainError('E_LEVEL_MISMATCH', 'The project itself cannot be moved.');
 
   const [target] = await db.select().from(nodes).where(eq(nodes.id, newParentId)).limit(1);
   if (!target) throw domainError('E_NOT_FOUND', 'No such parent.');
@@ -284,8 +308,17 @@ export async function moveNode(nodeId: string, newParentId: string): Promise<Led
   if (target.projectId !== node.projectId) {
     throw domainError('E_LEVEL_MISMATCH', 'A task cannot move to another project.');
   }
+
+  /* Staying under the same parent is a reorder, not a re-parent: no subtree
+     to carry, no depth to recompute, no cycle to be made. It is still a move
+     the caller asked for, so it answers with the same recomputed row. */
   if (node.parentId === newParentId) {
-    // Nothing to do, but returning the row keeps the caller's code simple.
+    if (placement.afterId !== undefined) {
+      await rawQuery('UPDATE pmt_nodes SET node_sort_order = $2 WHERE node_id = $1', [
+        nodeId,
+        placeAmong(await siblingsOf(newParentId, nodeId), placement.afterId),
+      ]);
+    }
     return readLedgerRow(node.projectId, nodeId);
   }
 
@@ -310,6 +343,19 @@ export async function moveNode(nodeId: string, newParentId: string): Promise<Led
   planMove(node.depth, target.depth, subtreeHeight);   // throws on a bad level or the ceiling
 
   await rawQuery('CALL pmp_move_subtree($1, $2)', [nodeId, newParentId]);
+
+  /* Placed after the move, never before: until the subtree has been re-parented
+     the node is not among these siblings, and a sort order written against a
+     run it is not in yet would rank it against the wrong neighbours. A move
+     with no `afterId` keeps whatever order it had, which puts it wherever that
+     number happens to fall — so the List always sends one. */
+  if (placement.afterId !== undefined) {
+    await rawQuery('UPDATE pmt_nodes SET node_sort_order = $2 WHERE node_id = $1', [
+      nodeId,
+      placeAmong(await siblingsOf(newParentId, nodeId), placement.afterId),
+    ]);
+  }
+
   return readLedgerRow(node.projectId, nodeId);
 }
 

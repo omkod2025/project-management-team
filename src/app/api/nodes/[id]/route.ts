@@ -47,13 +47,20 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       .limit(1);
     if (!node) return NextResponse.json({ code: 'E_NOT_FOUND', message: 'No such task.' }, { status: 404 });
 
-    const patch = (await req.json()) as NodePatch & { parentId?: string };
+    const patch = (await req.json()) as NodePatch & {
+      parentId?: string; afterId?: string | null;
+    };
 
-    // Re-parenting is a different capability from editing, so it is checked
-    // and handled separately rather than folded into the field write.
-    if (patch.parentId) {
+    /* Moving is a different capability from editing, so it is checked and
+       handled separately rather than folded into the field write. Both keys
+       reach the same operation: `parentId` alone re-parents and keeps the
+       order, `afterId` alone reorders under the parent it already has, and
+       together they are the drag that crosses a module. */
+    if (patch.parentId !== undefined || patch.afterId !== undefined) {
       await authorize(userId, node.projectId, 'node.move');
-      return NextResponse.json(await moveNode(id, patch.parentId));
+      return NextResponse.json(
+        await moveNode(id, { parentId: patch.parentId, afterId: patch.afterId }),
+      );
     }
 
     // Dates and values are different capabilities, so the check follows what

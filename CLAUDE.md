@@ -23,13 +23,14 @@ Project management for software delivery. Plan and reality are recorded separate
 | [`db/tests.sql`](db/tests.sql) | Schema test suite, 13 groups, runs in a rolled-back transaction |
 | [`tests/node-rules.test.ts`](tests/node-rules.test.ts) | 46 domain rule tests, each naming the `D-nn` it defends |
 | [`tests/e2e/api.test.ts`](tests/e2e/api.test.ts) | 29 end-to-end tests: auth, dates, capture, snapping, validation |
-| [`tests/e2e/tree.test.ts`](tests/e2e/tree.test.ts) | 20 end-to-end tests: create, move, archive, restore |
+| [`tests/e2e/tree.test.ts`](tests/e2e/tree.test.ts) | 26 end-to-end tests: create, move, place, archive, restore |
 | [`tests/e2e/admin.test.ts`](tests/e2e/admin.test.ts) | 29 end-to-end tests: columns, options, members, calendar, invitations, renaming |
 | [`tests/e2e/password.test.ts`](tests/e2e/password.test.ts) | 13 end-to-end tests: admin-set passwords and the change they force |
 | [`tests/e2e/roster.test.ts`](tests/e2e/roster.test.ts) | 12 end-to-end tests: assignment, the membership boundary, read-only |
 | [`tests/e2e/profile.test.ts`](tests/e2e/profile.test.ts) | 11 end-to-end tests: renaming yourself, and admin-issued password resets |
 | [`tests/roster-pack.test.ts`](tests/roster-pack.test.ts) | 23 tests: lane packing, occupancy, contention |
 | [`tests/list-sort.test.ts`](tests/list-sort.test.ts) | 24 tests: the List's multi-column sort — empty cells, tie-breaks, direction per column, modules by name |
+| [`tests/list-move.test.ts`](tests/list-move.test.ts) | 20 tests: where a dragged row lands — promote, demote, reorder, cross a module, and the two refusals |
 | [`tests/list-columns.test.ts`](tests/list-columns.test.ts) | 18 tests: moving the List's columns — bands travel whole, nothing is ever lost |
 | [`tests/doc-publish.test.ts`](tests/doc-publish.test.ts) | 18 tests: the published read-only link — token shape, what a stranger may follow, which files a token may read |
 | [`docs/TASKS.md`](docs/TASKS.md) | Build plan T0–T9 with per-task checklists |

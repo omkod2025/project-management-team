@@ -759,3 +759,10 @@ ALTER TABLE pmt_doc_pages
     (doc_page_publish_token IS NULL AND doc_page_published_at IS NULL)
     OR (doc_page_publish_token IS NOT NULL AND doc_page_published_at IS NOT NULL)
   );
+
+-- The List's column arrangement, one per project (spec 03 §2.4). An array of
+-- block keys; unknown keys are ignored on read, so it cannot lose a column.
+ALTER TABLE pmt_projects
+  ADD COLUMN project_column_order jsonb NOT NULL DEFAULT '[]'::jsonb
+    CHECK (jsonb_typeof(project_column_order) = 'array'
+           AND jsonb_array_length(project_column_order) <= 100);

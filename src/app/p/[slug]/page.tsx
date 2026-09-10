@@ -23,6 +23,7 @@ export default async function ProjectList({ params }: { params: Promise<{ slug: 
         fields={fields}
         people={people}
         statusFieldId={project.statusFieldId}
+        columnOrder={project.columnOrder}
         canEdit={can(role, 'node.editValues')}
         isAdmin={can(role, 'field.define')}
         /* A server action, so it is rendered here and passed in — the List is

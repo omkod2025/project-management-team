@@ -28,7 +28,7 @@ export type FieldDef = {
 export type Person = { id: string; name: string };
 
 export type Ledger = {
-  project: { id: string; name: string; slug: string; statusFieldId: string | null };
+  project: { id: string; name: string; slug: string; statusFieldId: string | null; columnOrder: string[] };
   role: Role;
   rows: LedgerRow[];
   fields: FieldDef[];
@@ -44,6 +44,7 @@ export async function loadLedger(userId: string, slug: string): Promise<Ledger> 
       name: projects.name,
       slug: projects.slug,
       statusFieldId: projects.statusFieldId,
+      columnOrder: projects.columnOrder,
     })
     .from(projects)
     .where(and(eq(projects.slug, slug), isNull(projects.archivedAt)))

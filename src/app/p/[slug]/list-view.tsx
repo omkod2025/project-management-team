@@ -15,6 +15,9 @@ import {
   makeComparator, isSortable, compareModuleNames, type SortTerm, type SortableColumn,
 } from './list-sort';
 import { blocksOf, arrangeColumns, moveBlock } from './list-columns';
+import {
+  planDrop, zoneFor, subtreeHeightOf, type DropPlan, type DropZone,
+} from './list-move';
 import './list.css';
 
 /**
@@ -38,6 +41,8 @@ type Props = {
   fields: FieldDef[];
   people: Person[];
   statusFieldId: string | null;
+  /** The project's column arrangement — one order, shared by everybody. */
+  columnOrder: string[];
   canEdit: boolean;
   isAdmin: boolean;
   /** Rendered on the server: signing out is a server action. */
@@ -80,8 +85,8 @@ function fmtDate(iso: string | null): string | null {
 }
 
 export default function ListView({
-  projectId, projectName, slug, rows: initialRows, fields, people, statusFieldId, canEdit, isAdmin,
-  signOut,
+  projectId, projectName, slug, rows: initialRows, fields, people, statusFieldId,
+  columnOrder: savedColumnOrder, canEdit, isAdmin, signOut,
 }: Props) {
   const [rows, setRows] = useState(initialRows);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -94,10 +99,21 @@ export default function ListView({
   /** Columns the run is ordered by, first one first. Empty means filed order. */
   const [sortTerms, setSortTerms] = useState<SortTerm[]>([]);
   const [sortOpen, setSortOpen] = useState(false);
-  /** The reader's column arrangement, as block keys. Empty means as filed. */
-  const [columnOrder, setColumnOrder] = useState<string[]>([]);
+  /**
+   * The column arrangement, as block keys. Empty means as filed.
+   *
+   * Unlike the sort and the expansion beside it, this one belongs to the
+   * **project**: everybody opens the grid the same way round, and only an
+   * Admin may change it. Held in state as well as in the props so a move lands
+   * on the page at once rather than after the round trip — the server's answer
+   * then confirms it, and a refusal puts the old order back.
+   */
+  const [columnOrder, setColumnOrder] = useState<string[]>(savedColumnOrder);
   const [columnsOpen, setColumnsOpen] = useState(false);
   const [dragging, setDragging] = useState<string | null>(null);
+  /** The row in hand, and the row it is currently over. */
+  const [dragRow, setDragRow] = useState<string | null>(null);
+  const [dropAt, setDropAt] = useState<{ id: string; zone: DropZone; ok: boolean } | null>(null);
   const [saving, setSaving] = useState<Set<string>>(new Set());
   const [failure, setFailure] = useState<{ cell: string; message: string } | null>(null);
   const [pendingArchive, setPendingArchive] = useState<LedgerRow | null>(null);
@@ -124,7 +140,6 @@ export default function ListView({
     // not to the project. Somebody triaging by date must not reorder the page
     // for everyone else, and the filed order is what `led_sort_order` is for.
     setSortTerms(loadRecord<SortTerm[]>(slug, 'sort', []));
-    setColumnOrder(loadRecord<string[]>(slug, 'columns', []));
     const carried = selectedFromUrl();
     if (carried) setSelected(carried);
     setReady(true);
@@ -132,7 +147,9 @@ export default function ListView({
 
   useEffect(() => { if (ready) saveSet(slug, 'expanded', expanded); }, [ready, slug, expanded]);
   useEffect(() => { if (ready) saveRecord(slug, 'sort', sortTerms); }, [ready, slug, sortTerms]);
-  useEffect(() => { if (ready) saveRecord(slug, 'columns', columnOrder); }, [ready, slug, columnOrder]);
+  /* The project's own value is the truth. If somebody else moves a column and
+     this page is refreshed, the server's order wins over what is in hand. */
+  useEffect(() => { setColumnOrder(savedColumnOrder); }, [savedColumnOrder]);
   useEffect(() => { if (ready) writeSelectedToUrl(selected); }, [ready, selected]);
 
   /* ------------------------------------------------------------ columns */
@@ -203,10 +220,39 @@ export default function ListView({
     [columns],
   );
 
+  /**
+   * Move a column, for everybody.
+   *
+   * Optimistic, then confirmed: the grid rearranges in the hand that moved it
+   * and the write follows. A refusal — a role that may not, a connection that
+   * is not there — puts the previous order back and says so, rather than
+   * leaving this reader looking at an arrangement nobody else has.
+   */
+  const commitColumnOrder = useCallback(async (next: string[]) => {
+    const before = columnOrder;
+    setColumnOrder(next);
+    setFailure(null);
+    try {
+      const res = await fetch(`/api/projects/${projectId}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ columnOrder: next }),
+      });
+      if (!res.ok) {
+        const err = (await res.json()) as { message?: string };
+        setColumnOrder(before);
+        setFailure({ cell: '', message: err.message ?? 'The column did not move.' });
+      }
+    } catch {
+      setColumnOrder(before);
+      setFailure({ cell: '', message: 'No connection. The column did not move.' });
+    }
+  }, [columnOrder, projectId]);
+
   const moveColumn = useCallback(
     (key: string, to: number | 'left' | 'right') =>
-      setColumnOrder(moveBlock(blocks, columnOrder, key, to)),
-    [blocks, columnOrder],
+      void commitColumnOrder(moveBlock(blocks, columnOrder, key, to)),
+    [blocks, columnOrder, commitColumnOrder],
   );
 
   /** Which block a head belongs to, so dragging any head moves its whole band. */
@@ -535,10 +581,43 @@ export default function ListView({
    * outdent means "become a sibling of your parent". Both are ordinary moves,
    * so the depth ceiling and the cycle guard apply on the server as usual.
    */
+  /**
+   * The one write behind every move: drag, indent, outdent, nudge.
+   *
+   * `parentId` and `afterId` are what the endpoint takes, and every gesture in
+   * the List resolves to a pair of them before it gets here — so promoting,
+   * demoting, reordering and carrying a subtree to another module are one code
+   * path with one failure message, not four.
+   */
+  const commitMove = useCallback(async (
+    node: LedgerRow,
+    placement: { parentId?: string; afterId?: string | null },
+  ) => {
+    setFailure(null);
+    try {
+      const res = await fetch(`/api/nodes/${node.led_node_id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(placement),
+      });
+      if (!res.ok) {
+        const err = (await res.json()) as { message?: string };
+        setFailure({ cell: '', message: err.message ?? 'The move did not save.' });
+        return;
+      }
+      // A move re-depths the whole subtree and renumbers its neighbours, so
+      // the single row the response carries is not enough. This is the only
+      // write that refetches.
+      const fresh = await fetch(`/api/projects/${projectId}/ledger`);
+      if (fresh.ok) setRows((await fresh.json()) as LedgerRow[]);
+    } catch {
+      setFailure({ cell: '', message: 'No connection. The move did not save.' });
+    }
+  }, [projectId]);
+
+  /** Indent and outdent — `Alt ←→`, unchanged in what they mean (D-3). */
   const move = useCallback(async (node: LedgerRow, direction: 'in' | 'out') => {
     setFailure(null);
-
-    let parentId: string | null = null;
 
     if (direction === 'in') {
       const siblings = byParent.get(node.led_parent_id) ?? [];
@@ -548,36 +627,68 @@ export default function ListView({
         setFailure({ cell: '', message: 'Nothing above it at this level to sit under.' });
         return;
       }
-      parentId = previous.led_node_id;
-    } else {
-      const parent = node.led_parent_id ? byId.get(node.led_parent_id) : null;
-      if (!parent || parent.led_depth <= 1) {
-        setFailure({ cell: '', message: 'A module is already at the top level.' });
-        return;
-      }
-      parentId = parent.led_parent_id;
+      // Under the row above, and at the end of its children — which is where
+      // the eye expects it, immediately below what is already there.
+      await commitMove(node, { parentId: previous.led_node_id, afterId: undefined });
+      return;
     }
-    if (!parentId) return;
 
-    try {
-      const res = await fetch(`/api/nodes/${node.led_node_id}`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ parentId }),
-      });
-      if (!res.ok) {
-        const err = (await res.json()) as { message?: string };
-        setFailure({ cell: '', message: err.message ?? 'The move did not save.' });
-        return;
-      }
-      // A move re-depths the whole subtree, so the single row the response
-      // carries is not enough. This is the only write that refetches.
-      const fresh = await fetch(`/api/projects/${projectId}/ledger`);
-      if (fresh.ok) setRows((await fresh.json()) as LedgerRow[]);
-    } catch {
-      setFailure({ cell: '', message: 'No connection. The move did not save.' });
+    const parent = node.led_parent_id ? byId.get(node.led_parent_id) : null;
+    if (!parent || parent.led_depth <= 1) {
+      setFailure({ cell: '', message: 'A module is already at the top level.' });
+      return;
     }
-  }, [byParent, byId, projectId]);
+    if (!parent.led_parent_id) return;
+    // Out means "become the next sibling of the parent I just left", so it
+    // lands directly below the block it came out of rather than at the end.
+    await commitMove(node, { parentId: parent.led_parent_id, afterId: parent.led_node_id });
+  }, [byParent, byId, commitMove]);
+
+  /** `Alt ↑↓` — one place up or down among the rows it already sits with. */
+  const nudge = useCallback(async (node: LedgerRow, direction: -1 | 1) => {
+    setFailure(null);
+    const siblings = byParent.get(node.led_parent_id) ?? [];
+    const at = siblings.findIndex((r) => r.led_node_id === node.led_node_id);
+    const to = at + direction;
+    if (at === -1 || to < 0 || to >= siblings.length) return;
+
+    // Moving down means landing behind the row below; moving up means landing
+    // in front of the row above, which is the one before *that*.
+    const afterId = direction === 1
+      ? siblings[to]!.led_node_id
+      : to > 0 ? siblings[to - 1]!.led_node_id : null;
+    await commitMove(node, { afterId });
+  }, [byParent, commitMove]);
+
+  /**
+   * What a pointer over this row would do, given what is in hand.
+   *
+   * Called on both `dragover` and `drop` so the mark the reader saw and the
+   * move that happens are computed from the same rule — the alternative is a
+   * drop that lands somewhere the highlight never promised.
+   */
+  const planFor = useCallback((
+    target: LedgerRow,
+    event: React.DragEvent<HTMLTableRowElement>,
+  ): (DropPlan & { zone: DropZone }) | null => {
+    const dragged = dragRow ? byId.get(dragRow) : null;
+    if (!dragged) return null;
+
+    /* `event.currentTarget`, never `event.nativeEvent.currentTarget`. The DOM
+       sets `currentTarget` only while the event is being dispatched and clears
+       it afterwards; React's synthetic event is the thing that still knows
+       which element the handler was attached to. Reading it off the native
+       event threw on the first drag. */
+    const box = event.currentTarget.getBoundingClientRect();
+    const height = subtreeHeightOf(dragged, rows);
+    const zone = zoneFor(event.clientY - box.top, box.height, target.led_depth + 1 + height <= MAX_DEPTH);
+    const plan = planDrop(dragged, target, zone, visible.filter((v) => v.kind === 'node').map((v) => v.row), {
+      maxDepth: MAX_DEPTH,
+      subtreeHeight: height,
+      rootId: root?.led_node_id ?? null,
+    });
+    return { ...plan, zone };
+  }, [dragRow, byId, rows, visible, root]);
 
   const toggle = (id: string) =>
     setExpanded((s) => {
@@ -623,10 +734,18 @@ export default function ListView({
       const current = visible[focus.row];
       const node = current?.row;
 
-      // Alt with a horizontal arrow re-parents rather than moving the cursor.
+      /* Alt with an arrow moves the row, not the cursor: horizontally it
+         changes who the row's parent is, vertically its place among the rows
+         it already sits with. Together they reach every move the drag does,
+         which is the point — the drag is the fast way, not the only way. */
       if (canEdit && node && e.altKey && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
         e.preventDefault();
         void move(node, e.key === 'ArrowRight' ? 'in' : 'out');
+        return;
+      }
+      if (canEdit && node && e.altKey && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+        e.preventDefault();
+        void nudge(node, e.key === 'ArrowDown' ? 1 : -1);
         return;
       }
 
@@ -721,7 +840,7 @@ export default function ListView({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [focus, visible, nodeRows, columns, editing, canEdit, isAdmin, detail, selected, slug, root,
-      create, move, archive, descendantCount]);
+      create, move, nudge, archive, descendantCount]);
 
   /* -------------------------------------------------------- detail data */
 
@@ -906,14 +1025,20 @@ export default function ListView({
 
           {/* Dragging a head is the fast way and the only one a mouse needs;
               this is the same act for a hand that is not holding one, and the
-              only one a screen reader can reach at all. */}
+              only one a screen reader can reach at all.
+
+              Admin only, because the arrangement is the project's: a Member
+              who moved a column would be rearranging everybody's screen. The
+              control is absent rather than disabled — a row of dead buttons
+              teaches a Member nothing except that the page is broken. */}
+          {isAdmin && (
           <div className="sortby" ref={columnsRef}>
             <button
               type="button"
               className="sortby-open"
               aria-expanded={columnsOpen}
               onClick={() => setColumnsOpen((o) => !o)}
-              title="Move the columns. Drag a column head to do the same."
+              title="Move the columns for everybody on this project. Drag a column head to do the same."
             >
               Columns
               {columnOrder.length > 0 && <span className="figure sortby-count">·</span>}
@@ -950,19 +1075,21 @@ export default function ListView({
 
                 {columnOrder.length > 0 && (
                   <div className="sortby-add">
-                    <button type="button" onClick={() => setColumnOrder([])}>
+                    <button type="button" onClick={() => void commitColumnOrder([])}>
                       Back to the filed order
                     </button>
                   </div>
                 )}
 
                 <p className="sortby-note">
-                  Estimate, Actual, Slip and Closed each move whole: the band above
-                  the heads is what says which is the plan. Name stays first.
+                  Everybody on this project sees this order. Estimate, Actual, Slip
+                  and Closed each move whole: the band above the heads is what says
+                  which is the plan. Name stays first.
                 </p>
               </div>
             )}
           </div>
+          )}
 
           {/* The add row at the foot of the run is where a module is added in
               the flow of reading it. This is the same act reached from the top
@@ -1009,7 +1136,9 @@ export default function ListView({
                     {columns.map((c) => {
                       const at = sortTerms.findIndex((t) => t.key === c.key);
                       const term = at === -1 ? null : sortTerms[at]!;
-                      const block = blockOf(c.key);
+                      // Admin only: the arrangement belongs to the project, so
+                      // for everybody else the heads are simply not draggable.
+                      const block = isAdmin ? blockOf(c.key) : null;
                       return (
                       <th
                         key={c.key}
@@ -1138,6 +1267,37 @@ export default function ListView({
                         className={v.row.led_depth === 2 ? 'module' : ''}
                         style={{ ['--row-hue' as string]: TAB_HUE(moduleIndex.get(v.row.led_node_id) ?? 1) }}
                         aria-selected={selected === v.row.led_node_id}
+                        /* A row in hand is not a row being typed into, so a
+                           cell that is open for editing suspends the drag
+                           rather than fighting the caret for the pointer. */
+                        draggable={canEdit && !editing && renamingId === null}
+                        onDragStart={(e) => {
+                          setDragRow(v.row.led_node_id);
+                          setSelected(v.row.led_node_id);
+                          e.dataTransfer.effectAllowed = 'move';
+                          e.dataTransfer.setData('text/plain', v.row.led_name);
+                        }}
+                        onDragEnd={() => { setDragRow(null); setDropAt(null); }}
+                        onDragOver={(e) => {
+                          const plan = planFor(v.row, e);
+                          if (!plan) return;
+                          e.preventDefault();
+                          e.dataTransfer.dropEffect = plan.ok ? 'move' : 'none';
+                          setDropAt({ id: v.row.led_node_id, zone: plan.zone, ok: plan.ok });
+                        }}
+                        onDrop={(e) => {
+                          const plan = planFor(v.row, e);
+                          setDropAt(null);
+                          const dragged = dragRow ? byId.get(dragRow) : null;
+                          setDragRow(null);
+                          if (!plan || !dragged) return;
+                          e.preventDefault();
+                          if (!plan.ok) { setFailure({ cell: '', message: plan.reason }); return; }
+                          void commitMove(dragged, { parentId: plan.parentId, afterId: plan.afterId });
+                        }}
+                        data-drop={dropAt?.id === v.row.led_node_id ? dropAt.zone : undefined}
+                        data-drop-ok={dropAt?.id === v.row.led_node_id && dropAt.ok ? '' : undefined}
+                        data-dragging={dragRow === v.row.led_node_id ? '' : undefined}
                       >
                         {columns.map((c, colIdx) => {
                           const cellKey = `${v.row.led_node_id}:${c.key}`;
@@ -1215,6 +1375,7 @@ export default function ListView({
           <kbd>N</kbd> new
           <kbd>Shift N</kbd> subtask
           <kbd>Alt ←→</kbd> outdent / indent
+          <kbd>Alt ↑↓</kbd> move up / down
           <kbd>G T</kbd> timeline
         </div>
       </div>

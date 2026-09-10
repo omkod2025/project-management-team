@@ -36,6 +36,11 @@ export const ACTIONS = {
   'option.define': ['admin'],
 
   'project.rename': ['admin'],
+  /* The List's column arrangement. Admin-only for the reason the whole
+     product draws the line at: content is a Member's, structure is an
+     Admin's — and one shared arrangement means a Member who moved a column
+     would silently rearrange everybody else's screen. */
+  'project.layout': ['admin'],
   'project.archive': ['admin'],
   'member.manage': ['admin'],
   'holiday.manage': ['admin'],

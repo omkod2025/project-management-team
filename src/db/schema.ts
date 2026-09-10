@@ -55,6 +55,8 @@ export const projects = pgTable('pmt_projects', {
   description: text('project_description'),
   /** The one select field whose option stages drive automatic actual dates (D-35). */
   statusFieldId: uuid('project_status_field_id'),
+  /** The List's column arrangement, shared by everybody (spec 03 §2.4). */
+  columnOrder: jsonb('project_column_order').$type<string[]>().notNull().default([]),
   archivedAt: timestamp('project_archived_at', { withTimezone: true }),
   createdAt: timestamp('project_created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('project_updated_at', { withTimezone: true }).notNull().defaultNow(),

@@ -200,6 +200,43 @@ export function planMove(
 }
 
 /**
+ * Where a node lands among its new siblings.
+ *
+ * `afterId` names the sibling it goes behind; `null` or a name that is not
+ * there means the end of the run. The answer is a `double precision` between
+ * the two neighbours, which is why `node_sort_order` is a float and not an
+ * integer: inserting between two rows must touch **one** row, not renumber
+ * every row after it. A project with a hundred tasks under one parent would
+ * otherwise write a hundred rows to move one.
+ *
+ * Halving does eventually exhaust the mantissa — about fifty consecutive
+ * insertions between the *same* two neighbours. Nothing in this product does
+ * that, and the repair if it ever happens is a renumbering pass, not a
+ * different design.
+ *
+ * The node being moved is excluded by the caller, so reordering within one
+ * parent cannot rank a row against its own old position.
+ */
+export function placeAmong(
+  siblings: readonly { id: string; sortOrder: number }[],
+  afterId: string | null | undefined,
+): number {
+  const at = afterId ? siblings.findIndex((s) => s.id === afterId) : -1;
+
+  // Not found, or not asked for: the end of the run, which is also what an
+  // append means. `afterId: null` is the one way to ask for the front.
+  const before = afterId
+    ? (at >= 0 ? siblings[at] : siblings[siblings.length - 1])
+    : afterId === null ? undefined : siblings[siblings.length - 1];
+  const after = before ? siblings[siblings.indexOf(before) + 1] : siblings[0];
+
+  if (before && after) return (before.sortOrder + after.sortOrder) / 2;
+  if (before) return before.sortOrder + 1;
+  if (after) return after.sortOrder - 1;
+  return 0;
+}
+
+/**
  * A node cannot be moved into its own subtree, and cannot be moved under
  * itself. Without this the tree becomes a cycle: the node disappears from
  * every view, the recursive roll-up never terminates, and the only way back is

@@ -17,6 +17,7 @@ import {
   crossesAxes,
   childDepth,
   planMove,
+  placeAmong,
   coerceValue,
   assertWritableKey,
   assertMoveTarget,
@@ -344,5 +345,57 @@ describe('D-32 — reserved keys', () => {
 
   test('an ordinary field id is fine', () => {
     assert.doesNotThrow(() => assertWritableKey('f-status'));
+  });
+});
+
+/* ------------------------------------------------- D-3 · where it lands */
+
+describe('placeAmong — the order a moved or created row takes', () => {
+  const run = [
+    { id: 'a', sortOrder: 0 },
+    { id: 'b', sortOrder: 1 },
+    { id: 'c', sortOrder: 2 },
+  ];
+
+  test('behind a named sibling, between it and the next', () => {
+    assert.equal(placeAmong(run, 'a'), 0.5);
+    assert.equal(placeAmong(run, 'b'), 1.5);
+  });
+
+  test('behind the last one, past the end', () => {
+    assert.equal(placeAmong(run, 'c'), 3);
+  });
+
+  /* `null` is the front of the run, and it is deliberately not the same as
+     leaving it out: a row dropped above the first child has to land first,
+     and an omitted `afterId` appends. */
+  test('null is the front', () => {
+    assert.equal(placeAmong(run, null), -1);
+  });
+
+  test('omitted is the end', () => {
+    assert.equal(placeAmong(run, undefined), 3);
+  });
+
+  test('the first row of an empty parent takes zero', () => {
+    assert.equal(placeAmong([], null), 0);
+    assert.equal(placeAmong([], undefined), 0);
+  });
+
+  /* Inserting between two rows must touch one row, not renumber the run —
+     which is why node_sort_order is a float. */
+  test('inserting repeatedly between the same two never disturbs them', () => {
+    let siblings = [{ id: 'a', sortOrder: 0 }, { id: 'b', sortOrder: 1 }];
+    for (let i = 0; i < 20; i++) {
+      const placed = placeAmong(siblings, 'a');
+      assert.ok(placed > 0 && placed < siblings[1]!.sortOrder, `round ${i}`);
+      siblings = [siblings[0]!, { id: `x${i}`, sortOrder: placed }, ...siblings.slice(1)];
+    }
+    assert.equal(siblings[0]!.sortOrder, 0);
+    assert.equal(siblings.at(-1)!.sortOrder, 1);
+  });
+
+  test('a sibling that is not there is treated as the end, never as the front', () => {
+    assert.equal(placeAmong(run, 'gone'), 3);
   });
 });

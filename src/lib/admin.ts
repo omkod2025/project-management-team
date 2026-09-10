@@ -137,6 +137,33 @@ export async function createProject(
 }
 
 /**
+ * Set the List's column arrangement for the whole project (spec 03 §2.4).
+ *
+ * Stored as block keys, not positions, and validated for shape only — which
+ * keys exist is a question about field definitions that change constantly, and
+ * an order that named a since-archived field would then be a write that
+ * refuses. The read side ignores what it cannot resolve and keeps what it has
+ * never heard of, so a stale key is harmless and a strict check here would buy
+ * nothing but failures.
+ */
+export async function setColumnOrder(projectId: string, input: unknown): Promise<{ columnOrder: string[] }> {
+  if (!Array.isArray(input) || input.some((k) => typeof k !== 'string' || !k || k.length > 100)) {
+    throw domainError('E_UNKNOWN_FIELD', 'A column order is a list of column keys.');
+  }
+  if (input.length > 100) throw domainError('E_UNKNOWN_FIELD', 'That is more columns than a project has.');
+
+  const columnOrder = [...new Set(input as string[])];
+  const [row] = await db
+    .update(projects)
+    .set({ columnOrder, updatedAt: new Date() })
+    .where(eq(projects.id, projectId))
+    .returning({ columnOrder: projects.columnOrder });
+  if (!row) throw domainError('E_NOT_FOUND', 'No such project.');
+
+  return { columnOrder: row.columnOrder };
+}
+
+/**
  * Rename a project.
  *
  * Two rows change, because the name is displayed from two places: the project

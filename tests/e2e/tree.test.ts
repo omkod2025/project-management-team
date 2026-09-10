@@ -151,6 +151,74 @@ describe('move (D-3)', () => {
   });
 });
 
+/* ================================================================== placing */
+
+/**
+ * Where a moved row lands among its new siblings (D-3).
+ *
+ * A move that only re-parents leaves the row wherever its old sort order
+ * happens to fall, which on a page is "somewhere in the middle for no reason".
+ * These are the tests for the second half of a move: the position.
+ */
+describe('placing a moved row', () => {
+  let first = '', second = '', third = '';
+
+  test('three rows under one parent, in order', async () => {
+    for (const name of ['first', 'second', 'third']) {
+      const created = await createNode(admin, fx.nodes.module, name);
+      assert.equal(created.status, 200);
+      const id = String(created.body?.led_node_id);
+      if (name === 'first') first = id;
+      else if (name === 'second') second = id;
+      else third = id;
+    }
+    assert.ok((await node(first)).node_sort_order < (await node(second)).node_sort_order);
+    assert.ok((await node(second)).node_sort_order < (await node(third)).node_sort_order);
+  });
+
+  test('a row reorders under the parent it already has', async () => {
+    const res = await patchNode(admin, first, { afterId: second });
+    assert.equal(res.status, 200);
+    const [a, b, c] = [await node(first), await node(second), await node(third)];
+    assert.ok(b.node_sort_order < a.node_sort_order, 'now behind the second');
+    assert.ok(a.node_sort_order < c.node_sort_order, 'and still in front of the third');
+    assert.equal(a.node_parent_id, fx.nodes.module, 'and has not been re-parented');
+  });
+
+  test('afterId null puts it at the front', async () => {
+    const res = await patchNode(admin, third, { afterId: null });
+    assert.equal(res.status, 200);
+    const [a, b, c] = [await node(first), await node(second), await node(third)];
+    assert.ok(c.node_sort_order < a.node_sort_order);
+    assert.ok(c.node_sort_order < b.node_sort_order);
+  });
+
+  test('a viewer cannot reorder either', async () => {
+    const res = await patchNode(viewer, first, { afterId: null });
+    assert.equal(res.status, 403);
+  });
+
+  test('parent and position in one move — the drag that crosses a module', async () => {
+    const res = await patchNode(admin, first, { parentId: fx.nodes.module2, afterId: null });
+    assert.equal(res.status, 200);
+    const moved = await node(first);
+    assert.equal(moved.node_parent_id, fx.nodes.module2);
+
+    const { rows } = await fx.client.query(
+      `SELECT node_id FROM pmt_nodes
+        WHERE node_parent_id = $1 AND node_archived_at IS NULL
+        ORDER BY node_sort_order`,
+      [fx.nodes.module2],
+    );
+    assert.equal(rows[0].node_id, first, 'and it landed at the front, as asked');
+  });
+
+  test('a reorder is refused when the node does not exist', async () => {
+    const res = await patchNode(admin, '00000000-0000-0000-0000-000000000000', { afterId: null });
+    assert.equal(res.status, 404);
+  });
+});
+
 /* ================================================================== archive */
 
 describe('archive and restore (D-4)', () => {
