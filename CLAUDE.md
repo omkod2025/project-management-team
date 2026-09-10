@@ -29,6 +29,8 @@ Project management for software delivery. Plan and reality are recorded separate
 | [`tests/e2e/roster.test.ts`](tests/e2e/roster.test.ts) | 12 end-to-end tests: assignment, the membership boundary, read-only |
 | [`tests/e2e/profile.test.ts`](tests/e2e/profile.test.ts) | 11 end-to-end tests: renaming yourself, and admin-issued password resets |
 | [`tests/roster-pack.test.ts`](tests/roster-pack.test.ts) | 23 tests: lane packing, occupancy, contention |
+| [`tests/list-sort.test.ts`](tests/list-sort.test.ts) | 19 tests: the List's multi-column sort — empty cells, tie-breaks, direction per column |
+| [`tests/doc-publish.test.ts`](tests/doc-publish.test.ts) | 18 tests: the published read-only link — token shape, what a stranger may follow, which files a token may read |
 | [`docs/TASKS.md`](docs/TASKS.md) | Build plan T0–T9 with per-task checklists |
 | [`docs/wireframes/index.html`](docs/wireframes/index.html) | Rendered wireframes for both views |
 

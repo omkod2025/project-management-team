@@ -50,10 +50,28 @@ export async function uploadDocAsset(userId: string, projectId: string, file: Fi
 }
 
 export async function readDocAsset(userId: string, id: string) {
+  const asset = await findDocAsset(id);
+  await projectAccess(userId, asset.projectId);
+  return readDocAssetBytes(asset);
+}
+
+/**
+ * The registry row, with no access check of any kind.
+ *
+ * Split out for the published-link reader, which has no user to check and
+ * instead proves its right to this file a different way: the token names one
+ * page, and the file must be one that page references (spec 10 §8b). Every
+ * other caller goes through `readDocAsset`.
+ */
+export async function findDocAsset(id: string) {
   if (!validId(id)) throw domainError('E_NOT_FOUND', 'No such file.');
   const [asset] = await db.select().from(docAssets).where(eq(docAssets.id, id));
   if (!asset) throw domainError('E_NOT_FOUND', 'No such file.');
-  await projectAccess(userId, asset.projectId);
+  return asset;
+}
+
+export async function readDocAssetBytes(asset: { id: string; mime: string; filename: string; createdAt: Date }) {
+  const id = asset.id;
   try {
     let data: Buffer;
     try {

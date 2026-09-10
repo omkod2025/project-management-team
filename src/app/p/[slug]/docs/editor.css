@@ -200,6 +200,12 @@
 .doc-tools-panel textarea { min-height: 80px; padding: 8px; font: inherit; border: 1px solid #dfe2e7; border-radius: 5px; }
 .doc-tools-panel > button { display: block; margin-top: 8px; width: 100%; text-align: left; }
 .doc-tools-panel fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+
+/* Published state (spec 10 §8b). Stated, not implied: a page that is readable
+   outside the product says so every time the menu is opened. */
+.doc-published { margin: 12px 0 4px; padding: 8px 10px; background: #fff6e8; border: 1px solid #e6c893; font-size: 12px; line-height: 1.45; }
+.doc-tools-panel .doc-published-open { display: flex; gap: 8px; align-items: center; margin-top: 8px; padding: 6px 12px; min-height: 34px; box-sizing: border-box; border: 1px solid var(--cu-line, #dfe3ec); border-radius: 4px; color: #303747; font-size: 14px; text-decoration: none; }
+.doc-tools-panel .doc-published-open:hover { background: var(--cu-hover, #f2f4f9); }
 .doc-comment { border-bottom: 1px solid #e5e7eb; padding: 16px 0; font-size: 13px; overflow-wrap: anywhere; }
 .doc-comment time { display: block; color: #646b77; font-size: 11px; }
 .doc-comment p { white-space: pre-wrap; }

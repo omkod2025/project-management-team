@@ -169,6 +169,19 @@ Group by exactly one column. Default: module (the node's level-2 ancestor).
 
 ---
 
+## 6a. Sorting
+
+Sort by any number of columns at once. Default: none — the filed order (`led_sort_order`).
+
+- **Sorting reorders siblings inside their parent; the tree stands.** The Timeline makes the opposite choice and flattens, because a picture of time that restarts at every module is not in date order. Here the indent, the bracket, the module chip and the per-module add row all say where a task is filed, and a flat run would make every one of them a lie.
+- Terms apply in the order they were added: the first column that separates two rows decides them, and when every term ties the filed order does — so the run is stable.
+- Each term carries its own direction. **A row with nothing in the column goes last whichever way the term runs** — "no date" is not "earliest" — which is the Timeline's rule too, so a reader moving between the views does not learn it twice.
+- Reached two ways. Clicking a column head sorts by that column alone; shift-clicking adds it to the sort already running; clicking the head of the only sorted column reverses it. The **Sort** control in the toolbar opens a panel that lists the terms in rank order with direction, reordering and removal, and offers every remaining column by name — group-qualified, since three heads read `Start` and three read `Days` and a menu has no band to tell them apart.
+- Ranking by column kind: dates and text by value; `Days` by the computed figure; `Closed` by **proportion**, not count, so `3 / 4` is further along than `10 / 40`, and a leaf ranks as nothing; `Slip` by working days, with **out of closure sorting past every figure** (D-16) rather than as one. A `select` ranks by its option's filed position, not its label — alphabetising the status column would scramble the one custom field with a real sequence. A `multi_select` ranks by its lowest member, `people` by how many are on the row, `checkbox` by ticked. An image column is not offered.
+- Sort is not offered on gutters, and never changes what is stored: it belongs to this reader on this machine and persists locally, like expansion. Module hues stay numbered from the filed order, so sorting never repaints the rail.
+
+---
+
 ## 6b. Row actions
 
 Two controls sit at the right of the name cell, on the same line as the task: a **pencil** to rename and a **bin** to archive. They appear on hover or when the row is selected, and are hidden otherwise — two controls repeated down 174 rows is clutter, and `F2` and `Delete` reach the same actions without them.

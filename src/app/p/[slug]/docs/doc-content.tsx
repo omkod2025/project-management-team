@@ -9,13 +9,84 @@ import {
   safeEmbed,
   type RichNode,
 } from "@/lib/doc-rich-content";
+import { publishedLink } from "@/lib/doc-publish-rules";
+
+/**
+ * Where a link opens.
+ *
+ * Every link written into a document leaves for its own window. A document is
+ * read, not navigated through: following a reference used to replace the page
+ * the reader was in the middle of, and coming back cost a load and the scroll
+ * position. A fragment is the exception — it points inside this very page, so
+ * a new window would be a copy of the one already open.
+ *
+ * `rel="noopener noreferrer"` travels with it everywhere, so the opened page
+ * gets no handle on this one.
+ */
+const linkTarget = (href: unknown): "_blank" | undefined =>
+  typeof href === "string" && href.startsWith("#") ? undefined : "_blank";
+
+/**
+ * How a page is being read.
+ *
+ * Absent, the reader is signed in and every link in the document works as
+ * written. Present, the page is being read through a published link (spec 10
+ * §8b) by somebody with no account, and every URL on the page has to be asked
+ * about: an asset becomes the token's own path, an app-internal link stops
+ * being a link at all, and only external schemes survive untouched.
+ */
+export type PublishContext = { token: string; assets: ReadonlySet<string> };
 
 /** Explicit renderer: document JSON never becomes executable HTML. */
-export default function DocContent({ value }: { value: string }) {
+export default function DocContent({
+  value,
+  publish,
+}: {
+  value: string;
+  publish?: PublishContext;
+}) {
+  /**
+   * The one gate every href and src on the page passes through. `null` means
+   * "there is no address here a reader may follow" — the caller then renders
+   * the words without a link, or drops the image.
+   */
+  const url = (raw: unknown): string | null =>
+    publish
+      ? publishedLink(raw, publish.token, publish.assets)
+      : safeDocUrl(raw)
+        ? raw
+        : null;
   const tree = decodeRich(value);
   if (!tree)
     return (
-      <ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        skipHtml
+        /* A page still held as Markdown reads the same way as one held as
+           rich content, so its links leave for their own window too. */
+        components={{
+          a: ({ href, children, ...rest }) => {
+            const to = url(href);
+            // A link with nowhere to go keeps its words and loses its href —
+            // deleting the text would silently edit the document.
+            if (!to) return <>{children}</>;
+            return (
+              <a
+                {...rest}
+                href={to}
+                target={linkTarget(to)}
+                rel="noopener noreferrer"
+              >
+                {children}
+              </a>
+            );
+          },
+          img: ({ src, alt, ...rest }) => {
+            const to = url(src);
+            return to ? <img {...rest} src={to} alt={alt ?? ""} /> : null;
+          },
+        }}
+      >
         {value}
       </ReactMarkdown>
     );
@@ -48,12 +119,20 @@ export default function DocContent({ value }: { value: string }) {
           } as Record<string, string>
         )[m.type];
         if (tag) text = React.createElement(tag, { key: i }, text);
-        if (m.type === "link" && safeDocUrl(m.attrs?.href))
-          text = (
-            <a key={i} href={m.attrs.href} rel="noopener noreferrer">
-              {text}
-            </a>
-          );
+        if (m.type === "link") {
+          const to = url(m.attrs?.href);
+          if (to)
+            text = (
+              <a
+                key={i}
+                href={to}
+                target={linkTarget(to)}
+                rel="noopener noreferrer"
+              >
+                {text}
+              </a>
+            );
+        }
         if (m.type === "textColor" && safeColor(m.attrs?.color))
           text = (
             <span key={i} style={{ color: m.attrs.color }}>
@@ -92,22 +171,27 @@ export default function DocContent({ value }: { value: string }) {
       );
     if (n.type === "hardBreak") return <br key={key} />;
     if (n.type === "horizontalRule") return <hr key={key} />;
-    if (n.type === "image")
-      return safeDocUrl(a.src) ? (
-        <img key={key} src={a.src} alt={String(a.alt ?? "")} />
-      ) : null;
-    if (n.type === "linkButton")
-      return safeDocUrl(a.href) ? (
+    if (n.type === "image") {
+      const src = url(a.src);
+      return src ? <img key={key} src={src} alt={String(a.alt ?? "")} /> : null;
+    }
+    if (n.type === "linkButton") {
+      const to = url(a.href);
+      // A button that cannot be pressed is not drawn: unlike an inline link it
+      // has no sentence around it to keep, so an inert one is pure furniture.
+      return to ? (
         <a
           key={key}
-          href={a.href}
+          href={to}
           className="doc-link-button"
           data-doc-button=""
+          target={linkTarget(to)}
           rel="noopener noreferrer"
         >
           {String(a.label ?? "Open link")}
         </a>
       ) : null;
+    }
     if (n.type === "embed")
       return safeEmbed(a.src) ? (
         <iframe

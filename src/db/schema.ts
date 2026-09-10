@@ -95,6 +95,10 @@ export const docPages = pgTable('pmt_doc_pages', {
   content: jsonb('doc_page_content').$type<Record<string, string>>().notNull().default({ body: '' }),
   settings: jsonb('doc_page_settings').$type<Record<string, string | boolean>>().notNull().default({}),
   protected: boolean('doc_page_protected').notNull().default(false),
+  /** Null means private. The secret is the whole guard — see doc-publish-rules. */
+  publishToken: text('doc_page_publish_token'),
+  publishedAt: timestamp('doc_page_published_at', { withTimezone: true }),
+  publishedBy: uuid('doc_page_published_by').references(() => users.id, { onDelete: 'set null' }),
   sortOrder: doublePrecision('doc_page_sort_order').notNull().default(0),
   updatedBy: uuid('doc_page_updated_by').references(() => users.id, { onDelete: 'set null' }),
   updatedAt: timestamp('doc_page_updated_at', { withTimezone: true, precision: 3 }).notNull().defaultNow(),

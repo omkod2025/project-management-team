@@ -15,6 +15,7 @@ import { requirePage } from "@/lib/docs";
 import { authorize } from "@/lib/permissions";
 import { domainError } from "@/lib/errors";
 import { parseNewDoc, parsePageContent } from "@/lib/doc-rules";
+import { mintPublishToken } from "@/lib/doc-publish-rules";
 import { lockAssetReferences, stageRemovedAssets } from '@/lib/doc-asset-cleanup';
 
 export async function getDocTools(userId: string, id: string) {
@@ -88,6 +89,10 @@ export async function mutateDocTools(
       "move",
       "template",
       "applyTemplate",
+      // Letting a page out of the product is an owner's act, not an
+      // editor's: `doc.create` is the admin-only capability (spec 05 §3).
+      "publish",
+      "unpublish",
     ].includes(String(action))
       ? "doc.create"
       : "doc.edit",
@@ -222,6 +227,36 @@ export async function mutateDocTools(
         .set({ protected: b.protected, updatedAt: now, updatedBy: userId })
         .where(eq(docPages.id, id));
       return { updatedAt: now.toISOString() };
+    }
+    /*
+     * Publishing and revoking (spec 10 §8b).
+     *
+     * `publish` is idempotent in the sense that matters: publishing an already
+     * published page returns the link it already has rather than minting a
+     * second one, so the copied link keeps working and there is only ever one
+     * secret in the wild per page. Getting a *new* link means unpublishing
+     * first — which is the same gesture as revoking, and is meant to be.
+     */
+    if (action === "publish") {
+      const existing = await tx
+        .select({ token: docPages.publishToken })
+        .from(docPages)
+        .where(eq(docPages.id, id));
+      const token = existing[0]?.token ?? mintPublishToken();
+      await tx
+        .update(docPages)
+        .set({ publishToken: token, publishedAt: now, publishedBy: userId })
+        .where(eq(docPages.id, id));
+      return { publishToken: token, publishedAt: now.toISOString() };
+    }
+    if (action === "unpublish") {
+      // The secret is deleted, not disabled. A link that was let out never
+      // comes back to life: re-publishing mints a different one.
+      await tx
+        .update(docPages)
+        .set({ publishToken: null, publishedAt: null, publishedBy: null })
+        .where(eq(docPages.id, id));
+      return { publishToken: null };
     }
     if (action === "restore") {
       if (typeof b.pageId !== "string" || !/^[a-f\d-]{36}$/i.test(b.pageId))

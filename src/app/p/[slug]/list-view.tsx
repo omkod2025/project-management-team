@@ -9,8 +9,9 @@ import DetailPanel from './detail-panel';
 import ProjectTitle from './project-title';
 import ConfirmArchive from './confirm-archive';
 import {
-  loadSet, saveSet, selectedFromUrl, writeSelectedToUrl, siblingHref,
+  loadSet, saveSet, loadRecord, saveRecord, selectedFromUrl, writeSelectedToUrl, siblingHref,
 } from './view-state';
+import { makeComparator, isSortable, type SortTerm, type SortableColumn } from './list-sort';
 import './list.css';
 
 /**
@@ -87,12 +88,16 @@ export default function ListView({
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [detail, setDetail] = useState(false);
   const [query, setQuery] = useState('');
+  /** Columns the run is ordered by, first one first. Empty means filed order. */
+  const [sortTerms, setSortTerms] = useState<SortTerm[]>([]);
+  const [sortOpen, setSortOpen] = useState(false);
   const [saving, setSaving] = useState<Set<string>>(new Set());
   const [failure, setFailure] = useState<{ cell: string; message: string } | null>(null);
   const [pendingArchive, setPendingArchive] = useState<LedgerRow | null>(null);
   const [undo, setUndo] = useState<{ nodeId: string; name: string; count: number } | null>(null);
   const [ready, setReady] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
+  const sortRef = useRef<HTMLDivElement>(null);
   const chord = useRef<string | null>(null);
 
   /* ------------------------------------------------- restore view state */
@@ -107,12 +112,17 @@ export default function ListView({
     } else {
       setExpanded(stored);
     }
+    // The sort belongs to this reader on this machine, like the expansion —
+    // not to the project. Somebody triaging by date must not reorder the page
+    // for everyone else, and the filed order is what `led_sort_order` is for.
+    setSortTerms(loadRecord<SortTerm[]>(slug, 'sort', []));
     const carried = selectedFromUrl();
     if (carried) setSelected(carried);
     setReady(true);
   }, [slug, initialRows]);
 
   useEffect(() => { if (ready) saveSet(slug, 'expanded', expanded); }, [ready, slug, expanded]);
+  useEffect(() => { if (ready) saveRecord(slug, 'sort', sortTerms); }, [ready, slug, sortTerms]);
   useEffect(() => { if (ready) writeSelectedToUrl(selected); }, [ready, selected]);
 
   /* ------------------------------------------------------------ columns */
@@ -164,8 +174,71 @@ export default function ListView({
     ];
   }, [fields, statusFieldId]);
 
+  /* ------------------------------------------------------------ sorting */
+
+  /**
+   * The columns offered to the sort, each named the way the header names it.
+   *
+   * Three columns read "Start", three read "Days": inside the grid the band
+   * above the heads disambiguates them, but a menu has no band, so the group
+   * has to come back into the label. Gutters and images are dropped — there is
+   * nothing in a gutter, and an image has no order.
+   */
+  const sortColumns = useMemo<SortableColumn[]>(
+    () => columns.filter(isSortable).map((c) => ({
+      ...c,
+      label: c.group ? `${GROUP_NAMES[c.group]} ${c.label.toLowerCase()}` : c.label,
+    })),
+    [columns],
+  );
+
+  const comparator = useMemo(
+    () => makeComparator(sortTerms, sortColumns),
+    [sortTerms, sortColumns],
+  );
+
+  const addSort = (key: string) =>
+    setSortTerms((t) => (t.some((x) => x.key === key) ? t : [...t, { key, descending: false }]));
+  const flipSort = (key: string) =>
+    setSortTerms((t) => t.map((x) => (x.key === key ? { ...x, descending: !x.descending } : x)));
+  const dropSort = (key: string) => setSortTerms((t) => t.filter((x) => x.key !== key));
+  const moveSort = (key: string, by: -1 | 1) =>
+    setSortTerms((t) => {
+      const at = t.findIndex((x) => x.key === key);
+      const to = at + by;
+      if (at === -1 || to < 0 || to >= t.length) return t;
+      const next = [...t];
+      const [term] = next.splice(at, 1);
+      next.splice(to, 0, term!);
+      return next;
+    });
+
+  /* The panel is a menu, not a mode: anything outside it, or Escape, ends it. */
+  useEffect(() => {
+    if (!sortOpen) return;
+    const away = (e: MouseEvent) => {
+      if (e.target instanceof Node && !sortRef.current?.contains(e.target)) setSortOpen(false);
+    };
+    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') setSortOpen(false); };
+    document.addEventListener('mousedown', away, true);
+    document.addEventListener('keydown', key);
+    return () => {
+      document.removeEventListener('mousedown', away, true);
+      document.removeEventListener('keydown', key);
+    };
+  }, [sortOpen]);
+
   /* --------------------------------------------------------------- tree */
 
+  /**
+   * Sorting reorders each parent's children among themselves; the tree stands.
+   *
+   * The Timeline made the opposite choice and flattens (see `timeline/sort.ts`)
+   * because a picture of time that restarts at every module is not in date
+   * order. Here the indent, the bracket, the module chip and the per-module add
+   * row all say where a task is filed, and a flat run would make every one of
+   * them a lie.
+   */
   const byParent = useMemo(() => {
     const m = new Map<string | null, LedgerRow[]>();
     for (const r of rows) {
@@ -173,13 +246,25 @@ export default function ListView({
       list.push(r);
       m.set(r.led_parent_id, list);
     }
-    for (const list of m.values()) list.sort((a, b) => a.led_sort_order - b.led_sort_order);
+    for (const list of m.values()) list.sort(comparator);
     return m;
-  }, [rows]);
+  }, [rows, comparator]);
 
   const byId = useMemo(() => new Map(rows.map((r) => [r.led_node_id, r])), [rows]);
   const root = rows.find((r) => r.led_depth === 1) ?? null;
-  const modules = byParent.get(root?.led_node_id ?? null) ?? [];
+  /**
+   * The modules in *filed* order, not in the sorted one.
+   *
+   * A module's hue is its identity — the one thing that has to survive
+   * switching views (and now, switching sort). Numbering the tabs from the
+   * displayed order would repaint the whole rail the moment somebody sorted by
+   * date, which turns the index into decoration.
+   */
+  const modules = useMemo(
+    () => [...(byParent.get(root?.led_node_id ?? null) ?? [])]
+      .sort((a, b) => a.led_sort_order - b.led_sort_order),
+    [byParent, root],
+  );
 
   /**
    * Which module every row belongs to, by its filed position.
@@ -191,7 +276,7 @@ export default function ListView({
    */
   const moduleIndex = useMemo(() => {
     const m = new Map<string, number>();
-    (byParent.get(root?.led_node_id ?? null) ?? []).forEach((n, i) => {
+    modules.forEach((n, i) => {
       const mark = (node: LedgerRow) => {
         m.set(node.led_node_id, i + 1);
         for (const k of byParent.get(node.led_node_id) ?? []) mark(k);
@@ -199,7 +284,7 @@ export default function ListView({
       mark(n);
     });
     return m;
-  }, [byParent, root]);
+  }, [byParent, modules]);
 
   const descendantCount = useCallback(
     (id: string): number => {
@@ -660,6 +745,98 @@ export default function ListView({
             <strong className="figure">{nodeRows.length}</strong> of {rows.length - 1}
           </span>
           {!canEdit && <span>· read only</span>}
+
+          {/* Sorting is a property of the reading, not of the project, so it
+              lives in the toolbar beside the search box rather than anywhere
+              that looks like it writes. */}
+          <div className="sortby" ref={sortRef}>
+            <button
+              type="button"
+              className="sortby-open"
+              aria-expanded={sortOpen}
+              onClick={() => setSortOpen((o) => !o)}
+              title="Order the run by one column or by several"
+            >
+              Sort
+              {sortTerms.length > 0 && <span className="figure sortby-count">{sortTerms.length}</span>}
+            </button>
+
+            {sortOpen && (
+              <div className="sortby-panel" role="group" aria-label="Sort by">
+                {sortTerms.length === 0 && <p className="sortby-empty">Filed order.</p>}
+
+                <ol className="sortby-terms">
+                  {sortTerms.map((t, i) => {
+                    const column = sortColumns.find((c) => c.key === t.key);
+                    return (
+                      <li key={t.key}>
+                        {/* The rank is the whole point of allowing more than
+                            one: the first column that separates two rows
+                            decides them. */}
+                        <span className="figure sortby-rank">{i + 1}</span>
+                        <span className="sortby-name">{column?.label ?? t.key}</span>
+                        <button
+                          type="button"
+                          onClick={() => flipSort(t.key)}
+                          aria-label={`${column?.label ?? t.key}: ${t.descending ? 'descending' : 'ascending'}. Reverse it.`}
+                          title="Reverse. Rows with nothing to sort on stay last either way."
+                        >
+                          {t.descending ? '↓' : '↑'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moveSort(t.key, -1)}
+                          disabled={i === 0}
+                          aria-label={`Sort by ${column?.label ?? t.key} earlier`}
+                          title="Earlier in the sort"
+                        >
+                          ⌃
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moveSort(t.key, 1)}
+                          disabled={i === sortTerms.length - 1}
+                          aria-label={`Sort by ${column?.label ?? t.key} later`}
+                          title="Later in the sort"
+                        >
+                          ⌄
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => dropSort(t.key)}
+                          aria-label={`Stop sorting by ${column?.label ?? t.key}`}
+                          title="Remove"
+                        >
+                          ×
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ol>
+
+                <div className="sortby-add">
+                  <select
+                    value=""
+                    aria-label="Add a column to the sort"
+                    onChange={(e) => { if (e.target.value) addSort(e.target.value); }}
+                  >
+                    <option value="">+ Add column…</option>
+                    {sortColumns
+                      .filter((c) => !sortTerms.some((t) => t.key === c.key))
+                      .map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
+                  </select>
+                  {sortTerms.length > 0 && (
+                    <button type="button" onClick={() => setSortTerms([])}>Clear</button>
+                  )}
+                </div>
+
+                <p className="sortby-note">
+                  Siblings are reordered inside their parent; the tree stands.
+                </p>
+              </div>
+            )}
+          </div>
+
           {/* The add row at the foot of the run is where a module is added in
               the flow of reading it. This is the same act reached from the top
               of the page — a long run puts that row a scroll away, and a
@@ -702,10 +879,14 @@ export default function ListView({
                 <thead>
                   <GroupBand columns={columns} />
                   <tr className="label heads">
-                    {columns.map((c) => (
+                    {columns.map((c) => {
+                      const at = sortTerms.findIndex((t) => t.key === c.key);
+                      const term = at === -1 ? null : sortTerms[at]!;
+                      return (
                       <th
                         key={c.key}
                         scope="col"
+                        aria-sort={term ? (term.descending ? 'descending' : 'ascending') : undefined}
                         /* The band is the eye's disambiguator, and it is
                            aria-hidden so it is not announced twice. Three
                            columns now read "Start" and three read "Days", so
@@ -717,11 +898,36 @@ export default function ListView({
                           c.kind === 'name' ? 'nm' : '',
                           c.align === 'right' ? 'num' : '',
                           c.kind === 'gutter' ? 'gutter' : '',
+                          isSortable(c) ? 'sortable' : '',
                         ].join(' ')}
                       >
-                        {c.label}
+                        {/* Click sorts by this column alone; shift-click adds
+                            it to the sort already running, which is the same
+                            two gestures the panel offers with more words. */}
+                        {isSortable(c) ? (
+                          <button
+                            type="button"
+                            className="head-sort"
+                            onClick={(e) => {
+                              if (term) {
+                                if (e.shiftKey || sortTerms.length === 1) flipSort(c.key);
+                                else setSortTerms([term]);
+                              } else if (e.shiftKey) addSort(c.key);
+                              else setSortTerms([{ key: c.key, descending: false }]);
+                            }}
+                          >
+                            {c.label}
+                            {term && (
+                              <span className="head-mark" aria-hidden="true">
+                                {term.descending ? '↓' : '↑'}
+                                {sortTerms.length > 1 && <span className="figure">{at + 1}</span>}
+                              </span>
+                            )}
+                          </button>
+                        ) : c.label}
                       </th>
-                    ))}
+                      );
+                    })}
                   </tr>
                 </thead>
                 <tbody>

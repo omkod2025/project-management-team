@@ -747,3 +747,15 @@ CREATE TABLE pmt_doc_templates (
   template_content jsonb NOT NULL,
   template_created_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- A page may be published as a read-only link (spec 10 §8b). NULL means not
+-- published; revoking sets it back to NULL and re-publishing mints a new one.
+ALTER TABLE pmt_doc_pages
+  ADD COLUMN doc_page_publish_token text UNIQUE
+    CHECK (doc_page_publish_token ~ '^[A-Za-z0-9_-]{43}$'),
+  ADD COLUMN doc_page_published_at timestamptz,
+  ADD COLUMN doc_page_published_by uuid REFERENCES pmt_users(user_id) ON DELETE SET NULL,
+  ADD CONSTRAINT pmt_doc_pages_publish_ck CHECK (
+    (doc_page_publish_token IS NULL AND doc_page_published_at IS NULL)
+    OR (doc_page_publish_token IS NOT NULL AND doc_page_published_at IS NOT NULL)
+  );

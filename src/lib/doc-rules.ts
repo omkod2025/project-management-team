@@ -66,5 +66,7 @@ export type DocPage = {
   template: PageTemplate; nodeId: string | null; content: PageContent; updatedAt: string;
   nodeArchived: boolean; hue: number | null;
   settings?: Record<string,string|boolean>; protected?: boolean;
+  /** The published link's secret, or null when the page is private (spec 10 §11). */
+  publishToken?: string | null;
   ownerNames?: string[];
 };

@@ -1,0 +1,56 @@
+/* THESIS: One document, on paper, for a reader who is not signed in.
+   OWN-WORLD: The project sheet's white page and quiet rules, with the whole
+   application removed — no rail, no toolbar, no way in.
+   STORY: Read it, and know it is a copy that can be withdrawn.
+   FORM: A single measure of text, centred, and nothing else on the page. */
+
+.published {
+  min-height: 100vh;
+  padding: 40px 20px 80px;
+  background: var(--cu-ground, #f7f8fb);
+}
+
+.published-sheet {
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 40px 44px 32px;
+  background: #fff;
+  border: 1px solid var(--cu-line, #dfe3ec);
+}
+
+.published-head { padding-bottom: 18px; border-bottom: 1px solid var(--cu-line, #dfe3ec); }
+.published-head h1 { margin: 0; font-size: 24px; font-weight: 600; overflow-wrap: anywhere; }
+
+.published-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 10px 0 0;
+  color: #555e70;
+  font-size: 13px;
+}
+/* A version stamp is a figure, and figures are set in the figure face. */
+.published-version { font-family: var(--font-figure), ui-monospace, monospace; }
+
+.published .doc-section { margin-top: 28px; }
+.published .doc-section h2 { margin: 0 0 10px; font-size: 16px; font-weight: 600; }
+.published-quiet { color: #616a7c; }
+
+.published-foot {
+  margin-top: 40px;
+  padding-top: 14px;
+  border-top: 1px solid var(--cu-line, #dfe3ec);
+  color: #616a7c;
+  font-size: 12px;
+}
+
+@media (max-width: 640px) {
+  .published { padding: 16px 0 48px; }
+  .published-sheet { padding: 24px 18px; border-inline: 0; }
+}
+
+@media print {
+  .published { padding: 0; background: #fff; }
+  .published-sheet { max-width: none; border: 0; padding: 0; }
+  .published-foot { border-color: #ccc; }
+}

@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit",
     "db:build": "node --env-file=.env scripts/psql.mjs db/schema.sql",
     "db:test": "node --env-file=.env scripts/psql.mjs db/tests.sql",
-    "db:migrate": "node scripts/migrate.mjs",
+    "db:migrate": "node --env-file=.env scripts/migrate.mjs",
     "db:seed": "node --env-file=.env scripts/seed.mjs",
     "clickup:extract": "node --env-file=.env scripts/clickup-extract.mjs",
     "clickup:load": "node scripts/clickup-load.mjs",

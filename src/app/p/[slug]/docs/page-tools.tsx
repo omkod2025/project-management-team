@@ -3,6 +3,7 @@ import { MAX_UPLOAD_BYTES } from '@/lib/upload-limits';
 import DocIcon from "./doc-icon";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { publishedHref } from "@/lib/doc-publish-rules";
 import {
   pageMarkdown,
   pageSections,
@@ -793,6 +794,50 @@ export default function PageTools({
               </button>
               {canCreate && (
                 <>
+                  {/* Publishing (spec 10 §8b). The link is the secret, so the
+                      panel shows the state plainly rather than hiding it
+                      behind a toggle: a page that is out there says so every
+                      time anybody opens this menu. */}
+                  {page.publishToken ? (
+                    <>
+                      <p className="doc-published">
+                        Published — anyone with this link can read this page.
+                      </p>
+                      <button
+                        onClick={() =>
+                          void navigator.clipboard
+                            .writeText(`${location.origin}${publishedHref(page.publishToken!)}`)
+                            .then(() => setNotice("Public link copied"))
+                            .catch(() =>
+                              setError("Could not copy the link. Open it and copy from the address bar."),
+                            )
+                        }
+                      ><DocIcon name="link" />
+                        Copy public link
+                      </button>
+                      <a
+                        className="doc-published-open"
+                        href={publishedHref(page.publishToken)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      ><DocIcon name="file" />
+                        Open public page
+                      </a>
+                      <button
+                        disabled={busy}
+                        onClick={() => void action({ action: "unpublish" })}
+                      ><DocIcon name="lock" />
+                        Unpublish (revokes the link)
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      disabled={busy}
+                      onClick={() => void action({ action: "publish" })}
+                    ><DocIcon name="link" />
+                      Publish as read-only link…
+                    </button>
+                  )}
                   <button
                     disabled={locked}
                     onClick={() => void action({ action: "duplicate" })}

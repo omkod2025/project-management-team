@@ -112,6 +112,16 @@ Tables are in because the source uses them — the module matrix on the first sc
 
 ---
 
+## 5b. Links leave for their own window
+
+**Every link in a rendered page opens in a new window** (`target="_blank"`, always with `rel="noopener noreferrer"`). The one exception is a fragment — `#heading` points inside the page already open, so the table of contents and any in-page anchor navigate in place.
+
+A document is read, not navigated through. The source Doc's whole last section is bare Canva, Figma and datasheet links, and following one used to replace the page mid-read: coming back cost a reload, the scroll position and, while editing, the reader's place in the draft. This holds for both render paths — rich content and the Markdown fallback — and for the label button block, so a link behaves the same wherever it was typed.
+
+Links inside the **editor** are not navigation at all: a click there places the cursor, and only an attachment link acts, by downloading.
+
+---
+
 ## 6. Images
 
 **D-56. Every uploaded file has a row.**
@@ -183,9 +193,41 @@ The line is the one the product already draws everywhere: **content is a Member'
 
 Admin-only *writing* was considered and refused. The person who knows that firmware 4 reads motorcycle plates is the person doing the work, not the person running the project. If they cannot record it, it goes back into the chat window this feature exists to empty.
 
-**There is no share-to-web.**
+~~**There is no share-to-web.**~~ **Superseded 2026-09-10 — see §11.**
 
 > The source Doc is public today. This one is not, and that is deliberate. It is not a button: it needs an unauthenticated render path, a secret token, a way to stop internal links leaking out with it, images served without an authorisation check — which directly breaks `D-56` — and a revocation story. Every page of this product currently sits behind sign-in, and the whole model rests on that. Where the aim is to let an outsider read, the product already answers: invite them as a **Viewer**, scoped to one project, named, and revocable.
+
+> **Reversed by the owner, 2026-09-10.** A read-only publish link was asked for and built. The paragraph above is kept rather than deleted because it is still the correct list of what the feature costs — and §11 is written as five answers to it, one per clause. Nothing in it was wrong; it was a price, and the owner chose to pay it. The Viewer invitation remains the right answer whenever the outsider is a person you can name.
+
+---
+
+## 8b. Published links — read-only, to anyone holding the link
+
+Added 2026-09-10, reversing §8's refusal. An **Admin** may publish one page as a read-only link and withdraw it again. `doc.create` is the capability, so a Member who writes the page cannot let it out of the product.
+
+The refused-then-built paragraph in §8 lists five costs. These are the five answers, and each is a rule, not an implementation note:
+
+1. **One page, never a subtree.** A token publishes the page it was minted for. Subpages are separate pages and stay private until each is published in its own right, so "publish this" can never mean more than what is on screen.
+2. **The secret is the whole guard**, so it is 32 random bytes in base64url — not the page id, not the slug, neither of which is unguessable and both of which appear in every export.
+3. **No link on a published page points back into the product.** Anything addressed to this app renders as its own words with the link removed: a `/p/…` URL names a project, and an outsider following it would land on sign-in anyway. External `https:`, `mailto:` and `tel:` survive; a `#fragment` survives, because it points inside the page already open. A link *button* with nowhere to go is not drawn at all.
+4. **Images and attachments are served through the token, and only if the published page references them.** There is no public asset endpoint: `/d/<token>/assets/<id>` refuses any id that does not appear in that page's own content, and `/api/doc-assets/:id` is untouched and still demands a session. The registry `D-56` requires still records every file; what changed is that a *page* can serve its own pictures, not that files became public.
+5. **Revocation deletes the secret.** Unpublishing clears the token; re-publishing mints a different one. A link that was let out never comes back to life. Publishing an already-published page returns the link it has rather than minting a second, so there is only ever one secret per page in the wild.
+
+Two more rules the list did not ask for:
+
+- **Archiving withdraws the link.** A published page inside an archived page, document or project stops answering. Otherwise "archive it" would quietly leave a public copy standing.
+- **A link is not a search result.** The published page is `noindex, nofollow` and never cached by a shared cache — the URL *is* the credential, and a cached copy would outlive the revocation meant to end it.
+
+Every refusal on the public path is the same bare 404: a malformed token, a revoked one, an archived page and a page that never existed must be indistinguishable from outside.
+
+The published page carries the page title, the document's title and version stamp, the date it was last updated, and the content. It does **not** carry the project name, the sibling pages, the authors, the comments, or any way back into the application.
+
+| | Route |
+|---|---|
+| The page | `/d/<token>` |
+| Its files | `/d/<token>/assets/<asset id>` |
+
+Reached from **Page actions → Publish as read-only link**, which then shows the state plainly, offers the link for copying, opens it, and revokes it.
 
 ---
 
