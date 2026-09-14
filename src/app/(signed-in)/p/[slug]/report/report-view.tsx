@@ -122,6 +122,7 @@ export default function ReportView({ projectName, slug, rows, fields, people, st
         return `${m.amount.toLocaleString('en-US')} ${m.currency}`;
       }
       case 'image': return Array.isArray(raw) ? `${raw.length} image(s)` : '';
+      case 'file': return Array.isArray(raw) ? raw.map((f) => (f as { name?: string })?.name).filter(Boolean).join(', ') : '';
       case 'checkbox': return raw === true ? 'Yes' : '';
       default: return String(raw);
     }

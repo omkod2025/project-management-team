@@ -1,0 +1,13 @@
+.file-links { display: inline-flex; align-items: center; gap: 10px; max-width: 100%; overflow: auto; }
+.file-links a { flex-shrink: 0; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-decoration: underline; }
+.file-editor { position: absolute; z-index: 25; width: min(350px, 85vw); padding: 16px; background: var(--color-paper, #fffdf7); color: var(--color-ink, #222); border: 1px solid currentColor; box-shadow: 0 4px 16px #0002; white-space: normal; }
+.file-editor p { margin: 0 0 8px; }
+.file-editor small { display: block; margin-bottom: 12px; }
+.file-draft { display: flex; flex-direction: column; gap: 8px; max-height: 260px; overflow: auto; }
+.file-draft > div { display: flex; align-items: baseline; gap: 8px; }
+.file-draft a { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-decoration: underline; }
+.file-draft span { flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.file-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; }
+.file-editor button { border: 1px solid currentColor; padding: 5px 8px; }
+.file-editor button:disabled { opacity: .5; cursor: wait; }
+.file-editor [role=alert] { color: #a42d24; margin-top: 10px; }

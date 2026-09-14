@@ -6,6 +6,7 @@ import type { LedgerRow, MoneyValue } from '@/db/schema';
 import type { FieldDef, Person } from '@/lib/ledger';
 import { MAX_DEPTH } from '@/lib/constants';
 import { ImageField } from './image-field';
+import { FileField } from './file-field';
 import DetailPanel from './detail-panel';
 import ProjectTitle from './project-title';
 import ConfirmArchive from './confirm-archive';
@@ -1796,6 +1797,8 @@ function FieldCell(p: CellProps & { field: FieldDef }) {
   if (f.kind === 'long_text') return <LongTextCell {...p} value={raw == null ? '' : String(raw)} />;
 
   if (f.kind === 'image') return <ImageField nodeId={r.led_node_id} fieldId={f.id} label={f.name} value={raw} editing={p.editing} canEdit={p.canEdit} onCommit={(value) => p.onCommit({ values: { [f.id]: value } })} onCancel={p.onCancel} />;
+
+  if (f.kind === 'file') return <FileField nodeId={r.led_node_id} fieldId={f.id} label={f.name} value={raw} editing={p.editing} canEdit={p.canEdit} onCommit={(value) => p.onCommit({ values: { [f.id]: value } })} onCancel={p.onCancel} />;
 
   if (p.editing) return <FieldEditor {...p} field={f} value={raw} />;
 

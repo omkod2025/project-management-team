@@ -21,10 +21,12 @@ async function projectAccess(userId: string, id: string) {
   if (!project) throw domainError('E_NOT_FOUND', 'No such project.');
 }
 
-export async function uploadDocAsset(userId: string, projectId: string, file: File, attachment = false) {
+export async function uploadDocAsset(userId: string, projectId: string, file: File, attachment = false, limitBytes = MAX_UPLOAD_BYTES) {
   await projectAccess(userId, projectId);
   await authorize(userId, projectId, 'doc.edit');
-  if (!file.size || file.size > MAX_UPLOAD_BYTES) throw domainError('E_INVALID_DOC', 'Choose a non-empty file no larger than 50 MB.');
+  if (!file.size || file.size > limitBytes) {
+    throw domainError('E_INVALID_DOC', `Choose a non-empty file no larger than ${Math.round(limitBytes / (1024 * 1024))} MB.`);
+  }
   let data = Buffer.from(await file.arrayBuffer());
   const mime = attachment ? 'application/octet-stream' : data.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10])) ? 'image/png'
     : data[0] === 255 && data[1] === 216 && data[2] === 255 ? 'image/jpeg'

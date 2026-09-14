@@ -77,7 +77,7 @@ export function compareModuleNames(a: SortableRow, b: SortableRow): number {
 
 /** A gutter has nothing in it; everything else can be ranked. */
 export function isSortable(column: SortableColumn): boolean {
-  return column.kind !== 'gutter' && column.field?.kind !== 'image';
+  return column.kind !== 'gutter' && column.field?.kind !== 'image' && column.field?.kind !== 'file';
 }
 
 /**

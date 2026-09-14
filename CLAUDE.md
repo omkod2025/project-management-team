@@ -36,6 +36,9 @@ Project management for software delivery. Plan and reality are recorded separate
 | [`tests/notification-rules.test.ts`](tests/notification-rules.test.ts) | 18 tests: what counts as an assignment when there is no assignee column — added only, never yourself, per field |
 | [`tests/e2e/notifications.test.ts`](tests/e2e/notifications.test.ts) | 21 end-to-end tests: the write on the one path that reaches it, and the read stopping at membership |
 | [`tests/doc-publish.test.ts`](tests/doc-publish.test.ts) | 18 tests: the published read-only link — token shape, what a stranger may follow, which files a token may read |
+| [`tests/file-columns.test.ts`](tests/file-columns.test.ts) | 5 tests: the file column — what an attachment must carry, the 20 MB ceiling, and every shape the cell refuses |
+| [`tests/default-columns.test.ts`](tests/default-columns.test.ts) | 15 tests: the four columns every project starts with, and the List arrangement that opens Assign and Side beside Status |
+| [`tests/e2e/default-columns.test.ts`](tests/e2e/default-columns.test.ts) | 6 end-to-end tests: the default columns, the designation, and the saved column order are really written |
 | [`docs/TASKS.md`](docs/TASKS.md) | Build plan T0–T9 with per-task checklists |
 | [`docs/wireframes/index.html`](docs/wireframes/index.html) | Rendered wireframes for both views |
 
@@ -62,9 +65,9 @@ npm run db:seed -- <email> <password>
 
 ```bash
 npm run check      # typecheck + domain tests — the pre-commit bar
-npm test           # 272 domain rule tests (nodes, admin, list, roster, notifications), no database needed
+npm test           # 292 domain rule tests (nodes, admin, list, roster, notifications), no database needed
 npm run db:test    # 13 SQL groups, rolled back
-npm run test:e2e   # 141 API tests — REQUIRES `npm run dev` in another terminal
+npm run test:e2e   # 147 API tests — REQUIRES `npm run dev` in another terminal
 npm run test:acceptance  # 15 acceptance criteria, same requirement
 ```
 

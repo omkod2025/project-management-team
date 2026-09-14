@@ -12,12 +12,16 @@
 
 import { DomainError, domainError } from './errors.ts';
 import { MAX_DEPTH, isReservedKey } from './constants.ts';
+import { MAX_FILE_FIELD_BYTES } from './upload-limits.ts';
 
 export type DateSource = 'auto' | 'manual';
 export type Stage = 'notStarted' | 'inProgress' | 'done' | null;
 export type FieldKind =
   | 'text' | 'long_text' | 'number' | 'money' | 'date'
-  | 'select' | 'multi_select' | 'checkbox' | 'people' | 'image';
+  | 'select' | 'multi_select' | 'checkbox' | 'people' | 'image' | 'file';
+
+/** One attachment in a `file` column: where it lives, what to call it, how big. */
+export type FileValue = { url: string; name: string; bytes: number };
 
 export type NodeDates = {
   estimateStart: string | null;
@@ -308,6 +312,26 @@ export function coerceValue(
         throw domainError('E_UNKNOWN_FIELD', 'Choose up to 20 uploaded images.');
       }
       return [...new Set(raw)];
+    }
+    case 'file': {
+      // Unlike an image, an attachment has nothing to show but its own name, so
+      // the cell carries the label and size the upload reported back.
+      if (!Array.isArray(raw) || raw.length > 20) throw domainError('E_UNKNOWN_FIELD', 'Attach up to 20 uploaded files.');
+      const seen = new Set<string>();
+      const files: FileValue[] = [];
+      for (const entry of raw) {
+        if (!entry || typeof entry !== 'object' || Array.isArray(entry)) throw domainError('E_UNKNOWN_FIELD', 'Attach up to 20 uploaded files.');
+        const { url, name, bytes } = entry as Record<string, unknown>;
+        if (typeof url !== 'string' || !/^\/api\/doc-assets\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(url)) throw domainError('E_UNKNOWN_FIELD', 'Attach up to 20 uploaded files.');
+        if (typeof name !== 'string' || !name.trim()) throw domainError('E_UNKNOWN_FIELD', 'Every attachment needs a file name.');
+        if (typeof bytes !== 'number' || !Number.isInteger(bytes) || bytes <= 0 || bytes > MAX_FILE_FIELD_BYTES) {
+          throw domainError('E_UNKNOWN_FIELD', 'Attach files no larger than 20 MB each.');
+        }
+        if (seen.has(url)) continue;
+        seen.add(url);
+        files.push({ url, name: Array.from(name.replace(/[\u0000-\u001f\u007f]/g, ' ')).slice(0, 200).join(''), bytes });
+      }
+      return files;
     }
     case 'select':
       return liveOption(String(raw));

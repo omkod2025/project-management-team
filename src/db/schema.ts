@@ -23,7 +23,7 @@ export const roleKind = pgEnum('pm_role_kind', ['admin', 'member', 'viewer']);
 
 export const fieldKind = pgEnum('pm_field_kind', [
   'text', 'long_text', 'number', 'money', 'date',
-  'select', 'multi_select', 'checkbox', 'people', 'image',
+  'select', 'multi_select', 'checkbox', 'people', 'image', 'file',
 ]);
 
 export const stageKind = pgEnum('pm_stage_kind', ['notStarted', 'inProgress', 'done']);

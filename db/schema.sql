@@ -54,7 +54,8 @@ CREATE TYPE pm_field_kind AS ENUM (
     'multi_select',
     'checkbox',
     'people',
-    'image'
+    'image',
+    'file'
 );
 
 -- Lifecycle meaning of a select option. Only the project's designated

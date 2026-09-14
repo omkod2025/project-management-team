@@ -16,11 +16,117 @@ export const ROLES: Role[] = ['admin', 'member', 'viewer'];
 
 export const FIELD_KINDS: FieldKind[] = [
   'text', 'long_text', 'number', 'money', 'date',
-  'select', 'multi_select', 'checkbox', 'people', 'image',
+  'select', 'multi_select', 'checkbox', 'people', 'image', 'file',
 ];
 
 export const STAGES = ['notStarted', 'inProgress', 'done'] as const;
 export type Stage = (typeof STAGES)[number];
+
+export const DEFAULT_STATUS_FIELD_NAME = 'Status';
+export const DEFAULT_ASSIGN_FIELD_NAME = 'Assign';
+export const DEFAULT_SIDE_FIELD_NAME = 'Side';
+export const DEFAULT_DESCRIPTION_FIELD_NAME = 'Description';
+
+export type DefaultOption = { label: string; stage: Stage | null; colorIndex: number };
+
+/**
+ * The Status column's options (D-35).
+ *
+ * Only ONPROCESS carries `inProgress` and only COMPLETED carries `done`; those
+ * two stages are the whole of D-13. CANCEL and HOLD carry no stage at all,
+ * under D-34b: both mean the work stopped without finishing, and recording an
+ * end date for either would corrupt every estimate-accuracy figure computed
+ * from that node. HOLD is deliberately not `notStarted` — work that is paused
+ * was started, and marking it unstarted would throw away its actual start.
+ */
+export const DEFAULT_STATUS_OPTIONS: DefaultOption[] = [
+  { label: 'BACKLOG', stage: 'notStarted', colorIndex: 1 },
+  { label: 'ONPROCESS', stage: 'inProgress', colorIndex: 2 },
+  { label: 'COMPLETED', stage: 'done', colorIndex: 3 },
+  { label: 'CANCEL', stage: null, colorIndex: 4 },
+  { label: 'HOLD', stage: null, colorIndex: 5 },
+];
+
+/**
+ * The Side column's options — which side of the work a task belongs to.
+ *
+ * Every option carries a NULL stage, and not because nothing fitted: D-35 says
+ * only the designated status field's stages drive D-13, so a stage here would
+ * be silently ignored. Storing one anyway would read as though BACKEND meant
+ * something to the date capture, which is exactly the confusion to avoid.
+ */
+export const DEFAULT_SIDE_OPTIONS: DefaultOption[] = [
+  { label: 'BACKEND', stage: null, colorIndex: 1 },
+  { label: 'FRONTEND', stage: null, colorIndex: 2 },
+  { label: 'TEST', stage: null, colorIndex: 3 },
+  { label: 'SA', stage: null, colorIndex: 4 },
+];
+
+/**
+ * The columns every new project starts with, in the order they are written.
+ *
+ * Status and Assign lead and stay adjacent — what the work is doing and whose
+ * it is are the two questions asked of a row most often, and anything inserted
+ * between them pushes them apart in the List. Side follows, and Description is
+ * last because a long text column is the widest thing on the row and reads
+ * better at the end of it.
+ */
+export const DEFAULT_COLUMNS: {
+  name: string;
+  kind: FieldKind;
+  options?: DefaultOption[];
+  designateAsStatus?: boolean;
+}[] = [
+  { name: DEFAULT_STATUS_FIELD_NAME, kind: 'select', options: DEFAULT_STATUS_OPTIONS, designateAsStatus: true },
+  { name: DEFAULT_ASSIGN_FIELD_NAME, kind: 'people' },
+  { name: DEFAULT_SIDE_FIELD_NAME, kind: 'select', options: DEFAULT_SIDE_OPTIONS },
+  { name: DEFAULT_DESCRIPTION_FIELD_NAME, kind: 'long_text' },
+];
+
+/**
+ * The date bands, as the List's arrangement names them (spec 03 §2.4).
+ *
+ * A band is one block and travels whole, so it appears in a saved order under
+ * its group name rather than as its three columns.
+ */
+export const COLUMN_BAND_KEYS = ['estimate', 'actual', 'variance', 'progress'] as const;
+
+/**
+ * The arrangement a new project's List opens in, by column name and band.
+ *
+ * Filed order alone would not produce this. The grid files custom fields after
+ * every band, so Assign and Side would open a full screen-width away from the
+ * Status they belong beside — who is doing it and which side it is are read in
+ * the same glance as what it is doing. Description stays last: a long text
+ * column is the widest thing on the row.
+ *
+ * Written as a complete order, never a partial one, for the reason
+ * `setColumnOrder` gives: a partial order depends on a filed order that a later
+ * release could change underneath it.
+ */
+export const DEFAULT_COLUMN_ARRANGEMENT: string[] = [
+  DEFAULT_STATUS_FIELD_NAME,
+  DEFAULT_ASSIGN_FIELD_NAME,
+  DEFAULT_SIDE_FIELD_NAME,
+  ...COLUMN_BAND_KEYS,
+  DEFAULT_DESCRIPTION_FIELD_NAME,
+];
+
+/**
+ * Resolve that arrangement against the columns a project actually got.
+ *
+ * A block is keyed by field id, so the names above are placeholders until the
+ * rows exist. A name with no id is dropped rather than passed through: an
+ * unresolved name would be stored as a key matching no block, which the List
+ * ignores — harmless, but it would sit in the database looking like an order
+ * that was meant to do something.
+ */
+export function defaultColumnOrder(fieldIdsByName: Record<string, string>): string[] {
+  const bands = new Set<string>(COLUMN_BAND_KEYS);
+  return DEFAULT_COLUMN_ARRANGEMENT
+    .map((key) => (bands.has(key) ? key : fieldIdsByName[key]))
+    .filter((key): key is string => typeof key === 'string' && key.length > 0);
+}
 
 /* -------------------------------------------------------------- projects */
 

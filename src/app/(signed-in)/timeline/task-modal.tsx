@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { TaskDetail } from '@/lib/task-detail';
 import type { NodePatch } from '@/lib/nodes';
 import { ImageLinks } from '../p/[slug]/image-field';
+import { FileLinks } from '../p/[slug]/file-field';
 
 const dateFields = [
   ['estimateStart', 'led_estimate_start', 'Estimate start'],
@@ -87,6 +88,7 @@ export default function TaskModal({ nodeId, onClose, onSaved }: {
             const value = patch.values && f.id in patch.values ? patch.values[f.id] : detail.row.led_custom_values[f.id];
             const disabled = !detail.permissions.values;
             if (f.kind === 'image') return <div key={f.id}><span>{f.name}</span><ImageLinks value={value} /></div>;
+            if (f.kind === 'file') return <div key={f.id}><span>{f.name}</span><FileLinks value={value} /></div>;
             if (f.kind === 'select') return <label key={f.id}>{f.name}<select disabled={disabled} aria-label={f.name}
               value={typeof value === 'string' ? value : ''} onChange={(e) => setValue(f.id, e.target.value || null)}>
               <option value="">None</option>

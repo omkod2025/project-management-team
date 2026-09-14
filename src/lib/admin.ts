@@ -12,6 +12,7 @@ import {
   assertNotProtectedReset, assertResetIsNotSelf, assertSharesAnAdministeredProject,
   assertNewPassword, assertOptionLabel, assertPassword, assertProjectName, assertRole,
   assertStage, assertStatusFieldKind, slugFromName,
+  DEFAULT_COLUMNS, defaultColumnOrder,
   type Role, type Stage,
 } from '@/lib/admin-rules';
 import { hashPassword, verifyPassword } from '@/lib/password';
@@ -93,18 +94,34 @@ export async function loadSettings(projectId: string): Promise<Settings> {
 /**
  * Create a project and make its creator the admin.
  *
- * Both rows in one statement pair rather than one, because a project with no
- * membership row is not merely hidden from the shelf — it is absent from every
- * scoped query (spec 05 §4), so a half-written create would strand it.
+ * **One transaction, because a half-written project is unusable and silent.**
+ * A project with no membership row is not merely hidden from the shelf — it is
+ * absent from every scoped query (spec 05 §4). A project whose columns failed
+ * to write is worse: it opens, it lists, and nothing says why it has no Status,
+ * no designation and no arrangement, so it reads as the feature being broken
+ * rather than as one create that failed. Either the whole project exists or
+ * none of it does, and a failure leaves nothing to explain.
  *
  * The root node is written here too, and it is not optional. `pmt_projects` is
  * the container; the tree lives in `pmt_nodes`, where depth 1 with no parent is
  * the project row. A module is a child of that row — so a project without one
  * has nothing for a module to hang off and cannot be added to at all.
  *
- * No status field is designated: D-35 says which column drives automatic
- * actual dates, and that is a choice the admin makes in settings, not one this
- * function guesses on their behalf.
+ * The default columns are written with it (`DEFAULT_COLUMNS`), because every
+ * project was being given the same ones by hand anyway. Their names, kinds and
+ * order live in `admin-rules.ts` so a test can check them without a database;
+ * this function only writes what that list says.
+ *
+ * The List's arrangement is written with them, because filed order alone would
+ * not produce it: the grid files custom fields after every date band, so Assign
+ * and Side would open a screen away from the Status they are read beside.
+ *
+ * The Status column is also designated as the project's status field (D-35).
+ * That is a real decision and not a convenience: designating it is what turns
+ * on automatic actual capture (D-13), so a new project starts recording dates
+ * from the moment somebody moves a task to ONPROCESS. An admin who wants the
+ * older behaviour clears the designation in settings, which D-35 explicitly
+ * allows and which the rest of this module already handles.
  */
 export async function createProject(
   userId: string,
@@ -121,19 +138,55 @@ export async function createProject(
     slug = `${base || 'p'}-${randomBytes(3).toString('hex')}`;
   }
 
-  const [row] = await db.insert(projects).values({ name, slug })
-    .returning({ id: projects.id, slug: projects.slug });
+  return db.transaction(async (tx) => {
+    const [row] = await tx.insert(projects).values({ name, slug })
+      .returning({ id: projects.id, slug: projects.slug });
 
-  await db.insert(projectMembers).values({ projectId: row!.id, userId, role: 'admin' });
+    await tx.insert(projectMembers).values({ projectId: row!.id, userId, role: 'admin' });
 
-  await rawQuery(
-    `INSERT INTO pmt_nodes (node_project_id, node_parent_id, node_depth, node_name,
-                            node_sort_order, node_created_by)
-     VALUES ($1, NULL, 1, $2, 0, $3)`,
-    [row!.id, name, userId],
-  );
+    await tx.execute(sql`
+      INSERT INTO pmt_nodes (node_project_id, node_parent_id, node_depth, node_name,
+                             node_sort_order, node_created_by)
+      VALUES (${row!.id}, NULL, 1, ${name}, 0, ${userId})`);
 
-  return { id: row!.id, slug: row!.slug };
+    // Inserted one column at a time: the designation below needs to know which
+    // row is which, and a multi-row `returning` does not promise an order.
+    let statusFieldId: string | null = null;
+    const fieldIdsByName: Record<string, string> = {};
+
+    for (const [position, column] of DEFAULT_COLUMNS.entries()) {
+      const [field] = await tx.insert(fieldDefinitions)
+        .values({ projectId: row!.id, name: column.name, kind: column.kind as never, position, settings: {} })
+        .returning({ id: fieldDefinitions.id });
+
+      if (column.options?.length) {
+        await tx.insert(fieldOptions).values(column.options.map((option, optionPosition) => ({
+          fieldId: field!.id,
+          label: option.label,
+          stage: option.stage as never,
+          colorIndex: option.colorIndex,
+          position: optionPosition,
+        })));
+      }
+
+      fieldIdsByName[column.name] = field!.id;
+      if (column.designateAsStatus) statusFieldId = field!.id;
+    }
+
+    // Both of these are deliberately the last writes, and for the same reason:
+    // they are the only statements here that point at the columns, so they must
+    // not run until every column and option is in place. Designation is also the
+    // one that changes how later writes behave (D-13).
+    await tx.update(projects)
+      .set({
+        ...(statusFieldId ? { statusFieldId } : {}),
+        columnOrder: defaultColumnOrder(fieldIdsByName),
+        updatedAt: new Date(),
+      })
+      .where(eq(projects.id, row!.id));
+
+    return { id: row!.id, slug: row!.slug };
+  });
 }
 
 /**
