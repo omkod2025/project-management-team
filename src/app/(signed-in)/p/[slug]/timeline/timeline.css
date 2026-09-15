@@ -7,10 +7,13 @@
   border-bottom: 1px solid var(--cu-line);
   font-size: 12px;
 }
-.timeline-filters label { display: grid; gap: 4px; color: var(--cu-ink-soft); }
-.timeline-filters select,
-.timeline-filters input,
-.timeline-filters button {
+.timeline-filters > label { display: grid; gap: 4px; color: var(--cu-ink-soft); }
+/* Direct children only. The filter menu hangs its own panel in here, and its
+   chrome is the sort menu's — a descendant selector would repaint every
+   checkbox row in the panel as a 30px bordered field. */
+.timeline-filters > label > select,
+.timeline-filters > label > input,
+.timeline-filters > button {
   min-height: 30px;
   padding: 4px 8px;
   border: 1px solid var(--cu-line);
@@ -19,8 +22,8 @@
   color: var(--cu-ink);
   font: inherit;
 }
-.timeline-filters select { max-width: 240px; }
-.timeline-filters button { cursor: pointer; }
+.timeline-filters > label > select { max-width: 240px; }
+.timeline-filters > button { cursor: pointer; }
 .timeline-filters > span { align-self: center; color: var(--cu-ink-soft); }
 
 /*

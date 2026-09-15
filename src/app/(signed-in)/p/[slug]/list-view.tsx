@@ -16,6 +16,10 @@ import {
 import {
   makeComparator, isSortable, compareModuleNames, type SortTerm, type SortableColumn,
 } from './list-sort';
+import {
+  filterColumnsFrom, rowMatches, liveTerms, type FilterTerm,
+} from './list-filter';
+import FilterMenu from './filter-menu';
 import { blocksOf, arrangeColumns, moveBlock } from './list-columns';
 import {
   planDrop, zoneFor, subtreeHeightOf, type DropPlan, type DropZone,
@@ -103,6 +107,14 @@ export default function ListView({
   const [sortTerms, setSortTerms] = useState<SortTerm[]>([]);
   const [sortOpen, setSortOpen] = useState(false);
   /**
+   * The values the run is narrowed to, per column. Empty means everything.
+   *
+   * Like the sort and unlike the column order, this belongs to the reader
+   * rather than to the project: hiding rows for everybody because one person
+   * wanted to see only what is blocked would be a far larger act than it looks.
+   */
+  const [filterTerms, setFilterTerms] = useState<FilterTerm[]>([]);
+  /**
    * The column arrangement, as block keys. Empty means as filed.
    *
    * Unlike the sort and the expansion beside it, this one belongs to the
@@ -150,6 +162,7 @@ export default function ListView({
     // not to the project. Somebody triaging by date must not reorder the page
     // for everyone else, and the filed order is what `led_sort_order` is for.
     setSortTerms(loadRecord<SortTerm[]>(slug, 'sort', []));
+    setFilterTerms(loadRecord<FilterTerm[]>(slug, 'filter', []));
     const carried = selectedFromUrl();
     if (carried) setSelected(carried);
     setReady(true);
@@ -190,6 +203,9 @@ export default function ListView({
     setSelected(target);
 
     setQuery('');
+    // A filter hides rows exactly as a search does, so it goes the same way —
+    // the sort below is left alone because it only decides where a row sits.
+    setFilterTerms([]);
     setExpanded((open) => {
       const next = new Set(open);
       // Up the chain by parent, which is all a ledger row carries. The guard
@@ -212,6 +228,7 @@ export default function ListView({
 
   useEffect(() => { if (ready) saveSet(slug, 'expanded', expanded); }, [ready, slug, expanded]);
   useEffect(() => { if (ready) saveRecord(slug, 'sort', sortTerms); }, [ready, slug, sortTerms]);
+  useEffect(() => { if (ready) saveRecord(slug, 'filter', filterTerms); }, [ready, slug, filterTerms]);
   /* The project's own value is the truth. If somebody else moves a column and
      this page is refreshed, the server's order wins over what is in hand. */
   useEffect(() => { setColumnOrder(savedColumnOrder); }, [savedColumnOrder]);
@@ -465,17 +482,63 @@ export default function ListView({
     [byParent],
   );
 
+  /* ---------------------------------------------------------- filtering */
+
   /**
-   * Searching walks the tree rather than filtering the flat list: a match deep
-   * in a subtree is useless without the modules above it, so ancestors come
-   * along and open themselves.
+   * The columns a filter can be built from — the ones holding a choice out of
+   * a known set. Module is offered too: the tree already says which module a
+   * row is in, but saying "only these two modules" is a different act from
+   * collapsing the other six, because it survives the sort flattening nothing.
+   */
+  const filterColumns = useMemo(
+    () => filterColumnsFrom(
+      fields,
+      people,
+      filedModules.map((m) => ({ id: m.led_node_id, name: m.led_name })),
+      statusFieldId,
+    ),
+    [fields, people, filedModules, statusFieldId],
+  );
+
+  /* An archived field or a deleted option leaves a term behind that names
+     nothing. Dropping it here means the page is never filtered by something
+     the reader can no longer see — the terms outlive the schema, because they
+     are saved in this browser. */
+  const activeFilter = useMemo(
+    () => liveTerms(filterTerms, filterColumns),
+    [filterTerms, filterColumns],
+  );
+
+  /** Which module each row is in, which is what the module column filters on. */
+  const moduleOf = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const top of filedModules) {
+      const mark = (n: LedgerRow) => {
+        m.set(n.led_node_id, top.led_node_id);
+        for (const k of byParent.get(n.led_node_id) ?? []) mark(k);
+      };
+      mark(top);
+    }
+    return m;
+  }, [byParent, filedModules]);
+
+  /**
+   * Searching and filtering walk the tree rather than reducing the flat list:
+   * a match deep in a subtree is useless without the modules above it, so
+   * ancestors come along and open themselves.
+   *
+   * The two narrow together — a search inside a filter asks about the rows the
+   * filter left standing, which is what anybody typing into a filtered page
+   * means. A module or a parent is kept for its children's sake even when it
+   * does not match itself; it is the road to them, not a result.
    */
   const matches = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return null;
+    if (!q && activeFilter.length === 0) return null;
     const keep = new Set<string>();
     for (const r of rows) {
-      if (!r.led_name.toLowerCase().includes(q)) continue;
+      if (q && !r.led_name.toLowerCase().includes(q)) continue;
+      if (!rowMatches(r, activeFilter, filterColumns, moduleOf)) continue;
       keep.add(r.led_node_id);
       let p = r.led_parent_id;
       while (p) {
@@ -484,7 +547,7 @@ export default function ListView({
       }
     }
     return keep;
-  }, [query, rows, byId]);
+  }, [query, rows, byId, activeFilter, filterColumns, moduleOf]);
 
   type VisibleRow = { row: LedgerRow; kind: 'node' | 'add' | 'addmodule' | 'grouphead' };
 
@@ -1115,6 +1178,16 @@ export default function ListView({
             )}
           </div>
 
+          {/* Filtering sits beside the sort for the same reason the sort sits
+              beside the search: all three decide what this reader sees, and
+              none of them writes anything. */}
+          <FilterMenu
+            columns={filterColumns}
+            terms={filterTerms}
+            onChange={setFilterTerms}
+            matching={nodeRows.length}
+          />
+
           {/* Dragging a head is the fast way and the only one a mouse needs;
               this is the same act for a hand that is not holding one, and the
               only one a screen reader can reach at all.
@@ -1218,7 +1291,15 @@ export default function ListView({
                   : undefined}
               />
             ) : nodeRows.length === 0 ? (
-              <EmptyRun columns={columns} message={`Nothing matches “${query}”.`} />
+              <EmptyRun
+                columns={columns}
+                message={query.trim()
+                  ? `Nothing matches “${query}”${activeFilter.length ? ' under this filter' : ''}.`
+                  : 'Nothing matches this filter.'}
+                action={activeFilter.length
+                  ? { label: 'Clear the filter', onClick: () => setFilterTerms([]) }
+                  : undefined}
+              />
             ) : (
               <table className="run">
                 <colgroup>{columns.map((c) => <col key={c.key} style={{ width: c.width }} />)}</colgroup>

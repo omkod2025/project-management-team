@@ -31,6 +31,7 @@ Project management for software delivery. Plan and reality are recorded separate
 | [`tests/e2e/profile.test.ts`](tests/e2e/profile.test.ts) | 11 end-to-end tests: renaming yourself, and admin-issued password resets |
 | [`tests/roster-pack.test.ts`](tests/roster-pack.test.ts) | 23 tests: lane packing, occupancy, contention |
 | [`tests/list-sort.test.ts`](tests/list-sort.test.ts) | 24 tests: the List's multi-column sort — empty cells, tie-breaks, direction per column, modules by name |
+| [`tests/list-filter.test.ts`](tests/list-filter.test.ts) | 34 tests: the multi-select filter shared by List and Timeline — OR inside a column, AND between them, the empty cell, terms that outlive their field |
 | [`tests/list-move.test.ts`](tests/list-move.test.ts) | 20 tests: where a dragged row lands — promote, demote, reorder, cross a module, and the two refusals |
 | [`tests/list-columns.test.ts`](tests/list-columns.test.ts) | 18 tests: moving the List's columns — bands travel whole, nothing is ever lost |
 | [`tests/notification-rules.test.ts`](tests/notification-rules.test.ts) | 18 tests: what counts as an assignment when there is no assignee column — added only, never yourself, per field |
@@ -65,7 +66,7 @@ npm run db:seed -- <email> <password>
 
 ```bash
 npm run check      # typecheck + domain tests — the pre-commit bar
-npm test           # 292 domain rule tests (nodes, admin, list, roster, notifications), no database needed
+npm test           # 326 domain rule tests (nodes, admin, list, roster, notifications), no database needed
 npm run db:test    # 13 SQL groups, rolled back
 npm run test:e2e   # 147 API tests — REQUIRES `npm run dev` in another terminal
 npm run test:acceptance  # 15 acceptance criteria, same requirement

@@ -373,6 +373,67 @@
 }
 .sortby-add button:hover { background: var(--cu-hover); color: var(--cu-ink); }
 
+/* ---------------------------------------------------------------- filter
+ *
+ * The filter borrows the sort menu's chrome deliberately — the two are halves
+ * of the same act, and a reader who has learned one menu should not have to
+ * learn a second. What it adds is a folded section per column and a checkbox
+ * per value, because the question is "Doing OR Blocked" and no select can
+ * answer that. Square corners, no shadow, washes only — DESIGN.md § Colors.
+ */
+.filterby-panel { max-height: 60vh; overflow-y: auto; }
+
+.filterby-column { border-bottom: 1px solid var(--cu-line-soft); }
+.filterby-column:last-of-type { border-bottom: 0; }
+.filterby-column h4 {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  margin: 0;
+  font-size: 12px;
+  font-weight: 500;
+}
+.filterby-fold {
+  display: flex;
+  flex: 1;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+  height: 28px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  color: var(--cu-ink);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+.filterby-fold:hover { color: var(--cu-ink); }
+.filterby-fold > span[aria-hidden] { width: 10px; color: var(--cu-ink-faint); }
+.filterby-clear {
+  width: 22px;
+  height: 20px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--cu-ink-soft);
+  cursor: pointer;
+  font: inherit;
+  line-height: 1;
+}
+.filterby-clear:hover { border-color: var(--cu-line); color: var(--cu-ink); }
+
+.filterby-values { margin: 0 0 6px; padding: 0 0 0 16px; list-style: none; }
+.filterby-values label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 24px;
+  cursor: pointer;
+}
+.filterby-values label:hover { background: var(--cu-hover); }
+.filterby-values input { margin: 0; accent-color: var(--cu-ink-soft); }
+.filterby-archived { color: var(--cu-ink-faint); }
+
 /* The head itself is the shortest way to the sort: click for this column
    alone, shift-click to add it to the one already running. */
 .head-sort {

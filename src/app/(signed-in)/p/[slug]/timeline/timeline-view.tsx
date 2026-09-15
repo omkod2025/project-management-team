@@ -5,6 +5,10 @@ import type { LedgerRow } from '@/db/schema';
 import type { FieldDef, Person } from '@/lib/ledger';
 import { loadSet, saveSet, loadRecord, saveRecord, selectedFromUrl, writeSelectedToUrl, siblingHref } from '../view-state';
 import { SORTS, DEFAULT_SORT, orderRows, type SortKey } from './sort';
+import {
+  filterColumnsFrom, rowMatches, liveTerms, type FilterTerm,
+} from '../list-filter';
+import FilterMenu from '../filter-menu';
 import ProjectTitle from '../project-title';
 import '../list.css';
 import './timeline.css';
@@ -57,12 +61,16 @@ export default function TimelineView({
   const [sort, setSort] = useState<SortKey>(DEFAULT_SORT);
   const [descending, setDescending] = useState(false);
   const [query, setQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [personFilter, setPersonFilter] = useState('');
-  const [moduleFilter, setModuleFilter] = useState('');
-  const filtersActive = Boolean(query.trim() || statusFilter || personFilter || moduleFilter);
-  const statusField = fields.find((f) => f.id === statusFieldId && !f.archived);
-  const peopleFields = fields.filter((f) => f.kind === 'people' && !f.archived);
+  /**
+   * The values the run is narrowed to, per column.
+   *
+   * This replaced three single-choice `<select>`s — status, assignee, module.
+   * Each could only ever ask about one value, and the question a timeline is
+   * actually read with is "what is Doing *or* Blocked", or "Ann *and* Bee".
+   * The shared menu is the List's, so the same question is asked the same way
+   * in both views; the rules live in `list-filter.ts`.
+   */
+  const [filterTerms, setFilterTerms] = useState<FilterTerm[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [live, setLive] = useState(rows);
   const [failure, setFailure] = useState<string | null>(null);
@@ -84,6 +92,7 @@ export default function TimelineView({
     if (view.zoom) setZoom(view.zoom);
     if (view.sort) setSort(view.sort);
     if (view.descending !== undefined) setDescending(view.descending);
+    setFilterTerms(loadRecord<FilterTerm[]>(slug, 'timeline-filter', []));
     setReady(true);
 
     const mq = window.matchMedia('(min-width: 700px)');
@@ -190,35 +199,58 @@ export default function TimelineView({
   useEffect(() => {
     if (ready) saveRecord(slug, 'timeline', { mode, zoom, sort, descending });
   }, [ready, slug, mode, zoom, sort, descending]);
+  useEffect(() => {
+    if (ready) saveRecord(slug, 'timeline-filter', filterTerms);
+  }, [ready, slug, filterTerms]);
+
+  /** The modules, in filed order — the module column's choices and its hues. */
+  const topRows = useMemo(
+    () => byParent.get(root?.led_node_id ?? null) ?? [],
+    [byParent, root],
+  );
+
+  const filterColumns = useMemo(
+    () => filterColumnsFrom(
+      fields,
+      people,
+      topRows.map((m) => ({ id: m.led_node_id, name: m.led_name })),
+      statusFieldId,
+    ),
+    [fields, people, topRows, statusFieldId],
+  );
+
+  /* A term naming an archived field or a deleted option is dropped rather than
+     obeyed: the terms are saved in this browser and outlive the schema. */
+  const activeFilter = useMemo(
+    () => liveTerms(filterTerms, filterColumns),
+    [filterTerms, filterColumns],
+  );
+  const filtersActive = Boolean(query.trim() || activeFilter.length > 0);
 
   const flat = sort !== 'tree' || filtersActive;
 
-  const moduleRows = useMemo(() => {
-    if (!moduleFilter) return null;
-    const ids = new Set<string>();
-    const collect = (id: string) => {
-      ids.add(id);
-      for (const child of byParent.get(id) ?? []) collect(child.led_node_id);
-    };
-    collect(moduleFilter);
-    return ids;
-  }, [moduleFilter, byParent]);
+  /** Which module each row belongs to, by id — what the module column reads. */
+  const moduleIdOf = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const top of topRows) {
+      const mark = (n: LedgerRow) => {
+        m.set(n.led_node_id, top.led_node_id);
+        for (const k of byParent.get(n.led_node_id) ?? []) mark(k);
+      };
+      mark(top);
+    }
+    return m;
+  }, [byParent, topRows]);
 
   const visible = useMemo(
     () => orderRows(live, sort, descending, {
       rootId: root?.led_node_id ?? null,
       collapsed: filtersActive ? new Set<string>() : collapsed,
     }).filter((r) => {
-      if (moduleRows && !moduleRows.has(r.led_node_id)) return false;
       if (query.trim() && !r.led_name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())) return false;
-      const values = r.led_custom_values ?? {};
-      if (statusFilter && statusFieldId && (statusFilter === '_none'
-        ? Boolean(values[statusFieldId]) : values[statusFieldId] !== statusFilter)) return false;
-      const assigned = peopleFields.flatMap((f) => Array.isArray(values[f.id]) ? values[f.id] as string[] : []);
-      if (personFilter && (personFilter === '_none' ? assigned.length > 0 : !assigned.includes(personFilter))) return false;
-      return true;
+      return rowMatches(r, activeFilter, filterColumns, moduleIdOf);
     }),
-    [live, sort, descending, root, collapsed, filtersActive, query, statusFilter, personFilter, statusFieldId, peopleFields, moduleRows],
+    [live, sort, descending, root, collapsed, filtersActive, query, activeFilter, filterColumns, moduleIdOf],
   );
 
   /** Which module a row belongs to. In a flat run the tree no longer says. */
@@ -476,29 +508,20 @@ export default function TimelineView({
           <label>Task name
             <input className="search" type="search" placeholder="Search tasks…" value={query} onChange={(e) => setQuery(e.target.value)} />
           </label>
-          <label>Module
-            <select value={moduleFilter} onChange={(e) => setModuleFilter(e.target.value)}>
-              <option value="">All modules</option>
-              {(byParent.get(root?.led_node_id ?? null) ?? []).map((m) => (
-                <option key={m.led_node_id} value={m.led_node_id}>{m.led_name}</option>
-              ))}
-            </select>
-          </label>
-          {statusField && <label>Status
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-              <option value="">All statuses</option>
-              <option value="_none">No status</option>
-              {statusField.options.map((o) => <option key={o.id} value={o.id}>{o.label}{o.archived ? ' (archived)' : ''}</option>)}
-            </select>
-          </label>}
-          {peopleFields.length > 0 && <label>Assignee
-            <select value={personFilter} onChange={(e) => setPersonFilter(e.target.value)}>
-              <option value="">All people</option>
-              <option value="_none">Unassigned</option>
-              {people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
-          </label>}
-          {filtersActive && <button type="button" onClick={() => { setQuery(''); setStatusFilter(''); setPersonFilter(''); setModuleFilter(''); }}>Clear filters</button>}
+          {/* One menu rather than a row of single-choice selects: status,
+              assignee and module are all sets now, and several values in one
+              of them widen the answer instead of replacing it. */}
+          <FilterMenu
+            columns={filterColumns}
+            terms={filterTerms}
+            onChange={setFilterTerms}
+            matching={visible.length}
+          />
+          {filtersActive && (
+            <button type="button" onClick={() => { setQuery(''); setFilterTerms([]); }}>
+              Clear filters
+            </button>
+          )}
           <span role="status">{visible.length} matching rows</span>
         </div>
         {filtersActive && visible.length === 0 && <p className="tl-empty">No tasks match these filters. Try another search or clear the filters.</p>}
