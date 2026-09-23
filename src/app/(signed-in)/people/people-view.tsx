@@ -23,11 +23,11 @@ import Bell from '../bell';
  * server still holds rather than keeping an optimistic lie on screen.
  */
 
-/** `member` is the operational role: it can edit everything, archive nothing. */
+/** Display names for project roles. */
 const ROLE_LABEL: Record<Role, string> = {
   admin: 'Admin',
-  member: 'Operation',
-  viewer: 'View only',
+  member: 'Member',
+  viewer: 'Viewer',
 };
 
 const ROLE_NOTE: Record<Role, string> = {

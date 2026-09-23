@@ -69,7 +69,7 @@ jobs:
           GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
           IMAGE: ${{ needs.build.outputs.image }}
         with:
-          host: 141.136.47.194
+          host: ${{ secrets.DEPLOY_SSH_HOST }}
           username: ${{ secrets.DEPLOY_SSH_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           envs: DEPLOY_PATH,DEPLOY_PORT,ASSET_DIR,GHCR_TOKEN,GHCR_USERNAME,IMAGE
