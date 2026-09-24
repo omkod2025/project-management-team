@@ -135,10 +135,8 @@ export default function ListView({
   const [pendingArchive, setPendingArchive] = useState<LedgerRow | null>(null);
   const [undo, setUndo] = useState<{ nodeId: string; name: string; count: number } | null>(null);
   const [ready, setReady] = useState(false);
-  /* Read rather than written: the selection is still pushed into the URL with
-     `history.replaceState`, which the router does not observe — so this only
-     changes on a real navigation, which is exactly when arriving from the bell
-     has to be noticed. */
+  /* The router observes both navigation and our own history.replaceState
+     calls. Only an incoming selection should reveal a task through filters. */
   const search = useSearchParams();
   /** A row to bring into view as soon as it is drawn — see the effect below. */
   const [pendingScroll, setPendingScroll] = useState<string | null>(null);
@@ -233,7 +231,13 @@ export default function ListView({
   /* The project's own value is the truth. If somebody else moves a column and
      this page is refreshed, the server's order wins over what is in hand. */
   useEffect(() => { setColumnOrder(savedColumnOrder); }, [savedColumnOrder]);
-  useEffect(() => { if (ready) writeSelectedToUrl(selected); }, [ready, selected]);
+  useEffect(() => {
+    if (!ready) return;
+    // Mark local selections as handled before the router observes the URL.
+    // Selecting or editing a row must not run the incoming-link filter reset.
+    arrived.current = selected;
+    writeSelectedToUrl(selected);
+  }, [ready, selected]);
 
   /* ------------------------------------------------------------ columns */
 
