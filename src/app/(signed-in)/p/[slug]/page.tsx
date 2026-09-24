@@ -25,6 +25,7 @@ export default async function ProjectList({ params }: { params: Promise<{ slug: 
         statusFieldId={project.statusFieldId}
         columnOrder={project.columnOrder}
         canEdit={can(role, 'node.editValues')}
+        canArchive={can(role, 'node.archive')}
         isAdmin={can(role, 'field.define')}
         /* A server action, so it is rendered here and passed in — the List is
            a client component and cannot declare one. */

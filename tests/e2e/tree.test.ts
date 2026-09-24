@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 
 import {
   setup, signIn, createNode, moveNode, archiveNode, restoreNode, patchNode,
-  type Fixture, type Jar,
+  BASE_URL, type Fixture, type Jar,
 } from '../helpers/harness.ts';
 
 let fx: Fixture;
@@ -222,7 +222,7 @@ describe('placing a moved row', () => {
 /* ================================================================== archive */
 
 describe('archive and restore (D-4)', () => {
-  test('archiving is admin-only', async () => {
+  test('a viewer cannot archive', async () => {
     const res = await archiveNode(viewer, fx.nodes.task);
     assert.equal(res.status, 403);
   });
@@ -265,5 +265,48 @@ describe('archive and restore (D-4)', () => {
     assert.equal(res.status, 200);
     assert.equal((await node(fx.nodes.task)).node_archived_at, null);
     assert.equal((await node(fx.nodes.sub)).node_archived_at, null);
+  });
+
+  test('a member manages tasks but cannot archive the project or access settings', async () => {
+    await fx.client.query(
+      "UPDATE pmt_project_members SET member_role = 'member' WHERE member_project_id = $1 AND member_user_id = $2",
+      [fx.projectId, fx.viewer.id],
+    );
+    try {
+      const created = await createNode(viewer, fx.nodes.module, 'Member task');
+      assert.equal(created.status, 200);
+      const id = String(created.body?.led_node_id);
+      const edited = await patchNode(viewer, id, { name: 'Renamed by member' });
+      assert.equal(edited.status, 200);
+      assert.equal(edited.body?.led_name, 'Renamed by member');
+      const moved = await moveNode(viewer, id, fx.nodes.module2);
+      assert.equal(moved.status, 200);
+      assert.equal((await node(id)).node_parent_id, fx.nodes.module2);
+      assert.equal((await archiveNode(viewer, id)).status, 200);
+      assert.ok((await node(id)).node_archived_at);
+      assert.equal((await restoreNode(viewer, id)).status, 200);
+      assert.equal((await node(id)).node_archived_at, null);
+
+      const root = await archiveNode(viewer, fx.nodes.root);
+      assert.equal(root.status, 422);
+      assert.equal(root.body?.code, 'E_LEVEL_MISMATCH');
+      assert.equal((await node(fx.nodes.root)).node_archived_at, null);
+      const settings = await fetch(`${BASE_URL}/api/projects/${fx.projectId}/fields`, {
+        headers: { cookie: viewer.header },
+      });
+      assert.equal(settings.status, 403);
+      const { rows: projects } = await fx.client.query(
+        'SELECT project_slug FROM pmt_projects WHERE project_id = $1', [fx.projectId],
+      );
+      const settingsPage = await fetch(`${BASE_URL}/p/${projects[0].project_slug}/settings`, {
+        headers: { cookie: viewer.header },
+      });
+      assert.equal(settingsPage.status, 404);
+    } finally {
+      await fx.client.query(
+        "UPDATE pmt_project_members SET member_role = 'viewer' WHERE member_project_id = $1 AND member_user_id = $2",
+        [fx.projectId, fx.viewer.id],
+      );
+    }
   });
 });

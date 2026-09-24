@@ -51,6 +51,7 @@ type Props = {
   /** The project's column arrangement — one order, shared by everybody. */
   columnOrder: string[];
   canEdit: boolean;
+  canArchive: boolean;
   isAdmin: boolean;
   /** Rendered on the server: signing out is a server action. */
   signOut: React.ReactNode;
@@ -93,7 +94,7 @@ function fmtDate(iso: string | null): string | null {
 
 export default function ListView({
   projectId, projectName, slug, rows: initialRows, fields, people, statusFieldId,
-  columnOrder: savedColumnOrder, canEdit, isAdmin, signOut,
+  columnOrder: savedColumnOrder, canEdit, canArchive, isAdmin, signOut,
 }: Props) {
   const [rows, setRows] = useState(initialRows);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -931,7 +932,7 @@ export default function ListView({
         case 'Enter': {
           const col = columns[focus.col];
           if ((canEdit || col?.field?.kind === 'long_text') && col && col.kind !== 'computed' && col.kind !== 'closed'
-              && col.kind !== 'misclosure' && col.kind !== 'gutter') {
+              && col.kind !== 'misclosure' && col.kind !== 'gutter' && col.kind !== 'name') {
             e.preventDefault();
             setEditing(true);
           }
@@ -946,13 +947,9 @@ export default function ListView({
           if (node) { e.preventDefault(); setDetail(true); }
           break;
 
-        case 'F2':
-          if (canEdit && node) { e.preventDefault(); setRenamingId(node.led_node_id); }
-          break;
-
         case 'Delete':
           // Both routes to archiving lead through the same question.
-          if (isAdmin && node) { e.preventDefault(); setPendingArchive(node); }
+          if (canArchive && node) { e.preventDefault(); setPendingArchive(node); }
           break;
 
         case 'n': case 'N': {
@@ -990,7 +987,7 @@ export default function ListView({
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [focus, visible, nodeRows, columns, editing, canEdit, isAdmin, detail, selected, slug, root,
+  }, [focus, visible, nodeRows, columns, editing, canEdit, canArchive, detail, selected, slug, root,
       create, move, nudge, archive, descendantCount]);
 
   /* -------------------------------------------------------- detail data */
@@ -1494,7 +1491,7 @@ export default function ListView({
                               onEdit={() => setEditing(true)}
                               onCommit={(body) => { setEditing(false); void patch(v.row, body, cellKey); }}
                               onCancel={() => setEditing(false)}
-                              canArchive={isAdmin}
+                              canArchive={canArchive}
                               canAddChild={v.row.led_depth < MAX_DEPTH}
                               /* `create` opens the parent and selects the new
                                  row itself, so there is nothing to do here. */
@@ -1632,7 +1629,7 @@ function Cell(p: CellProps) {
 
   const editable =
     p.canEdit && c.kind !== 'computed' && c.kind !== 'closed' && c.kind !== 'misclosure'
-    && c.kind !== 'gutter';
+    && c.kind !== 'gutter' && c.kind !== 'name';
 
   return (
     <td
@@ -1650,12 +1647,7 @@ function Cell(p: CellProps) {
       onClick={() => {
         p.onFocus();
         if ((!editable && c.field?.kind !== 'long_text') || p.editing || p.renaming) return;
-        if (c.kind === 'name') {
-          p.onCancel();
-          p.onStartRename();
-        } else {
-          p.onEdit();
-        }
+        p.onEdit();
       }}
     >
       {c.kind === 'name' && <NameCell {...p} />}
@@ -1781,8 +1773,8 @@ function NameCell(p: CellProps) {
             <button
               className="rowact"
               aria-label={`Rename ${r.led_name}`}
-              title="Rename  ·  F2"
-              onClick={(e) => { e.stopPropagation(); p.onStartRename(); }}
+              title="Rename"
+              onClick={(e) => { e.stopPropagation(); p.onCancel(); p.onFocus(); p.onStartRename(); }}
             >
               {/* a pencil: shaft, ferrule, point */}
               <svg viewBox="0 0 14 14" aria-hidden="true">
