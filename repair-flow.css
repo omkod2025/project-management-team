@@ -1,0 +1,26 @@
+.repair-detail-page{background:#fff}
+.repair-detail-heading{padding-bottom:20px;border-bottom:1px solid var(--line);margin-bottom:28px}
+.repair-detail-heading h2{font-size:20px;margin:14px 0 6px;text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:8px;text-decoration-color:var(--green)}
+.repair-timeline{list-style:none;padding:0;margin:0 0 28px}
+.repair-step{--step-color:#788780;--step-bg:#edf0ee;display:grid;grid-template-columns:65px 30px minmax(0,1fr);gap:12px;position:relative;min-height:108px}
+.repair-step:not(:last-child):before{content:'';position:absolute;left:91px;top:36px;bottom:6px;width:1px;background:#cbd6d0}
+.repair-step-date{font-size:10px;line-height:1.7;text-align:right;padding-top:5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.repair-step-date span{display:block}
+.repair-step-marker{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:var(--step-bg);color:var(--step-color);font-size:12px;font-weight:600}
+.repair-step-marker .icon{width:18px;height:18px;stroke-width:2}
+.repair-step-copy{min-width:0;padding-bottom:30px}
+.repair-step-copy h3{margin:2px 0 14px;font-size:16px;font-weight:650;text-decoration:underline;text-underline-offset:7px;text-decoration-thickness:2px;text-decoration-color:var(--step-color)}
+.repair-step-copy p{font-size:13px;line-height:1.8;margin:8px 0;white-space:pre-wrap;overflow-wrap:anywhere}
+.repair-step-copy .repair-muted{font-size:11px}
+.repair-step.submitted{--step-color:#067668;--step-bg:#e2f3ed}
+.repair-step.accepted{--step-color:#17679e;--step-bg:#e2f2ff}
+.repair-step.working{--step-color:#805900;--step-bg:#ffedac}
+.repair-step.completed{--step-color:#287840;--step-bg:#e0f3e4}
+.repair-step.rejected{--step-color:#b43232;--step-bg:#fbe6e6}
+.repair-step.cancelled{--step-color:#606c66;--step-bg:#e9eeeb}
+.repair-outcome{display:inline-block;color:var(--step-color);background:var(--step-bg);padding:4px 10px;border-radius:6px;font-size:13px}
+.repair-step .repair-image-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.repair-demo-tools form{padding-top:12px}
+.repair-detail-actions{display:flex;gap:10px;margin-bottom:12px}
+.repair-detail-actions .btn{flex:1}
+@media(max-width:360px){.repair-step{grid-template-columns:48px 28px minmax(0,1fr);gap:9px}.repair-step:not(:last-child):before{left:70px}.repair-step-marker{width:28px;height:28px}.repair-step-copy h3{font-size:14px}}

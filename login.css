@@ -1,0 +1,18 @@
+.login-shell #app{padding-bottom:0}
+.login-shell #navigation{display:none}
+.login-page{min-height:calc(100dvh - 50px);background:#fff}
+.login-brand{display:flex;align-items:center;gap:12px;padding:28px 28px 18px;color:var(--green);font-size:21px;font-weight:700}
+.login-brand small{display:block;font-size:10px;letter-spacing:2px;font-weight:500}
+.login-scene{display:block;width:100%;height:180px;object-fit:cover;object-position:center;background:#eef5ee}
+.login-content{padding:28px}
+.login-content h1{font-size:26px;line-height:1.5;margin:0 0 6px;color:var(--deep)}
+.login-content>p{font-size:14px;margin:0 0 26px}
+.login-password{position:relative}
+.login-password input{padding-right:68px;width:100%}
+.login-password button{position:absolute;right:4px;top:4px;bottom:4px;padding:0 12px;border:0;background:transparent;color:var(--green);font:inherit;font-size:13px;cursor:pointer}
+.login-error{color:#b42318;font-size:13px;line-height:1.6;margin:0 0 16px}
+.login-error:empty{display:none}
+.login-content .login-session-note{font-size:12px;text-align:center;color:var(--muted);margin:18px 0 0}
+.login-page :focus-visible{outline:3px solid var(--green);outline-offset:3px}
+@media(max-width:360px){.login-content,.login-brand{padding-left:20px;padding-right:20px}.login-content h1{font-size:23px}.login-scene{height:150px}}
+@media(max-width:599px){.login-page{min-height:100dvh}}

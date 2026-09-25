@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#078b7b">
+  <meta name="description" content="บ้านน่าอยู่ — ต้นแบบแอปลูกบ้านสำหรับนำเสนอ ฟังก์ชันและข้อมูลทั้งหมดเป็นการสาธิต">
+  <title>บ้านน่าอยู่ · Resident App</title>
+  <link rel="icon" type="image/svg+xml" href="assets/mark.svg">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="typography.css">
+  <link rel="stylesheet" href="weather.css">
+  <link rel="stylesheet" href="login.css">
+  <link rel="stylesheet" href="repair-flow.css">
+</head>
+<body>
+  <div class="app-shell" id="shell">
+    <main id="app" tabindex="-1"></main>
+    <nav id="navigation" aria-label="เมนูหลัก"></nav>
+  </div>
+  <dialog id="modal" aria-labelledby="modal-title"></dialog>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script src="assets/vendor/qrcode.js"></script>
+  <script src="assets/vendor/jsQR.js"></script>
+  <script src="assets/payment-qr.js"></script>
+  <script src="weather.js"></script>
+  <script src="household.js"></script>
+  <script src="assets/project-meetings.js"></script>
+  <script src="auth.js"></script>
+  <script src="repair-flow.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

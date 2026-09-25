@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <defs>
+    <path id="badge" d="M43 7Q50 1 57 7Q61 11 68 9Q78 6 82 17Q84 24 91 26Q101 29 96 41Q93 47 97 54Q102 65 92 70Q85 73 84 80Q82 92 70 91Q63 89 58 95Q50 103 42 95Q37 89 30 91Q18 94 16 81Q15 74 8 71Q-2 66 3 55Q7 48 3 41Q-2 30 9 27Q16 25 18 18Q21 7 33 10Q39 12 43 7Z"/>
+    <clipPath id="clip"><use href="#badge"/></clipPath>
+  </defs>
+  <use href="#badge" fill="#3dbd3b"/>
+  <g clip-path="url(#clip)">
+    <path d="m73 31 36 36-27 39-44-44 7-7Z" fill="#29a82b"/>
+    <path d="m28 51 15 15 30-31" stroke="#fff" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

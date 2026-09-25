@@ -1,0 +1,32 @@
+const assert = require('node:assert/strict');
+const { createEnvironmentService, normalizeWeather } = require('../environment.cjs');
+const rawWeather = { current: { time: '2026-09-24T10:15', temperature_2m: 27, is_day: 1 }, hourly: { time: ['2026-09-24T10:00', '2026-09-24T11:00'], temperature_2m: [27, null], precipitation_probability: [0, 20] }, daily: { time: ['2026-09-24'] } };
+const rawAir = { current: { time: '2026-09-24T10:00', us_aqi: 50, us_aqi_pm2_5: 20, pm2_5: 0, pm10: null } };
+(async () => {
+  const w = normalizeWeather(rawWeather);
+  assert.equal(w.current.precipitationProbabilityPercent, 0);
+  assert.equal(w.hourly[1].temperatureC, null);
+  assert.equal(w.current.time, '2026-09-24T10:15+07:00');
+  assert.equal(normalizeWeather({ ...rawWeather, current: { time: '2026-09-24T12:15' } }).current.precipitationProbabilityPercent, null);
+  let time = 0, calls = 0, failing = false;
+  const service = createEnvironmentService({ now: () => time, fetcher: async url => {
+    calls++; const air = url.hostname.startsWith('air-quality');
+    return new Response(JSON.stringify(air ? rawAir : rawWeather), { status: failing && air ? 500 : 200 });
+  } });
+  for (const query of ['latitude=1', 'longitude=2', 'latitude=&longitude=2', 'latitude=91&longitude=2', 'latitude=1&longitude=NaN']) assert.equal((await service(new URLSearchParams(query))).status, 400);
+  let result = await service(new URLSearchParams());
+  assert.equal(result.status, 200); assert.equal(result.body.airQuality.data.pm25UgM3, 0);
+  await service(new URLSearchParams()); assert.equal(calls, 2);
+  time = 16 * 60000; failing = true;
+  result = await service(new URLSearchParams());
+  assert.equal(result.body.weather.status, 'ok'); assert.equal(result.body.airQuality.status, 'stale');
+  assert.equal(result.body.airQuality.fetchedAt, new Date(0).toISOString()); assert.equal(calls, 5);
+  time = 61 * 60000; result = await service(new URLSearchParams());
+  assert.equal(result.body.airQuality.status, 'unavailable'); assert.equal(result.status, 200);
+  let rateCalls = 0;
+  const limited = createEnvironmentService({ now: () => time, fetcher: async () => { rateCalls++; return new Response('', { status: 429, headers: { 'Retry-After': '120' } }); } });
+  assert.equal((await limited(new URLSearchParams())).status, 503);
+  await limited(new URLSearchParams()); assert.equal(rateCalls, 2);
+  time += 121000; await limited(new URLSearchParams()); assert.equal(rateCalls, 4);
+  console.log('Environment tests passed: mapping, coordinates, null/zero, cache, retries, stale, partial failure, Retry-After.');
+})();

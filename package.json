@@ -1,0 +1,11 @@
+{
+  "name": "bannayuu-resident-prototype",
+  "version": "1.0.1",
+  "private": true,
+  "description": "Mobile resident app prototype with localStorage",
+  "scripts": {
+    "dev": "node server.cjs",
+    "build": "node build.cjs",
+    "test": "node tests/smoke.cjs"
+  }
+}
