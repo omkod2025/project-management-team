@@ -1,0 +1,22 @@
+.notice-page{color:var(--ui-text,#35413d)}
+.notice-article{background:#fff;border-radius:16px;padding:22px 20px}
+.notice-meta{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;font-size:11px;color:#647086;align-items:center}
+.notice-meta>span{font-weight:600;color:#465775;background:#eef1f7;padding:4px 8px;border-radius:5px}
+.notice-meta time{font-variant-numeric:tabular-nums}
+.notice-article h1{font-size:24px;line-height:1.55;font-weight:600;margin:18px 0 8px;text-wrap:pretty;overflow-wrap:anywhere}
+.notice-subtitle{font-size:15px;line-height:1.8;color:#56647a;margin:0 0 16px}
+.notice-publisher{font-size:11px;line-height:1.8;color:#687386;border-bottom:1px solid #e6eaf0;padding-bottom:18px;margin:0 0 20px}
+.notice-cover{display:block;width:100%;max-height:220px;object-fit:contain;background:#f5f6f9;border-radius:9px;margin-bottom:22px}
+.notice-body{font-size:14px;line-height:1.95;white-space:pre-wrap;overflow-wrap:anywhere;max-width:65ch}
+.notice-attachments{margin:24px 0;padding:0 4px}
+.notice-attachments h2{font-size:15px;font-weight:600;margin:0 0 12px}
+.notice-file{display:flex;align-items:center;gap:12px;min-width:0}
+.notice-file-type{padding:12px 9px;background:#eef1f7;color:#465775;font-size:12px;font-weight:700;border-radius:7px}
+.notice-file>div{min-width:0}.notice-file strong{display:block;overflow-wrap:anywhere;font-size:13px;font-weight:500}.notice-file small{display:block;font-size:11px;color:#687386;margin-top:4px}
+.notice-file-actions{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}.notice-file-actions .btn{font-size:12px;flex:1}
+.notice-no-file{font-size:13px;color:#687386;margin:0}.notice-footer{display:grid;gap:10px}.notice-footer .btn{margin:0}
+.notice-demo{border-top:1px solid #dfe4ec;margin-top:26px;padding-top:16px;font-size:12px;color:#687386}.notice-demo summary{cursor:pointer;padding:6px 0}.notice-demo p{line-height:1.8}
+.notice-remove{display:flex;align-items:center;gap:8px;font-size:12px;margin:0 0 22px;overflow-wrap:anywhere}.notice-remove input{width:auto}
+.notice-error{background:#fff0ed;color:#9c3528;border-radius:8px;padding:12px;font-size:13px}.notice-page input[type=file]{max-width:100%;font-size:12px}.notice-page form>.btn{margin-top:12px}
+.notice-page :is(button,a,summary):focus-visible{outline:3px solid #8198bf;outline-offset:3px}.notice-file-actions .btn:active{transform:translateY(1px)}
+@media(max-width:360px){.notice-article{padding:18px 16px}.notice-article h1{font-size:22px}}

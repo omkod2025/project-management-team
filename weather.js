@@ -78,6 +78,28 @@ function normalizeAir(raw) {
   let dispose;
   window.WeatherScreen = {
     aqi, condition,
+    mountShortcut(button) {
+      const controller = new AbortController();
+      let stopped = false;
+      const paint = async () => {
+        const data = await loadDirectEnvironment(controller.signal);
+        if (stopped || !button.isConnected) return;
+        const weather = data.weather.status === 'ok' ? data.weather.data?.current : null;
+        const air = data.airQuality.status === 'ok' ? data.airQuality.data : null;
+        const [description, symbol] = condition(weather?.weatherCode, weather?.isDay);
+        button.querySelector('.home-weather-symbol').textContent = weather ? symbol : '☁';
+        const score = air?.pm25Aqi;
+        const level = aqi(score);
+        const index = levels.indexOf(level);
+        button.dataset.air = index >= 0 ? ['good','moderate','sensitive','unhealthy','very-unhealthy','hazardous'][index] : 'unknown';
+        const summary = `สภาพอากาศและฝุ่น · ${weather ? description : 'ยังไม่มีข้อมูลอากาศ'} · ${air && valid(score) ? 'AQI ฝุ่น PM2.5 ' + value(score) + ' · ' + level[1] : 'ยังไม่มีข้อมูลฝุ่นล่าสุด'} · กรุงเทพมหานคร`;
+        button.title = summary;
+        button.setAttribute('aria-label', summary + ' กดดูรายละเอียด');
+      };
+      paint();
+      const timer = setInterval(paint, 900000);
+      return () => { stopped = true; clearInterval(timer); controller.abort(); };
+    },
     mount(root) {
       dispose?.();
       let data, selected, metric = 'temperatureC', loading = false, stopped = false, controller;

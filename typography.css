@@ -1,4 +1,4 @@
-@font-face{font-family:Resident Thai;src:url('assets/NotoSansThai.ttf') format('truetype');font-weight:100 900;font-style:normal;font-display:swap}
+﻿@font-face{font-family:Resident Thai;src:url('assets/NotoSansThai.ttf') format('truetype');font-weight:100 900;font-style:normal;font-display:swap}
 :root{font-family:Resident Thai,"Leelawadee UI",Tahoma,sans-serif}
 :root{--green:#067668;--muted:#52685f}
 html{scroll-padding-bottom:110px}
@@ -202,7 +202,7 @@ body:has(.booking-calendar-page){padding:0;overflow:hidden}
 .visitor-status-options label:has(input:checked){border-color:currentColor;box-shadow:inset 0 0 0 1px currentColor}
 .visitor-status-options label:focus-within{outline:2px solid currentColor;outline-offset:2px}
 .visitor-status-options label:hover{border-color:currentColor}
-.visitor-state-icon:not(.blue):not(.yellow):not(.gray){background:var(--mint);color:var(--green)}
+.visitor-state-icon:not(.blue):not(.yellow):not(.gray):not(.entering){background:var(--mint);color:var(--green)}
 .visitor-state-icon .icon{width:28px;height:28px;stroke-width:1.8;fill:none}
 .visit-row.service-card{display:block;padding:0}
 .visitor-row-open{display:flex;align-items:center;gap:12px;width:100%;padding:16px;border:0;border-radius:12px;background:transparent;color:inherit;text-align:left;font:inherit;cursor:pointer}
@@ -768,11 +768,21 @@ body:has(.booking-calendar-page){padding:0;overflow:hidden}
 .household-options label:not(:has(input:checked)){background:#fff}
 .frequent-section{margin:20px 0 24px;padding:0 0 20px;border-bottom:1px solid var(--line)}
 .frequent-section .section-title{margin:0 0 12px}
-.frequent-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.frequent-grid{display:grid;grid-auto-flow:column;grid-auto-columns:calc((100% - 32px)/4.3);grid-template-columns:none;gap:8px;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x proximity;scroll-padding-inline:4px;padding:4px 4px 12px;scrollbar-width:thin;scrollbar-color:#a9b8cd transparent}
+.frequent-grid>button{scroll-snap-align:start;min-width:0;overflow-wrap:anywhere}.frequent-grid:focus-visible{outline:2px solid var(--shortcut-ink);outline-offset:4px;border-radius:8px}
 .frequent-grid>button{border:0;background:transparent;display:flex;flex-direction:column;align-items:center;gap:8px;padding:8px 2px;border-radius:12px;font-size:12px;line-height:1.5;transition:background .2s,transform .2s}
 .frequent-grid .menu-icon{background:#e6f2ed;color:var(--deep);margin:0;width:48px;height:48px;border-radius:15px;display:grid;place-items:center}
 .frequent-grid>button:hover{background:#e6f2ed}.frequent-grid>button:active{transform:scale(.98)}
 .frequent-empty{color:var(--muted);font-size:13px;margin:0}
+/* Home shortcuts use slate blue; green remains the primary navigation color. */
+:root{--shortcut-ink:#465775;--shortcut-surface:#eef1f7;--shortcut-hover:#e4e9f2;--shortcut-pressed:#d7dfec;--shortcut-label:#35413d;--shortcut-urgent:#a43c2a;--shortcut-urgent-surface:#faece8}
+.menu-grid .menu-icon,.frequent-grid .menu-icon{color:var(--shortcut-ink);background:var(--shortcut-surface);border-color:#dfe5ee}
+.menu-grid>button,.frequent-grid>button{color:var(--shortcut-label)}
+.menu-grid>button[data-route="phone/emergency"],.frequent-grid>button[data-route="phone/emergency"]{color:var(--shortcut-urgent)}
+.menu-grid [data-route="phone/emergency"] .menu-icon,.frequent-grid [data-route="phone/emergency"] .menu-icon{color:var(--shortcut-urgent);background:var(--shortcut-urgent-surface);border-color:#efd6cf}
+@media(hover:hover){.menu-grid>button:hover,.frequent-grid>button:hover{background:var(--shortcut-hover)}}
+.menu-grid>button:active,.frequent-grid>button:active{background:var(--shortcut-pressed);box-shadow:inset 0 0 0 2px var(--shortcut-ink)}
+.menu-grid>button:focus-visible,.frequent-grid>button:focus-visible{outline:2px solid var(--shortcut-ink);outline-offset:3px}
 .favorite-board{padding:18px 12px 12px;background:#fff;border-radius:18px}
 .favorite-heading{display:flex;align-items:center;justify-content:space-between;gap:8px}.favorite-heading h2,.favorite-catalog h2{font-size:16px;margin:0;font-weight:600}.favorite-heading>span{font-size:12px;color:var(--green);font-variant-numeric:tabular-nums}
 .favorite-board p,.favorite-catalog>p{font-size:12px;color:var(--muted);line-height:1.7;margin:6px 0 18px}
@@ -809,9 +819,12 @@ body:has(.booking-calendar-page){padding:0;overflow:hidden}
 .favorite-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
 .favorite-choices>[data-favorite-drag]{touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 .favorite-choices>.is-dragging{opacity:.25}.favorite-ghost .favorite-choice-mark,.favorite-ghost .favorite-sr{display:none}
+.report-category-nav{margin-bottom:20px}.report-categories .meeting-list-item{align-items:center;padding-block:17px}.meeting-content .meeting-list-icon{background:#eef1f7;color:#465775}.meeting-content .meeting-list-item:hover{background:#f1f3f8}.meeting-content .meeting-list-item:active{background:#e5eaf3}
 .meeting-intro{margin:2px 0 26px}.meeting-intro h2{font-size:22px;line-height:1.5;margin:6px 0}.meeting-intro>p{margin:0;color:var(--muted);font-size:13px;line-height:1.7}
 .meeting-list-heading{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}.meeting-list-heading h3{font-size:14px;margin:0}.meeting-list-heading>span{font-size:12px;color:var(--muted)}
 .meeting-list{background:#fff;border-radius:16px;overflow:hidden}.meeting-list-item{display:flex;align-items:flex-start;gap:12px;width:100%;text-align:left;padding:20px 16px;border:0;border-bottom:1px solid var(--line);background:transparent;transition:background .18s}.meeting-list-item:last-child{border-bottom:0}.meeting-list-item:hover{background:#eff6f2}.meeting-list-item:active{background:#e3f0e9}.meeting-list-item:focus-visible{outline-offset:-3px}.meeting-list-icon{display:grid;place-items:center;width:38px;height:38px;background:#eaf4ef;color:#215b4c;border-radius:12px;flex-shrink:0}.meeting-list-item>.icon{width:16px;margin-top:10px;color:var(--muted)}
 .meeting-list-copy{display:flex;flex:1;min-width:0;flex-direction:column;gap:7px}.meeting-list-copy strong{font-size:15px;font-weight:600;line-height:1.6}.meeting-date{font-size:12px;color:var(--muted);margin:0}.meeting-summary{font-size:12px;line-height:1.7;color:var(--muted)}.meeting-file-label{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--green);margin-top:4px}.meeting-file-label .icon{width:15px;height:15px}
 .meeting-detail{background:#fff;border-radius:16px;padding:20px}.meeting-detail h2{font-size:21px;line-height:1.6;margin:10px 0 8px;text-wrap:pretty}.meeting-project{font-size:12px;color:var(--muted);margin:0}.meeting-description{border-top:1px solid var(--line);margin-top:20px;padding-top:18px}.meeting-description h3{font-size:14px;margin:0 0 10px}.meeting-description p{font-size:14px;line-height:1.9;margin:0 0 12px}.meeting-description p:last-child{margin-bottom:0}
 .meeting-document{margin-top:26px}.meeting-document-heading{display:flex;align-items:center;justify-content:space-between;gap:8px}.meeting-document-heading h3{font-size:15px;margin:0}.meeting-document-heading>span{font-size:11px;font-weight:600;color:var(--muted)}.meeting-document-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}.meeting-document-actions .btn{flex:1;font-size:12px;white-space:nowrap;padding-inline:10px}.meeting-document .rules-help{font-size:12px;color:var(--muted);line-height:1.7}.meeting-pdf{max-height:65dvh;overflow:auto;overscroll-behavior:contain;border-radius:10px;background:#e8eeeb}.meeting-pdf:empty{min-height:140px}.meeting-pdf .rules-page{margin:10px}.meeting-pdf canvas{width:100%;height:auto;display:block}.meeting-pdf figcaption{font-size:11px;padding:8px;text-align:center;color:var(--muted)}
+
+#navigation[hidden]{display:none}

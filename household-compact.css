@@ -1,0 +1,46 @@
+.household-overview{gap:20px}
+.household-identity-compact{padding:16px;gap:10px 12px}
+.household-identity-compact h2{font-size:23px;margin:0 0 4px}
+.household-identity-compact .household-your-permission{grid-column:1/-1;display:flex;align-items:center;gap:8px;margin:0;padding-top:10px;font-size:12px;border-top:1px solid var(--line)}
+.household-identity-compact .household-your-permission .household-permission{font-size:12px}
+.household-access h2{font-size:16px;margin:0 0 10px;color:var(--deep)}
+.household-access-rows{background:#fff;border-radius:12px;padding:0 16px}
+.household-call-group{padding:4px 0 8px;border-bottom:1px solid var(--line)}
+.household-call-group .household-summary-row{border:0;padding:10px 0}
+.household-call-group .household-row-label{display:block;font-size:12px;font-weight:500;line-height:1.6;color:var(--ui-muted)}
+.household-call-group .household-row-value{display:flex;align-items:center;gap:7px;font-size:15px;font-weight:650;line-height:1.65;margin-top:5px;color:var(--ui-heading)}
+.household-call-group .household-row-value .icon{width:18px;height:18px}
+.household-call-group .household-mode-summary .household-row-value{display:inline-flex;padding:6px 10px;border-radius:7px;background:var(--mode-soft);color:var(--mode-color)}
+.household-call-group .household-recipient-summary{padding-top:2px}
+.household-call-note{margin:0 0 6px;font-size:12px;line-height:1.7;color:var(--ui-muted)}
+.household-summary-row{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;padding:14px 0;background:transparent;border:0;border-bottom:1px solid var(--line);text-align:left;color:var(--ink)}
+.household-summary-row:last-child{border-bottom:0}
+.household-summary-row>span{min-width:0}
+.household-summary-row strong{display:block;font-size:14px;font-weight:600;line-height:1.6}
+.household-row-value{display:block;margin-top:3px;font-size:13px;line-height:1.7;overflow-wrap:anywhere;color:var(--ui-muted)}
+.household-row-value[class*="household-mode-"]{color:var(--mode-color)}
+.household-summary-row>.icon{width:18px;height:18px;color:var(--ui-primary)}
+button.household-summary-row:hover{background:var(--ui-soft)}
+button.household-summary-row:active{background:var(--ui-hover)}
+.household-readonly{display:flex;align-items:center;gap:5px;font-size:12px;line-height:1.6;color:var(--ui-muted);margin:0 0 10px}
+.household-readonly .icon{width:15px;height:15px}
+.household-verification-compact{padding:14px 0;border-bottom:1px solid var(--line)}
+.household-verification-compact:last-child{border-bottom:0}
+.household-verification-compact .household-verification-control{align-items:center;min-height:44px;gap:12px}
+.household-verification-compact .household-verification-control small{margin-top:3px;font-size:12px}
+.household-verification-compact .household-verification-control>span.household-readonly-value{flex:0 0 auto;font-size:13px;color:var(--ui-primary);font-weight:600}
+.household-verification-compact .household-caption{font-size:12px;margin:8px 0 0}
+.household-access-rows .household-cooldown{margin:0;padding:0 0 14px;font-size:12px}
+.household-member-disclosure{background:#fff;border-radius:12px}
+.household-member-disclosure>summary{display:flex;align-items:center;gap:10px;list-style:none;padding:16px;font-size:14px;font-weight:600;cursor:pointer;min-height:56px}
+.household-member-disclosure>summary::-webkit-details-marker{display:none}
+.household-member-disclosure>summary>span:first-child{flex:1}
+.household-member-disclosure>summary>span:nth-child(2){font-size:12px;font-weight:400;color:var(--ui-muted)}
+.household-member-disclosure>summary>.icon{width:18px;height:18px;transform:rotate(90deg);color:var(--ui-primary);transition:transform .15s}
+.household-member-disclosure[open]>summary>.icon{transform:rotate(-90deg)}
+.household-member-content{padding:0 16px 8px}
+.household-member-content .household-members>li{padding:12px 0}
+.household-contact-row{display:flex;align-items:center;gap:10px;width:100%;min-height:48px;padding:10px 4px;border:0;background:transparent;color:var(--ui-primary);text-align:left;font-size:14px}
+.household-contact-row span{flex:1}
+.household-contact-row .icon{width:18px;height:18px}
+.household-page>.household-section>h2{font-size:18px;margin:0 0 12px}

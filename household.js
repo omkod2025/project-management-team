@@ -1,4 +1,4 @@
-﻿'use strict';
+'use strict';
 // Prototype household policy. Production must enforce these rules and timestamps on the server.
 const HOUSEHOLD_COOLDOWN_MS = 60 * 60 * 1000;
 const HOUSEHOLD_MODES = [
@@ -23,6 +23,7 @@ function ensureHouseholdState(){
    for(const [key] of PERSONAL_NOTIFICATION_TYPES)if(typeof m.notificationPreferences[key]!=='boolean'){m.notificationPreferences[key]=true;changed=true;}
   }
   if(!h.contactPolicy){h.contactPolicy={mode:'approve',recipientId:(h.members.find(m=>m.role==='เจ้าบ้าน')||h.members[0])?.id||null,recipientChangedAt:null};changed=true;}
+  if(typeof h.contactPolicy.requireIdVerification!=='boolean'){h.contactPolicy.requireIdVerification=true;changed=true;}
  }
  for(const n of state.notifications){
   if(!n.home){n.home=state.home;changed=true;}
@@ -41,6 +42,7 @@ function canReceiveApproval(){const policy=house().contactPolicy;return policy?.
 function householdPolicyResult(){const policy=house().contactPolicy;return policy?.mode==='bypass'?'allow':policy?.mode==='dnd'?'deny':'ringing';}
 function saveApprovalRecipient(id){
  if(!isHouseOwner())return {error:'เฉพาะเจ้าบ้านเท่านั้นที่เปลี่ยนผู้รับอนุมัติได้'};
+ if(house().contactPolicy.mode!=='approve')return {error:'เปลี่ยนผู้รับสายได้เฉพาะโหมดขออนุมัติก่อนเข้า'};
  const h=house();if(!h.members.some(m=>m.id===id))return {error:'กรุณาเลือกสมาชิกในบ้าน'};
  if(id===h.contactPolicy.recipientId)return {unchanged:true};
  if(approvalChangeRemaining()>0)return {error:'ยังเปลี่ยนผู้รับอนุมัติไม่ได้ ต้องรอครบ 60 นาทีจากการเปลี่ยนครั้งล่าสุด'};
@@ -53,36 +55,58 @@ function saveHouseholdMode(mode){
  if(!commit(()=>{house().contactPolicy.mode=mode;const call=state.guardCalls?.[house().id];if(call&&['ringing','active','ended'].includes(call.status)&&mode!=='approve'){call.status=mode==='bypass'?'allow':'deny';call.policyMode=mode;}}))return {error:'บันทึกไม่สำเร็จ กรุณาลองอีกครั้ง'};
  return {saved:true};
 }
+function saveHouseholdIdVerification(required){
+ if(!isHouseOwner())return {error:'เฉพาะเจ้าบ้านเท่านั้นที่เปลี่ยนการยืนยันบัตรประชาชนได้'};
+ if(typeof required!=='boolean')return {error:'กรุณาเลือกเปิดหรือปิดการยืนยันบัตรประชาชน'};
+ if(!commit(()=>{house().contactPolicy.requireIdVerification=required;}))return {error:'บันทึกไม่สำเร็จ กรุณาลองอีกครั้ง'};
+ return {saved:true};
+}
 function syncHouseholdControls(){
  const remaining=approvalChangeRemaining(),owner=isHouseOwner(),policy=house().contactPolicy;
  const picker=$('#household-recipient-options');if(picker)picker.disabled=!owner||remaining>0||policy.mode!=='approve'||!house().members.length;
- const button=$('[data-action="household-recipient-save"]');if(button)button.disabled=!owner||remaining>0||!$('input[name="approvalRecipient"]:checked')||$('input[name="approvalRecipient"]:checked').value===policy.recipientId;
- const edit=$('[data-action="household-recipient-edit"]');if(edit)edit.disabled=!owner||remaining>0||policy.mode!=='approve';
+ const button=$('[data-action="household-recipient-save"]');if(button)button.disabled=!owner||remaining>0||policy.mode!=='approve'||!$('input[name="approvalRecipient"]:checked')||$('input[name="approvalRecipient"]:checked').value===policy.recipientId;
  const clock=$('#household-cooldown');if(clock){clock.hidden=!remaining;clock.textContent=remaining?'เปลี่ยนผู้รับอนุมัติได้อีกใน '+Math.ceil(remaining/60000)+' นาที · หลัง '+new Date(Number(policy.recipientChangedAt)+HOUSEHOLD_COOLDOWN_MS).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})+' น.':'';}
  const modeButton=$('[data-action="household-mode-save"]');if(modeButton)modeButton.disabled=!owner||$('input[name="householdMode"]:checked')?.value===policy.mode;
 }
-function toggleHouseholdRecipientEditor(open){
- const editor=$('#household-recipient-editor'),trigger=$('[data-action="household-recipient-edit"]');
- if(!editor||!trigger)return;
- if(open&&(!isHouseOwner()||approvalChangeRemaining()>0||house().contactPolicy.mode!=='approve'))return;
- editor.hidden=!open;trigger.hidden=open;trigger.setAttribute('aria-expanded',String(open));
- if(!open)for(const input of editor.querySelectorAll('input[name="approvalRecipient"]'))input.checked=input.value===house().contactPolicy.recipientId;
- syncHouseholdControls();
- (open?editor.querySelector('input:checked'):trigger)?.focus();
-}
 function renderHousehold(){
- ensureHouseholdState();const h=house(),me=activeHouseMember(),owner=isHouseOwner(),policy=h.contactPolicy,recipient=h.members.find(m=>m.id===policy.recipientId);
+ ensureHouseholdState();
+ const h=house(),me=activeHouseMember(),owner=isHouseOwner(),policy=h.contactPolicy,recipient=h.members.find(m=>m.id===policy.recipientId);
  const mode=HOUSEHOLD_MODES.find(([key])=>key===policy.mode)||HOUSEHOLD_MODES[1];
- page(header('ห้องของฉัน',iconBtn('home','เปลี่ยนชุมชน / บ้าน','switch-home'))+`<div class="content household-page">
- <section class="household-identity"><span class="household-home-icon">${icon('home')}</span><div><p>${esc(h.project)}</p><h2>บ้าน ${esc(h.number)}</h2><span>${h.members.length}/${Number.isInteger(h.memberQuota)&&h.memberQuota>0?h.memberQuota:10} สมาชิก${me?' · '+esc(me.role):''}</span></div><div class="household-identity-mode"><span class="household-mode-status household-mode-${mode[0]}" aria-label="โหมดผู้มาติดต่อ: ${mode[1]}">${icon(mode[3])}${mode[1]}</span><span class="household-permission ${me?.estampAllowed?'granted':'not-granted'}" aria-label="สิทธิ์ E-Stamp ของคุณ: ${me?.estampAllowed?'มีสิทธิ์':'ไม่มีสิทธิ์'}">${icon(me?.estampAllowed?'stampComplete':'lock')}${me?.estampAllowed?'มีสิทธิ์ E-Stamp':'ไม่มีสิทธิ์ E-Stamp'}</span>${policy.mode==='approve'?`<div class="household-my-approval ${canReceiveApproval()?'is-recipient':'not-recipient'}">${icon('phone')}<span>${canReceiveApproval()?'คุณเป็นผู้รับสายอนุมัติ':'คุณไม่ได้เป็นผู้รับสายอนุมัติ'}</span></div>`: ''}</div></section>
- <section class="household-section" aria-labelledby="household-members-title"><div class="household-section-heading"><h2 id="household-members-title">สมาชิกในบ้าน</h2><span>${h.members.length}/${Number.isInteger(h.memberQuota)&&h.memberQuota>0?h.memberQuota:10} คน</span></div><p class="household-caption">สิทธิ์ E-Stamp กำหนดโดยนิติบุคคล</p><ul class="household-members">${h.members.map(m=>`<li><span class="household-avatar" aria-hidden="true">${esc(m.name.slice(0,1))}</span><div class="household-member-info"><h3>${esc(m.name)}${m.id===me?.id?'<small>คุณ</small>':''}</h3><p>${esc(m.role)}</p><div class="household-member-badges"><span class="household-permission ${m.estampAllowed?'granted':'not-granted'}">${icon(m.estampAllowed?'stampComplete':'lock')}${m.estampAllowed?'มีสิทธิ์ E-Stamp':'ไม่มีสิทธิ์ E-Stamp'}</span>${policy.mode==='approve'&&m.id===policy.recipientId?'<span class="household-recipient-badge">'+icon('phone')+' ผู้รับอนุมัติ</span>':''}</div></div></li>`).join('')||'<li>ยังไม่มีสมาชิก กรุณาติดต่อนิติบุคคล</li>'}</ul><aside class="household-contact-note"><p>เพิ่มลูกบ้านหรือเปลี่ยนสิทธิ์ E-Stamp<br>กรุณาติดต่อนิติบุคคล</p>${linkBtn('ติดต่อนิติบุคคล','management','secondary')}</aside></section>
- <section class="household-section" aria-labelledby="household-mode-title"><div class="household-section-heading"><h2 id="household-mode-title">โหมดผู้มาติดต่อ</h2></div><p class="household-caption">ใช้งานอยู่: <span class="household-mode-status household-mode-${mode[0]}">${icon(mode[3])}${mode[1]}</span></p>${!owner?'<p class="household-owner-note">เฉพาะเจ้าบ้านเท่านั้นที่เปลี่ยนโหมดได้</p>':''}<fieldset class="household-options household-modes" ${!owner?'disabled':''}><legend class="sr-only">เลือกโหมดผู้มาติดต่อ</legend>${HOUSEHOLD_MODES.map(([key,label,description,glyph])=>`<label class="household-mode-option household-mode-${key}"><input type="radio" name="householdMode" value="${key}" ${key===policy.mode?'checked':''}><span class="household-mode-icon">${icon(glyph)}</span><span><strong>${label}${key==='bypass'?' <small>Bypass</small>':key==='approve'?' <small>Approve</small>':''}</strong><small>${description}</small></span></label>`).join('')}</fieldset>${owner?btn('บันทึกโหมดผู้มาติดต่อ','household-mode-save','','full'):''}</section>
- ${policy.mode==='approve'?`<section class="household-section" aria-labelledby="household-recipient-title"><div class="household-section-heading"><h2 id="household-recipient-title">ผู้รับสายอนุมัติ</h2><span>เลือกได้ 1 คน</span></div><p class="household-caption">รับสายจากหุ่นปกป้องเพื่ออนุมัติผู้มาติดต่อ<br>เจ้าบ้านเป็นผู้กำหนด แยกจากสิทธิ์ E-Stamp</p><div class="household-current-recipient">${icon('phone')}<div><small>ผู้รับอนุมัติปัจจุบัน</small><strong>${esc(recipient?.name||'ยังไม่ได้เลือกผู้รับอนุมัติ')}</strong></div></div>
- ${policy.mode!=='approve'?'<p class="household-caption">โหมดนี้ไม่โทรขออนุมัติ ระบบเก็บผู้รับสายคนเดิมไว้</p>':''}${!owner?'<p class="household-owner-note">เฉพาะเจ้าบ้านเท่านั้นที่เปลี่ยนผู้รับอนุมัติได้</p>':''}${owner&&policy.mode==='approve'?'<button type="button" class="btn secondary full" data-action="household-recipient-edit" aria-expanded="false" aria-controls="household-recipient-editor">เปลี่ยนผู้รับสาย</button>':''}<p class="household-cooldown" id="household-cooldown" role="status" hidden></p><div id="household-recipient-editor" hidden><fieldset id="household-recipient-options" class="household-options" ${!owner||approvalChangeRemaining()>0?'disabled':''}><legend class="sr-only">เลือกผู้รับสายอนุมัติ</legend>${h.members.map(m=>`<label class="household-recipient-option"><input type="radio" name="approvalRecipient" value="${esc(m.id)}" ${m.id===policy.recipientId?'checked':''}><span><strong>${esc(m.name)}</strong><small>${esc(m.role)}</small></span></label>`).join('')}</fieldset><p class="household-caption household-rule">เมื่อเปลี่ยนผู้รับอนุมัติ ต้องรออย่างน้อย 60 นาทีจึงจะเปลี่ยนอีกครั้งได้ รวมถึงการเปลี่ยนกลับคนเดิม</p>${owner?'<div class="household-editor-actions">'+btn('ยกเลิก','household-recipient-cancel','','secondary')+btn('บันทึกผู้รับอนุมัติ','household-recipient-save','','full')+'</div>':''}</div></section>`:''}
- <p class="household-prototype-note">ต้นแบบ: สิทธิ์จากนิติและการรับแจ้งเตือนเป็นข้อมูลจำลอง ยังไม่เชื่อมต่อเว็บนิติหรือ FCM</p>
- </div>`);
+ const part=routeParts[0]==='household'?routeParts[1]:null;
+ const subHeader=title=>header(title).replace('data-action="back"','data-action="go" data-route="household"');
+ if(part){
+  if(!owner)return page(subHeader('การตั้งค่าผู้มาติดต่อ')+'<div class="content"><p class="info">เจ้าบ้านเป็นผู้กำหนดการตั้งค่านี้</p>'+linkBtn('กลับห้องของฉัน','household','secondary full')+'</div>');
+  if(part==='mode')page(subHeader('โหมดผู้มาติดต่อ')+`<div class="content household-page"><section class="household-section"><h2 id="household-mode-title">เลือกโหมดผู้มาติดต่อ</h2><p class="household-caption">บ้าน ${esc(h.number)} · ปัจจุบันใช้ ${mode[1]}</p><fieldset class="household-options household-modes" ${!owner?'disabled':''}><legend class="sr-only">เลือกโหมดผู้มาติดต่อ</legend>${HOUSEHOLD_MODES.map(([key,label,description,glyph])=>`<label class="household-mode-option household-mode-${key}"><input type="radio" name="householdMode" value="${key}" ${key===policy.mode?'checked':''}><span class="household-mode-icon">${icon(glyph)}</span><span><strong>${label}${key==='bypass'?' <small>Bypass</small>':key==='approve'?' <small>Approve</small>':''}</strong><small>${description}</small></span></label>`).join('')}</fieldset>${owner?btn('บันทึกโหมดผู้มาติดต่อ','household-mode-save','','full'):''}</section>${linkBtn('ยกเลิก','household','secondary full')}</div>`);
+  else if(part==='recipient')page(subHeader('ผู้รับสายอนุมัติ')+`<div class="content household-page"><section class="household-section"><h2 id="household-recipient-title">เลือกผู้รับสาย 1 คน</h2><p class="household-caption">รับสายจากหุ่นปกป้องเพื่ออนุมัติผู้มาติดต่อ</p>${policy.mode!=='approve'?'<p class="info">เปลี่ยนผู้รับสายได้เมื่อใช้โหมดขออนุมัติก่อนเข้า</p>':''}<p id="household-cooldown" class="household-cooldown" role="status" hidden></p><fieldset id="household-recipient-options" class="household-options" ${!owner||approvalChangeRemaining()>0?'disabled':''}><legend class="sr-only">เลือกผู้รับสายอนุมัติ</legend>${h.members.map(m=>`<label class="household-recipient-option"><input type="radio" name="approvalRecipient" value="${esc(m.id)}" ${m.id===policy.recipientId?'checked':''}><span><strong>${esc(m.name)}</strong><small>${esc(m.role)}</small></span></label>`).join('')}</fieldset><p class="household-caption household-rule">เปลี่ยนแล้วต้องรอ 60 นาทีจึงจะเปลี่ยนได้อีกครั้ง</p>${btn('บันทึกผู้รับอนุมัติ','household-recipient-save','','full')}</section>${linkBtn('ยกเลิก','household','secondary full')}</div>`);
+  else return go('household');
+ }else{
+  page(header('ห้องของฉัน',iconBtn('home','เปลี่ยนชุมชน / บ้าน','switch-home'))+`<div class="content household-page household-overview">
+   <section class="household-identity household-identity-compact"><span class="household-home-icon">${icon('home')}</span><div><h2>บ้าน ${esc(h.number)}</h2><p>${esc(h.project)}</p><span>${esc(me?.role||'ไม่พบสมาชิก')}</span></div><p class="household-your-permission">สิทธิ์ของคุณ: <span class="household-permission ${me?.estampAllowed?'granted':'not-granted'}">${icon(me?.estampAllowed?'stampComplete':'lock')}${me?.estampAllowed?'มีสิทธิ์ E-Stamp':'ไม่มีสิทธิ์ E-Stamp'}</span></p></section>
+   <section class="household-access" aria-labelledby="household-access-title"><h2 id="household-access-title">การเข้า–ออกของผู้มาติดต่อ</h2>${!owner?'<p class="household-readonly">'+icon('lock')+' เจ้าบ้านเป็นผู้กำหนด</p>':''}<div class="household-access-rows">
+    <div class="household-call-group">
+    ${householdSummaryRow('โหมดผู้มาติดต่อ',mode[1],'household/mode',owner,'household-mode-'+mode[0])}
+    ${policy.mode==='approve'?householdSummaryRow('ผู้รับสายอนุมัติ',(recipient?.name||'ยังไม่ได้กำหนด')+(recipient?.id===me?.id?' · คุณ':''),'household/recipient',owner):''}
+    ${policy.mode==='approve'?'<p class="household-cooldown" id="household-cooldown" role="status" hidden></p>':''}
+    ${policy.mode!=='approve'?'<p class="household-call-note">'+(policy.mode==='dnd'?'ไม่โทรแจ้ง · ไม่อนุญาตให้ผู้มาติดต่อเข้า':'ไม่โทรขออนุมัติ · ทำรายการที่จุดเข้าก่อนผ่าน')+'</p>':''}
+    </div>
+    ${renderCompactVerification(owner,policy)}
+   </div></section>
+   <details class="household-member-disclosure"><summary><span id="household-members-title">สมาชิกในบ้าน</span><span>${h.members.length}/${Number.isInteger(h.memberQuota)&&h.memberQuota>0?h.memberQuota:10} คน</span>${icon('chevron')}</summary><div class="household-member-content"><ul class="household-members">${h.members.map(m=>`<li><span class="household-avatar" aria-hidden="true">${esc(m.name.slice(0,1))}</span><div class="household-member-info"><h3>${esc(m.name)}${m.id===me?.id?'<small>คุณ</small>':''}</h3><p>${esc(m.role)}</p><div class="household-member-badges"><span class="household-permission ${m.estampAllowed?'granted':'not-granted'}">${icon(m.estampAllowed?'stampComplete':'lock')}${m.estampAllowed?'มีสิทธิ์ E-Stamp':'ไม่มีสิทธิ์ E-Stamp'}</span>${policy.mode==='approve'&&m.id===policy.recipientId?'<span class="household-recipient-badge">'+icon('phone')+' ผู้รับอนุมัติ</span>':''}</div></div></li>`).join('')||'<li>ยังไม่มีสมาชิก กรุณาติดต่อนิติบุคคล</li>'}</ul><p class="household-caption">เพิ่มสมาชิกหรือเปลี่ยนสิทธิ์ E-Stamp กรุณาติดต่อนิติบุคคล</p></div></details>
+   <button type="button" class="household-contact-row" data-action="go" data-route="management">${icon('phone')}<span>ติดต่อนิติบุคคล</span>${icon('chevron')}</button>
+  </div>`);
+ }
  syncHouseholdControls();const timer=setInterval(syncHouseholdControls,1000);page.disposeHousehold=()=>clearInterval(timer);
 }
+function householdSummaryRow(title,value,to,editable,cls=''){
+ const tag=editable?'button':'div';
+ const mode=cls?HOUSEHOLD_MODES.find(([key])=>cls==='household-mode-'+key):null;
+ return `<${tag} class="household-summary-row ${mode?'household-mode-summary':'household-recipient-summary'}" ${editable?'type="button" data-action="go" data-route="'+to+'"':''}><span><span class="household-row-label">${title}${mode?' · ใช้งานอยู่':''}</span><strong class="household-row-value ${cls}">${icon(mode?mode[3]:'phone')}${esc(value)}</strong></span>${editable?icon('chevron'):''}</${tag}>`;
+}
+function renderCompactVerification(owner,policy){
+ const required=policy.requireIdVerification;
+ return `<div class="household-verification household-verification-compact"><label class="household-verification-control"><span><strong>ยืนยันบัตรประชาชน</strong><small id="household-verification-help">${required?'เปิด · ต้องยืนยันก่อนเข้าพื้นที่':'ปิด · ไม่บังคับยืนยันก่อนเข้า'}</small></span>${owner?'<input type="checkbox" role="switch" id="household-id-verification" aria-describedby="household-verification-help" '+(required?'checked':'')+'>':'<span class="household-readonly-value">'+(required?'เปิด':'ปิด')+'</span>'}</label>${policy.mode==='dnd'?'<p class="household-caption">ขณะห้ามรบกวน ผู้มาติดต่อยังเข้าไม่ได้</p>':''}</div>`;
+}
+
 function renderHouseholdApprovalSettings(){return `<div class="info">เจ้าบ้านกำหนดผู้รับสายอนุมัติและโหมดผู้มาติดต่อได้ที่หน้าห้องของฉัน</div>${linkBtn('จัดการผู้มาติดต่อของบ้าน','household','full')}`;}
 function renderPersonalNotificationSettings(){
  const member=activeHouseMember();if(!member)return empty('bell','ไม่พบสมาชิกของบัญชีนี้','กรุณาติดต่อนิติบุคคล');

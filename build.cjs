@@ -7,10 +7,15 @@ const output = path.resolve(root, 'dist');
 const entries = [
   'index.html',
   'app.js',
+  'announcement-detail.js',
+  'announcement-detail.css',
   'auth.js',
   'login.css',
   'repair-flow.js',
+  'repair-samples.js',
   'repair-flow.css',
+  'interior-theme.css',
+  'household-compact.css',
   'household.js',
   'styles.css',
   'typography.css',
@@ -29,7 +34,7 @@ for (const entry of entries) {
   fs.accessSync(path.join(root, entry), fs.constants.R_OK);
 }
 execFileSync(process.execPath, ['--check', path.join(root, 'app.js')], { stdio: 'inherit' });
-for (const file of ['auth.js', 'weather.js', 'household.js', 'environment.cjs', 'server.cjs']) execFileSync(process.execPath, ['--check', path.join(root, file)], { stdio: 'inherit' });
+for (const file of ['auth.js', 'repair-flow.js', 'repair-samples.js', 'weather.js', 'household.js', 'environment.cjs', 'server.cjs']) execFileSync(process.execPath, ['--check', path.join(root, file)], { stdio: 'inherit' });
 
 // Never follow a redirected output directory when cleaning the build.
 if (path.relative(root, output) !== 'dist' ||
