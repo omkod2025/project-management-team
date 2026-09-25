@@ -1,4 +1,4 @@
-﻿'use strict';
+'use strict';
 const STORAGE_KEY = 'bannayuu.resident.v1';
 const $ = (s, root = document) => root.querySelector(s);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -126,7 +126,7 @@ function confirmDialog(title, text, action, id = '') { modal(title, `<p>${text}<
 function closeModal() { stopVisitorQrCamera(); stopRepairCamera(); $('#modal').close(); $('#modal').innerHTML = ''; }
 function notify(title,text,target,category=notificationCategory(target)){const notification={id:uid('N'),title,text,route:target,home:house().id,category,recipientKeys:notificationRecipientKeys(category),readBy:[],hiddenFor:[]};state.notifications.unshift(notification);setTimeout(()=>{if(state.notifications.some(n=>n.id===notification.id))announcePersonalNotifications([notification]);},0);}
 const navItems = [['home','หน้าหลัก','home'],['announcements','ประกาศ','announce'],['services','บริการ','service'],['timeline','ไทม์ไลน์','timeline'],['shopping','ช้อปปิ้ง','shop'],['settings','ตั้งค่า','settings']];
-function renderNav(section) { const home=routeParts[0]==='home'||!routeParts[0];$('#navigation').hidden=false;if(section==='home'&&!home)section='';$('#navigation').innerHTML = navItems.filter(([key]) => !['timeline','shopping'].includes(key)).map(([key, label, glyph]) => `<button data-action="go" data-route="${key}" class="${section === key ? 'active' : ''}" ${section === key ? 'aria-current="page"' : ''}><span class="nav-icon">${icon(glyph)}</span>${label}</button>`).join(''); }
+function renderNav(section) { const home=routeParts[0]==='home'||!routeParts[0];$('#navigation').hidden=['visitor-stamp','estamp-reserve','guard-call'].includes(routeParts[0])||(routeParts[0]==='visitor'&&routeParts[2]==='edit')||(routeParts[0]==='household'&&['mode','recipient'].includes(routeParts[1]))||(routeParts[0]==='repairs'&&['detail','info'].includes(routeParts[1]))||(routeParts[0]==='meetings'&&!!routeParts[1]&&routeParts[1]!=='category')||(['payment','facility'].includes(routeParts[0])&&!!routeParts[1]);if(section==='home'&&!home)section='';$('#navigation').innerHTML = navItems.filter(([key]) => !['timeline','shopping','services'].includes(key)).map(([key, label, glyph]) => `<button data-action="go" data-route="${key}" class="${section === key ? 'active' : ''}" ${section === key ? 'aria-current="page"' : ''}><span class="nav-icon">${icon(glyph)}</span>${label}</button>`).join(''); }
 let paymentTimer, calendarNowTimer, guardCallTimer;
 function page(html, section = 'home') {
  page.disposeHousehold?.();page.disposeHousehold=null;
@@ -571,7 +571,7 @@ function canManageVisitor(v){return !!v&&v.source!=='walkin'&&visitorStatus(v)[0
 function renderVisitorCalling(v){
  const call=visitorEntryCall(v);
  if(!canReceiveApproval()||!call||!['ringing','active'].includes(call.status)||visitorStatus(v)[0]!=='กำลังเข้า')return '';
- return `<div class="visitor-call-strip ${call.status==='ringing'?'is-ringing':'is-active'}"><div class="visitor-call-copy" role="status"><span class="visitor-call-symbol" aria-hidden="true">${icon('video')}</span><span><strong>${call.status==='active'?'กำลังสนทนาวิดีโอ':'Calling · สายเข้า'}</strong><small>${call.status==='ringing'?'กำลังรอคุณรับสาย':'เชื่อมต่อสายแล้ว'}</small><span class="visitor-call-source">ทางเข้าโครงการ · สายจำลอง</span></span></div>${call.status==='active'?linkBtn('กลับเข้าสาย','guard-call','small'):btn(icon('video')+' รับสายวิดีโอ <span class="visitor-call-dots" aria-hidden="true"><i></i><i></i><i></i></span>','guard-answer',`data-visitor-id="${esc(v.id)}" aria-label="รับสายวิดีโอ ทะเบียน ${esc(v.plate)}"`,'small')}</div>`;
+ return `<div class="visitor-call-strip ${call.status==='ringing'?'is-ringing':'is-active'}"><div class="visitor-call-copy" role="status"><span class="visitor-call-symbol" aria-hidden="true">${icon('video')}</span><span><strong>${call.status==='active'?'กำลังสนทนาวิดีโอ':'Calling · สายเข้า'}</strong><small>${call.status==='ringing'?'กำลังรอคุณรับสาย':'เชื่อมต่อสายแล้ว'}</small><span class="visitor-call-source">ทางเข้าโครงการ · สายจำลอง</span></span></div>${call.status==='active'?btn('กลับเข้าสาย','guard-resume',`data-visitor-id="${esc(v.id)}"`,'small'):btn(icon('video')+' รับสายวิดีโอ <span class="visitor-call-dots" aria-hidden="true"><i></i><i></i><i></i></span>','guard-answer',`data-visitor-id="${esc(v.id)}" aria-label="รับสายวิดีโอ ทะเบียน ${esc(v.plate)}"`,'small')}</div>`;
 }
 function visitorEntryCall(v){
  const call=v.demoCall||state.guardCalls?.[v.home];
@@ -582,7 +582,7 @@ function visitorEntryCall(v){
 function visitorStatus(v){
  if(visitorEntryCall(v))return ['กำลังเข้า','entering'];
  if(v.source!=='walkin')return v.revoked?['ยกเลิก','gray']:v.exitedAt?['ออกแล้ว','']:v.end<iso()?['หมดอายุ','gray']:v.stamped?['ประทับตราแล้ว','']:!v.enteredAt?['รอเข้า','blue']:['รอประทับตรา','yellow'];
- return v.revoked?['ยกเลิกสิทธิ์','gray']:v.stamped?['ประทับตราแล้ว','']:v.end<iso()?['หมดอายุ','gray']:v.start>iso()?['ยังไม่ถึงวันเข้า','gray']:['รอประทับตรา','yellow'];
+ return v.exitedAt?['ออกแล้ว','']:v.stamped?['ประทับตราแล้ว','']:['รอประทับตรา','yellow'];
 }
 function registeredVisitorExamples(){
  const home=house().id;
@@ -604,26 +604,20 @@ function visitorExamples(){
  commit(()=>{state.visitors.forEach(v=>{v.source??='registered';v.entryMode??=v.start===v.end?'single':'multiple';});
  state.visitors.push({id:'VISIT-DEMO-1',home:house().id,name:'ผู้มาติดต่อจัดส่งสินค้า',category:'รถยนต์',plate:'กย 9999',province:'กรุงเทพมหานคร',start:iso(),end:iso(),source:'walkin',entryMode:'single',stamped:false,note:'รายการตัวอย่าง'}, {id:'VISIT-DEMO-2',home:house().id,name:'ช่างซ่อมบำรุง',category:'รถยนต์',plate:'กค 1120',province:'นนทบุรี',start:iso(),end:iso(),source:'walkin',entryMode:'single',stamped:true,stampedAt:new Date().toISOString(),stampRight:'สิทธิ์ลูกบ้าน',note:'รายการตัวอย่าง'});state.visitorStep3Samples=true;});
 }
-function renderVisitors(tab){
- visitorExamples();const registered=tab==='registered';if(registered)registeredVisitorExamples();const list=demoList(scoped(state.visitors)).filter(v=>registered?v.source!=='walkin':v.source==='walkin'||v.stamped).sort((a,b)=>String(b.start||'').localeCompare(String(a.start||''))||String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
- const call=canReceiveApproval()?currentGuardCall():null;
- const caller=canReceiveApproval()?list.find(v=>visitorStatus(v)[0]==='กำลังเข้า'&&['ringing','active'].includes(visitorEntryCall(v)?.status)):null;
- if(caller)list.unshift(...list.splice(list.indexOf(caller),1));
- const rows=list.map(v=>{const [label,color]=visitorStatus(v);return `<article class="service-card visit-row ${caller===v?'visit-row-calling':''}" data-id="${esc(v.id)}" data-plate="${esc(v.plate)}" data-status="${esc(label)}"><button type="button" class="visitor-row-open" data-action="visitor-open" data-visitor-id="${esc(v.id)}" aria-label="ดูรายละเอียดทะเบียน ${esc(v.plate)}">${visitorStatusIcon(v)}<div class="grow"><div class="visit-row-title"><h3>${esc(v.plate||v.name)}</h3>${pill(label,color)}</div><p>${esc(v.name||v.category)}</p><p>${dateLabel(v.start)}${v.end!==v.start?' – '+dateLabel(v.end):''}</p></div>${icon('chevron')}</button>${caller===v?renderVisitorCalling(v):''}</article>`;}).join('');
- page(header('ผู้มาติดต่อ')+tabs([['ผู้มาติดต่อ','visitors'],['ลงทะเบียนล่วงหน้า','visitors/registered']],registered?1:0)+`<div class="content has-action visitor-surface"><div class="visitor-search-row"><label class="field"><span>ค้นหาทะเบียนรถ</span><input id="visitor-plate-search" type="search" placeholder="เช่น กย 9999" autocomplete="off" aria-controls="visitor-list"></label><button type="button" class="icon-button visitor-filter-trigger" data-action="visitor-filter-toggle" aria-label="กรองสถานะ" title="กรองสถานะ" aria-expanded="false" aria-controls="visitor-status-panel" ${list.length?'':'disabled'}>${icon('filter')}</button></div>${visitorStatusFilters(list)}<div class="visitor-results-summary"><p id="visitor-search-result" class="sr-only" role="status"></p><span>${caller?'สายปัจจุบันอยู่บนสุด · รายการอื่นเรียงใหม่ไปเก่า':'วันที่เข้าใช้บริการ · ใหม่ไปเก่า'}</span></div><div id="visitor-list">${rows}</div><div id="visitor-list-empty" ${list.length?'hidden':''}>${empty('visitor',registered?'ยังไม่มีการลงทะเบียน':'ยังไม่มีผู้มาติดต่อ',registered?'ลงทะเบียนล่วงหน้าเพื่อเตรียมบัตรเข้าโครงการ':'รายการผู้มาติดต่อจะแสดงที่นี่')}</div><div id="visitor-filter-empty" class="visitor-filter-empty" hidden><h2>ไม่พบรายการที่ตรงกับตัวกรอง</h2><p>ลองค้นหาทะเบียนอื่น หรือเปลี่ยนสถานะที่เลือก</p>${btn("ล้างตัวกรอง","visitor-filter-reset","","secondary")}</div></div>${bottom(linkBtn(registered?icon('plus')+' ลงทะเบียนล่วงหน้า':icon('scan')+' สแกน / ประทับตรา',registered?'visitor-new':'scan','full'))}`);
-}
-function visitorStatusFilters(list){
- const colors=new Map(list.map(visitorStatus)),available=new Set(colors.keys()),statuses=[...new Set(['กำลังเข้า','รอเข้า','รอประทับตรา','ออกแล้ว','ยกเลิก','หมดอายุ',...available])].filter(status=>available.has(status));
+function renderVisitors(tab){return renderVisitorOverview(tab);}
+function visitorStatusFilters(list,allowedStatuses){
+ const colors=new Map(list.map(visitorStatus)),available=new Set(colors.keys()),statuses=allowedStatuses||[...new Set(['กำลังเข้า','รอเข้า','รอประทับตรา','ออกแล้ว','ยกเลิก','หมดอายุ',...available])].filter(status=>available.has(status));
+ if(allowedStatuses)allowedStatuses.forEach(status=>{if(!colors.has(status))colors.set(status,{'กำลังเข้า':'entering','รอประทับตรา':'yellow'}[status]||'');});
  return `<fieldset id="visitor-status-panel" class="visitor-status-filter" hidden><legend class="sr-only">กรองสถานะ เลือกได้หลายสถานะ</legend><div class="visitor-status-heading"><span>สถานะ <small>เลือกได้หลายสถานะ</small></span>${btn('ล้างสถานะ','visitor-status-clear','disabled','visitor-filter-clear')}</div><div class="visitor-status-options">${statuses.map(status=>{return `<label class="${esc(colors.get(status))}"><input type="checkbox" data-visitor-status value="${esc(status)}" aria-controls="visitor-list">${icon(visitorStatusGlyph(status))}<span>${esc(status)}</span></label>`;}).join('')}</div></fieldset>`;
 }
 function toggleVisitorStatusFilter(){const panel=$('#visitor-status-panel'),trigger=$('[data-action="visitor-filter-toggle"]');if(!panel||!trigger)return;panel.hidden=!panel.hidden;trigger.setAttribute('aria-expanded',String(!panel.hidden));}
 function filterVisitorPlates(value){
  const normalize=text=>String(text||'').normalize('NFKC').toLocaleLowerCase().replace(/[\s-]+/g,''),query=normalize(value),selected=new Set($$('[data-visitor-status]:checked').map(input=>input.value)),rows=$$('#visitor-list .visit-row');let count=0;
- const matching=rows.filter(row=>normalize(row.dataset.plate).includes(query));
+ const matching=rows.filter(row=>normalize(row.dataset.search||row.dataset.plate).includes(query));
  rows.forEach(row=>{row.hidden=!matching.includes(row)||(selected.size>0&&!selected.has(row.dataset.status));if(!row.hidden)count++;});
  const filtering=!!query||selected.size>0;$('#visitor-list-empty').hidden=filtering||rows.length>0;$('#visitor-filter-empty').hidden=!filtering||count>0;
- const trigger=$('[data-action="visitor-filter-toggle"]');trigger.classList.toggle('has-filters',selected.size>0);trigger.setAttribute('aria-label',selected.size?'กรองสถานะ มีสถานะที่เลือก':'กรองสถานะ');
- $('[data-action="visitor-status-clear"]').disabled=!selected.size;
+ const trigger=$('[data-action="visitor-filter-toggle"]');trigger?.classList.toggle('has-filters',selected.size>0);trigger?.setAttribute('aria-label',selected.size?'กรองสถานะ มีสถานะที่เลือก':'กรองสถานะ');
+ const clear=$('[data-action="visitor-status-clear"]');if(clear)clear.disabled=!selected.size;
  $('#visitor-search-result').textContent=filtering?(count?'แสดงรายการตามตัวกรอง':'ไม่พบรายการที่ตรงกับตัวกรอง'):'แสดงรายการทั้งหมด';
 }
 function resetVisitorFilters(all=false){$$('[data-visitor-status]').forEach(input=>input.checked=false);const search=$('#visitor-plate-search');if(all)search.value='';filterVisitorPlates(search.value);(all?search:$('[data-action="visitor-filter-toggle"]')).focus();}
@@ -726,26 +720,23 @@ function showVisitorPhotos(id){
  const images=visitorPhotos(v);if(!images.length)return;
  modal('รูปผู้มาติดต่อ',`<p class="visitor-gallery-help">${esc(v.name||v.plate)} · ${images.length} รูป<br>เลื่อนขึ้น–ลงเพื่อดูรูปทั้งหมด</p><div class="visitor-photo-gallery" tabindex="0" role="region" aria-label="รูปผู้มาติดต่อทั้งหมด เลื่อนดูตามแนวตั้ง">${images.map((photo,i)=>`<figure class="visitor-photo-slide"><img src="${esc(photo.src)}" alt="${esc(photo.label)}" decoding="async"><figcaption><span>${esc(photo.label)}</span><span>${i+1} / ${images.length}</span></figcaption></figure>`).join('')}</div>`);
 }
-function renderVisitorDetails(id){
- const v=scoped(state.visitors).find(v=>v.id===id);if(!v)return go('visitors');
- const [label,color]=visitorStatus(v);
- page(header('รายละเอียดผู้มาติดต่อ')+`<div class="content visitor-surface visitor-details-page"><section class="card visitor-details-scroll" tabindex="0" aria-label="รายละเอียดผู้มาติดต่อ เลื่อนเพื่อดูข้อมูลทั้งหมด"><div class="row"><span class="avatar">${icon('car')}</span><div><h2>${esc(v.plate)}</h2><p>${esc(v.name||v.category)}</p><p class="muted">${dateLabel(v.start)} – ${dateLabel(v.end)}</p></div></div>${pill(label,color)}${visitorPhotoPreview(v)}${detail([['ชื่อผู้มาติดต่อ',v.name||'ไม่ได้ระบุชื่อ'],['ประเภทรถ',v.category||'—'],['ทะเบียนรถ',v.plate||'—'],['จังหวัด',v.province||'—'],['บ้านที่มาติดต่อ',house().number],['หมายเหตุ',v.note||'—']])}<div class="visitor-detail-section"><h2>เวลาเข้า–ออก</h2>${detail([['เวลาเข้า',visitorEventTime(v.enteredAt)],['เวลาออก',visitorEventTime(v.exitedAt)]])}</div><div class="visitor-detail-section"><h2>ข้อมูล E-Stamp</h2>${detail([['เวลาที่ประทับตรา',v.stamped?visitorEventTime(v.stampedAt):'ยังไม่ได้ประทับตรา'],['ผู้ประทับตรา',v.stamped?(v.stampedBy||'ยังไม่มีข้อมูล'):'—'],['สิทธิ์ประทับตรา',v.stampRight||'—'],['หมายเหตุการประทับตรา',v.stampNote||'—']])}</div></section></div>`);
-}
-function renderVisitorStamp(id){
+function renderVisitorDetails(id){return renderVisitorStamp(id,true);}
+function renderVisitorStamp(id,detailsPage=false){
  currentGuardCall();
  const v=scoped(state.visitors).find(v=>v.id===id);if(!v)return go('visitors');
  const [label,color]=visitorStatus(v),eligible=canStampVisitor(v);
  const group=(title,pairs)=>'<section class="reserve-info-group"><h3>'+title+'</h3>'+detail(pairs)+'</section>';
+ const stampInfo=v.stamped?group('ข้อมูล E-Stamp',[['ผู้ประทับตรา',v.stampedBy||'ไม่ได้บันทึกชื่อผู้ประทับตรา'],['วันเวลาที่ประทับตรา',visitorEventTime(v.stampedAt)],['สิทธิ์ประทับตรา',v.stampRight||'—'],...(v.stampNote?[['หมายเหตุการประทับตรา',v.stampNote]]:[])]):'';
  const info=group('ผู้มาติดต่อและรถ',[['ชื่อผู้มาติดต่อ',v.name||'ไม่ได้ระบุชื่อ'],['ประเภทรถ',v.category||'—'],['ทะเบียนรถ',v.plate+' · '+(v.province||'ไม่ระบุจังหวัด')],['บ้านที่มาติดต่อ',house().number],['หมายเหตุ',v.note||'—']])+group('เวลาเข้า–ออก',[['เวลาเข้า',visitorEventTime(v.enteredAt)],['เวลาออก',visitorEventTime(v.exitedAt)]]);
- page(header('ประทับตราผู้มาติดต่อ')+`<div class="content visitor-surface reserve-page reserve-polished visitor-pass-page">
+ page(header(v.stamped||detailsPage?'รายละเอียดผู้มาติดต่อ':'ประทับตราผู้มาติดต่อ')+`<div class="content visitor-surface reserve-page reserve-polished visitor-pass-page">
  <section class="booking-detail-summary reserve-identity"><div class="row between"><h2>${esc(v.plate)}</h2><span class="pill reserve-status ${esc(color)}">${icon(visitorStatusGlyph(label))}<span>${esc(label)}</span></span></div><p>${esc(v.name||v.category)} · บ้าน ${esc(house().number)}</p></section>
  ${renderVisitorCalling(v)}<div class="reserve-side-switch" role="group" aria-label="ด้านของบัตรผู้มาติดต่อ"><button type="button" data-action="reserve-side" data-side="qr" aria-pressed="true" aria-controls="reserve-qr-panel">${icon('qrCode')} QR Code</button><button type="button" data-action="reserve-side" data-side="details" aria-pressed="false" aria-controls="reserve-info-panel">${icon('visitor')} ข้อมูลผู้มาติดต่อ</button></div>
  <div class="reserve-pass" data-action="flip-reserve-pass" data-flipped="false"><div class="reserve-pass-inner">
  <section id="reserve-qr-panel" class="booking-qr-panel reserve-qr reserve-pass-front" aria-label="QR Code ผู้มาติดต่อ"><p class="visitor-pass-type">Visitor · ผู้มาติดต่อ</p><h2 class="reserve-house">${icon('home')} บ้าน ${esc(house().number)}</h2><img class="booking-qr-image" src="${reservationQrImage('BANNAYUU-DEMO-VISITOR:'+v.id,true).toDataURL('image/png')}" width="240" height="240" alt="QR Code ผู้มาติดต่อ ${esc(v.id)}"><div class="reserve-usage"><span>วันที่เข้ามาติดต่อ</span><strong>${esc(reserveUsageDate(v))}</strong></div><p class="reserve-qr-number">รหัสอ้างอิง ${esc(v.id)}</p><span class="reserve-flip-hint">${icon('refresh')} แตะเพื่อดูรายละเอียด</span></section>
- <section id="reserve-info-panel" class="reserve-pass-back" aria-label="ข้อมูลผู้มาติดต่อ" aria-hidden="true" inert><h2 class="reserve-pass-title">ข้อมูลผู้มาติดต่อ</h2>${visitorPhotoPreview(v)}${info}<span class="reserve-flip-hint">${icon('qrCode')} แตะเพื่อดู QR Code</span></section></div></div>
+ <section id="reserve-info-panel" class="reserve-pass-back" aria-label="ข้อมูลผู้มาติดต่อ" aria-hidden="true" inert><h2 class="reserve-pass-title">ข้อมูลผู้มาติดต่อ</h2>${visitorPhotoPreview(v)}${info}${stampInfo}<span class="reserve-flip-hint">${icon('qrCode')} แตะเพื่อดู QR Code</span></section></div></div>
  <div class="reserve-export-actions">${btn(icon('share')+' แชร์ QR','share-reserve-qr','data-id="'+esc(v.id)+'"','secondary')}${btn(icon('download')+' บันทึก QR','download-reserve-qr','data-id="'+esc(v.id)+'"','secondary')}</div>
- ${eligible?`<form class="reserve-stamp" data-form="visitor-stamp" data-id="${esc(v.id)}"><h2>ประทับตรา E-Stamp</h2>${select('right','เลือกสิทธิ์ประทับตรา',['สิทธิ์ลูกบ้าน'],'สิทธิ์ลูกบ้าน')}${area('note','หมายเหตุ (ถ้ามี)','','maxlength="200"')}${submit('ประทับตรา (จำลอง)')}</form>`:`<div class="info">${esc(label)} · ${memberCanStamp()?'ไม่สามารถประทับตราซ้ำหรือใช้งานนอกช่วงวันที่กำหนด':'บัญชีนี้ไม่มีสิทธิ์ E-Stamp กรุณาติดต่อนิติบุคคล'}</div>`}
- <div class="visit-toolbar">${linkBtn('ดูรายละเอียดผู้มาติดต่อ','visitor-details/'+v.id,'secondary full')}</div></div>`);
+ ${eligible?`<form class="reserve-stamp" data-form="visitor-stamp" data-id="${esc(v.id)}"><h2>ประทับตรา E-Stamp</h2>${select('right','เลือกสิทธิ์ประทับตรา',['สิทธิ์ลูกบ้าน'],'สิทธิ์ลูกบ้าน')}${area('note','หมายเหตุ (ถ้ามี)','','maxlength="200"')}${submit('ประทับตรา (จำลอง)')}</form>`:v.stamped?'':`<div class="info">${esc(label)} · ${memberCanStamp()?'ไม่สามารถประทับตราซ้ำหรือใช้งานนอกช่วงวันที่กำหนด':'บัญชีนี้ไม่มีสิทธิ์ E-Stamp กรุณาติดต่อนิติบุคคล'}</div>`}
+</div>`);
 }
 let guardBannerDismissed = false;
 function currentGuardCall(){
@@ -1307,6 +1298,7 @@ document.addEventListener('click',async event=>{
  if(a==='household-mode-save'){const result=saveHouseholdMode($('input[name="householdMode"]:checked')?.value);if(result.error)return toast(result.error);guardBannerDismissed=false;go('household');toast('บันทึกโหมดผู้มาติดต่อแล้ว');return;}
  if(a==='household-test-notifications'){const routes={vehicle:'vehicles',parcel:'parcels',announcement:'announcements',bill:'bills',other:'services'};if(commit(()=>PERSONAL_NOTIFICATION_TYPES.forEach(([key,label])=>notify('แจ้งเตือนตัวอย่าง · '+label,'ส่งถึงสมาชิกทุกคนที่เปิดรับประเภทนี้',routes[key],key)))){toast('ส่งแจ้งเตือนจำลองแล้ว');go('notifications');}return;}
  if(a==='guard-dismiss'){guardBannerDismissed=true;$('#guard-notification')?.remove();return;}
+ if(a==='guard-resume'){if(!canReceiveApproval())return;const visitor=scoped(state.visitors).find(v=>v.id===b.dataset.visitorId);if(visitor?.demoCall?.status==='active'&&commit(()=>state.guardCalls[house().id]=visitor.demoCall))go('guard-call');return;}
  if(a==='guard-answer'){if(!canReceiveApproval())return toast('บัญชีนี้ไม่มีสิทธิ์รับสายหรืออนุมัติผู้มาติดต่อ');const visitor=scoped(state.visitors).find(v=>v.id===b.dataset.visitorId);if(visitor?.demoCall&&!commit(()=>state.guardCalls[house().id]=visitor.demoCall))return;const call=currentGuardCall();if(['ringing','ended'].includes(call.status)&&commit(()=>{call.status='active';call.startedAt=Date.now();}))go('guard-call');return;}
  if(a==='guard-end'){if(!canReceiveApproval())return toast('บัญชีนี้ไม่มีสิทธิ์รับสายหรืออนุมัติผู้มาติดต่อ');if(commit(()=>currentGuardCall().status='ended'))renderGuardCall();return;}
  if(a==='guard-replay'){if(!canReceiveApproval())return renderGuardAccessState();if(commit(()=>currentGuardCall().status='ringing')){guardBannerDismissed=false;renderGuardCall();}return;}
