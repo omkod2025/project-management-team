@@ -33,6 +33,7 @@ body{background:#e3e7ee}
 button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible{outline-color:var(--green)}
 .field input:not([type=checkbox]):not([type=radio]),.field select,.field textarea{border-color:var(--ui-border)}
 .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--ui-primary)}
+.required,.field .required{color:#c62828}
 input::placeholder,textarea::placeholder{color:#667286}
 .upload-zone{border-color:#bac5d6}
 .info:not(.warning){background:var(--ui-soft);color:var(--ui-primary)}
