@@ -7,6 +7,7 @@ const output = path.resolve(root, 'dist');
 const entries = [
   'index.html',
   'app.js',
+  'parcel.css',
   'visitor-overview.js',
   'visitor-overview.css',
   'announcement-detail.js',
