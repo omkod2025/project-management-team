@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --port 3010",
     "build": "next build",
-    "start": "next start",
+    "start": "next start --port 3010",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "db:build": "node --env-file=.env scripts/psql.mjs db/schema.sql",
@@ -21,6 +21,7 @@
     "test:acceptance": "node --env-file=.env --test tests/e2e/acceptance.test.ts",
     "test:docs": "node --env-file=.env --test tests/e2e/docs.test.ts",
     "test:docs-browser": "node --env-file=.env --test tests/e2e/doc-editor.browser.test.ts",
+    "test:defects": "node --env-file=.env --test tests/e2e/defects.test.ts tests/e2e/defects.browser.test.ts tests/e2e/list-loading.test.mjs tests/e2e/list-edit.browser.test.ts tests/e2e/list-lazy.browser.test.ts",
     "clickup:diff": "node scripts/clickup-diff.mjs",
     "db:load": "node --env-file=.env scripts/psql.mjs"
   },

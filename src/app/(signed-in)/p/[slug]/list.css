@@ -488,7 +488,17 @@
 
 /* ---- the run ---- */
 
-.scroller { flex: 1; min-height: 0; overflow: auto; background: var(--cu-canvas); }
+.scroller { position: relative; flex: 1; min-height: 0; overflow: auto; background: var(--cu-canvas); }
+.table-region { position: relative; display: flex; flex: 1; min-width: 0; min-height: 0; }
+.table-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.95);
+}
 
 table.run {
   border-collapse: separate;
@@ -568,6 +578,12 @@ table.run {
    instruction was to follow the reference. */
 .run tbody tr:hover td { background: var(--cu-hover); }
 .run tbody tr[aria-selected='true'] td { background: #f2f7fd; }
+.run tbody tr.lazy-row-placeholder td {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
 
 /* ---- the module group header ----
 
@@ -802,7 +818,11 @@ tr[aria-selected='true'] .hole { background: #4169e1; box-shadow: none; }
 
 /* ---- editing ---- */
 
-.run tbody td.editable { cursor: pointer; }
+.run tbody td.editable { cursor: default; }
+.run tbody td.editable:not(.nm):not(.editing) { padding-right: 28px; }
+.cell-edit { position: absolute; right: 3px; top: 50%; transform: translateY(-50%); opacity: 0; }
+td:hover > .cell-edit, td:focus-within > .cell-edit, tr[aria-selected='true'] .cell-edit { opacity: 1; }
+@media (hover: none) { .cell-edit { opacity: 1; } }
 
 td.editing { background: #fff; box-shadow: inset 0 0 0 2px #4169e1; border-radius: var(--cu-r); }
 td.saving::after {
@@ -1242,4 +1262,28 @@ tr[aria-selected='true'] .rowacts,
 @media (max-width: 600px) {
   .long-text-popup-body { padding: 18px 16px 16px; }
   .long-text-actions button { min-height: 40px; }
+}
+.list-kind-tabs {
+  display: flex;
+  gap: 24px;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--cu-line);
+  flex-shrink: 0;
+}
+.list-kind-tabs a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0;
+  color: var(--cu-ink-soft);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+}
+.list-kind-tabs a[aria-current='page'] {
+  color: var(--cu-ink);
+  border-bottom-color: currentColor;
+}
+.list-kind-tabs a:focus-visible {
+  outline: 2px solid var(--cu-ink);
+  outline-offset: 3px;
 }

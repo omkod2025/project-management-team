@@ -1,4 +1,6 @@
 'use client';
+import { useWorkKind } from './work-kind-context';
+import { workApi } from '@/lib/work-kind';
 
 import { MAX_UPLOAD_BYTES } from '@/lib/upload-limits';
 import { useEffect, useRef, useState } from 'react';
@@ -10,7 +12,7 @@ const urls = (value: unknown): string[] => Array.isArray(value) ? value.filter((
 function ImageLink({ url, index }: { url: string; index: number }) {
   const [failed, setFailed] = useState(false);
   return <a href={url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} title={`Open image ${index + 1}`}>
-    {failed ? <span>Download image {index + 1}</span> : <img src={url} alt={`Image ${index + 1}`} onError={() => setFailed(true)} />}
+    {failed ? <span>Download image {index + 1}</span> : <img src={url} loading="lazy" decoding="async" width={36} height={30} alt={`Image ${index + 1}`} onError={() => setFailed(true)} />}
   </a>;
 }
 
@@ -22,6 +24,7 @@ export function ImageField({ nodeId, fieldId, label, value, editing, canEdit, on
   nodeId: string; fieldId: string; label: string; value: unknown; editing: boolean; canEdit: boolean;
   onCommit: (value: string[]) => void; onCancel: () => void;
 }) {
+  const kind = useWorkKind();
   const [draft, setDraft] = useState(() => urls(value));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -40,7 +43,7 @@ export function ImageField({ nodeId, fieldId, label, value, editing, canEdit, on
     try {
       for (const file of files) {
         const form = new FormData(); form.set('file', file); form.set('fieldId', fieldId);
-        const response = await fetch(`/api/nodes/${nodeId}/images`, { method: 'POST', body: form });
+        const response = await fetch(workApi(`/api/nodes/${nodeId}/images`, kind), { method: 'POST', body: form });
         const result = await response.json();
         if (!response.ok) throw new Error(result.message || 'Upload failed. Try again.');
         setDraft((current) => [...current, result.url]);

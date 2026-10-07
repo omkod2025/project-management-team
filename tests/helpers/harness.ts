@@ -13,7 +13,7 @@ import { hashPassword } from '../../src/lib/password.ts';
 
 pg.types.setTypeParser(pg.types.builtins.DATE, (v: string) => v);
 
-export const BASE_URL = process.env.E2E_BASE_URL ?? 'http://localhost:3000';
+export const BASE_URL = process.env.E2E_BASE_URL ?? 'http://localhost:3010';
 
 export type Fixture = {
   client: pg.Client;

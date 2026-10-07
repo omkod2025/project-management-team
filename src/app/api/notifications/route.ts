@@ -1,4 +1,5 @@
 import { handle } from '@/lib/api';
+import { notificationKind } from '@/lib/work-kind';
 import { countUnread, loadNotifications, markAllRead } from '@/lib/notifications';
 import type { NotificationRow } from '@/lib/notifications';
 
@@ -20,20 +21,22 @@ import type { NotificationRow } from '@/lib/notifications';
  */
 export async function GET(req: Request) {
   const wantsCount = new URL(req.url).searchParams.get('count') !== null;
+  const kind = notificationKind(new URL(req.url).searchParams.get('kind'));
 
   return handle('GET /api/notifications', async (userId): Promise<
     { unread: number } | { unread: number; items: NotificationRow[] }
   > => {
-    const unread = await countUnread(userId);
+    const unread = await countUnread(userId, kind);
     if (wantsCount) return { unread };
-    return { unread, items: await loadNotifications(userId) };
+    return { unread, items: await loadNotifications(userId, 50, kind) };
   });
 }
 
 /** Clear the badge without following anything through. */
-export async function POST() {
+export async function POST(req: Request) {
+  const kind = notificationKind(new URL(req.url).searchParams.get('kind'));
   return handle('POST /api/notifications', async (userId) => {
-    await markAllRead(userId);
+    await markAllRead(userId, kind);
     return { unread: 0 };
   });
 }

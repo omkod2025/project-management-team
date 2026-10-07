@@ -1,4 +1,6 @@
 'use client';
+import { useWorkKind } from './work-kind-context';
+import { workApi } from '@/lib/work-kind';
 
 import { MAX_FILE_FIELD_BYTES } from '@/lib/upload-limits';
 import { useEffect, useRef, useState } from 'react';
@@ -33,6 +35,7 @@ export function FileField({ nodeId, fieldId, label, value, editing, canEdit, onC
   nodeId: string; fieldId: string; label: string; value: unknown; editing: boolean; canEdit: boolean;
   onCommit: (value: FileValue[]) => void; onCancel: () => void;
 }) {
+  const kind = useWorkKind();
   const [draft, setDraft] = useState(() => files(value));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -49,7 +52,7 @@ export function FileField({ nodeId, fieldId, label, value, editing, canEdit, onC
     try {
       for (const file of chosen) {
         const form = new FormData(); form.set('file', file); form.set('fieldId', fieldId);
-        const response = await fetch(`/api/nodes/${nodeId}/files`, { method: 'POST', body: form });
+        const response = await fetch(workApi(`/api/nodes/${nodeId}/files`, kind), { method: 'POST', body: form });
         const result = await response.json();
         if (!response.ok) throw new Error(result.message || 'Upload failed. Try again.');
         setDraft((current) => [...current, { url: result.url, name: result.filename, bytes: result.bytes }]);

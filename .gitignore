@@ -20,4 +20,6 @@ dist/
 !/db/migrations/015_doc_asset_deletions.sql
 /data/
 /data/*
-/db
+!/db/
+/db/migrations/*
+!/db/migrations/020_defects.sql

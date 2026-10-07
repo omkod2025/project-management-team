@@ -63,7 +63,7 @@ It is a word, not a house glyph — every icon here is drawn in the same 1px han
 
 | Column | Width | Ink | Editable |
 |---|---|---|---|
-| Name | 320px sticky | graphite | yes — `F2`, or Rename from the row menu |
+| Name | 320px sticky | graphite | yes — name pencil only |
 | Est start | 96px | graphite | yes, date picker |
 | Est end | 96px | graphite | yes, date picker |
 | Act start | 96px | blue-black if `auto`, graphite if `manual` | yes |
@@ -112,7 +112,7 @@ A stored arrangement can never lose a column. A key for a column that no longer 
 
 Every editable cell follows the same interaction contract:
 
-- **Enter edit:** single click on a selected row's cell, or `Enter` on a focused cell, or start typing.
+- **Enter edit (Task and Defect):** activate the cell's pencil button. Clicking or double-clicking a row or cell only selects it; typing, `Enter`, and `F2` do not start editing. Pencil buttons support native keyboard activation. Long-text previews open read-only; use the pencil to edit.
 - **Commit:** `Enter`, `Tab`, or clicking outside. Writes immediately; no save button.
 - **Cancel:** `Escape` restores the previous value.
 - **Editing look:** `cell-editing` ground, 1px graphite box. The row does not lift or shadow — a clear leaf is laid over the one cell (DESIGN.md § Elevation).
@@ -126,7 +126,7 @@ Every editable cell follows the same interaction contract:
 | `date` | Hinged calendar leaf. Non-working days rendered on `page-edge`. Typing accepts `d/m`, `d/m/yy`, and `31 Dec` |
 | `select` | Hinged leaf of ruled option rows, each with a 6px hue square. Type-ahead filters. `Backspace` clears |
 | `multi_select` | Same leaf, checkboxes, stays open until `Escape` |
-| `checkbox` | `Space` or click toggles in place. No editor |
+| `checkbox` | Activate the pencil, then toggle in the editor |
 | `people` | Hinged leaf listing project members, type-ahead by name |
 
 **Empty is an en dash** in graphite-soft, matching the field-book convention that a blank booking is struck rather than left void.
@@ -143,11 +143,11 @@ This is the feature that decides whether the product beats the tool it replaces.
 |---|---|
 | `↑` `↓` | Move the focused cell between rows |
 | `←` `→` | Move between columns |
-| `Enter` | Enter edit; if editing, commit and move down |
+| `Enter` | Does not start editing from a cell; activates a focused pencil button or commits inside an editor |
 | `Tab` / `Shift+Tab` | Commit and move right / left |
 | `Escape` | Cancel edit; if not editing, clear selection |
 | `Space` | Toggle checkbox; on a name cell, expand/collapse |
-| `F2` | Rename the focused row |
+| `F2` | Does not start editing; use the name pencil |
 | `Delete` | Archive the row and its subtree (Admin). A row with children asks once first |
 | `E` | Open the detail panel for the focused row |
 | `N` | New sibling below the focused row |
@@ -163,7 +163,7 @@ Focus is a 2px square graphite outline offset 1px. It is always visible — no f
 
 **The keys are printed at the foot of the sheet**, on the page's bottom rule, as a colophon line. They sat in the toolbar until 2026-09-07 — permanent teaching content occupying the position the page's primary controls should hold, and at narrow widths it wrapped to a second line and pushed the run down. At the foot it is always there for a hand that goes looking and never in the way of the work; below 900px it is dropped entirely, since there is no keyboard to teach.
 
-The triage path, measured against the goal: `↓ ↓ Enter r Enter` changes a status. Five keystrokes, no pointer, no modal, no reload.
+Status changes start from the status cell's pencil. Saving updates the row without a reload.
 
 ## 4b. Moving a row
 
@@ -234,11 +234,11 @@ Sort by any number of columns at once. Default: none — the filed order (`led_s
 
 ## 6b. Row actions
 
-Two controls sit at the right of the name cell, on the same line as the task: a **pencil** to rename and a **bin** to archive. They appear on hover or when the row is selected, and are hidden otherwise — two controls repeated down 174 rows is clutter, and `F2` and `Delete` reach the same actions without them.
+Two controls sit at the right of the name cell, on the same line as the task: a **pencil** to rename and a **bin** to archive. They appear on hover or when the row is selected. Editable data cells also carry a pencil, visible on hover, keyboard focus, row selection, or touch devices. `Delete` remains available for archiving.
 
 | Action | Icon | Who | Notes |
 |---|---|---|---|
-| Rename | pencil | Member | Also `F2`. Edits in place in the name cell |
+| Rename | pencil | Member | Edits in place in the name cell; pencil activation required |
 | Archive | bin | **Admin** | Also `Delete`. Takes the whole subtree (D-4) |
 
 Adding a child is not an icon: `Shift+N` and the `+ Add task` row at the foot of each module already cover it, and a third control on every row would cost more than it returns.

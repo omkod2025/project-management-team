@@ -5,6 +5,7 @@ import {
 } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import './bell.css';
+import { workKindForPath, type WorkKind } from '@/lib/work-kind';
 
 /**
  * The notification bell (spec 11 §4, §6).
@@ -57,6 +58,13 @@ const Notifications = createContext<Bag | null>(null);
 const POLL_MS = 60_000;
 
 export function NotificationsProvider({ children }: { children: React.ReactNode }) {
+  const kind = workKindForPath(usePathname());
+  // Remount on a scope change so a previous page's inbox/count never leaks
+  // into the new tab while its own request is still in flight.
+  return <ScopedNotificationsProvider key={kind ?? 'all'} kind={kind}>{children}</ScopedNotificationsProvider>;
+}
+
+function ScopedNotificationsProvider({ children, kind }: { children: React.ReactNode; kind?: WorkKind }) {
   const router = useRouter();
   const pathname = usePathname();
   const search = useSearchParams();
@@ -69,10 +77,18 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
   // What the last poll saw, so a rise can be told from a steady state. A ref
   // rather than state: comparing against it must not itself schedule a render.
   const seen = useRef<number | null>(null);
+  const lifetime = useRef<AbortController | null>(null);
+  const endpoint = useCallback((path = '/api/notifications') => kind ? `${path}${path.includes('?') ? '&' : '?'}kind=${kind}` : path, [kind]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    lifetime.current = controller;
+    return () => controller.abort();
+  }, []);
 
   const poll = useCallback(async () => {
     try {
-      const res = await fetch('/api/notifications?count=1', { cache: 'no-store' });
+      const res = await fetch(endpoint('/api/notifications?count=1'), { cache: 'no-store', signal: lifetime.current?.signal });
       if (!res.ok) return;
       const { unread: n } = (await res.json()) as { unread: number };
       setUnread(n);
@@ -85,7 +101,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
       // A failed poll is not worth telling anybody about: the next one is a
       // minute away and the count on screen is still the last true answer.
     }
-  }, []);
+  }, [endpoint]);
 
   useEffect(() => {
     void poll();
@@ -110,16 +126,18 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
     setBusy(true);
     setSlip(0);
     try {
-      const res = await fetch('/api/notifications', { cache: 'no-store' });
+      const res = await fetch(endpoint(), { cache: 'no-store', signal: lifetime.current?.signal });
       if (!res.ok) return;
       const data = (await res.json()) as { unread: number; items: Item[] };
       setItems(data.items);
       setUnread(data.unread);
       seen.current = data.unread;
+    } catch {
+      // Navigation cancels the previous tab's request. The next open retries failures.
     } finally {
       setBusy(false);
     }
-  }, []);
+  }, [endpoint]);
 
   /**
    * Follow one through.
@@ -132,7 +150,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
   const follow = useCallback(async (item: Item) => {
     if (!item.read) {
       try {
-        const res = await fetch(`/api/notifications/${item.id}`, { method: 'POST' });
+        const res = await fetch(endpoint(`/api/notifications/${item.id}`), { method: 'POST', signal: lifetime.current?.signal });
         if (res.ok) {
           const { unread: n } = (await res.json()) as { unread: number };
           setUnread(n);
@@ -144,14 +162,19 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
     }
     setItems((list) => list?.map((i) => (i.id === item.id ? { ...i, read: true } : i)) ?? null);
     router.push(item.href);
-  }, [router]);
+  }, [router, endpoint]);
 
   const clearAll = useCallback(async () => {
-    await fetch('/api/notifications', { method: 'POST' });
-    setUnread(0);
-    seen.current = 0;
-    setItems((list) => list?.map((i) => ({ ...i, read: true })) ?? null);
-  }, []);
+    try {
+      const res = await fetch(endpoint(), { method: 'POST', signal: lifetime.current?.signal });
+      if (!res.ok) return;
+      setUnread(0);
+      seen.current = 0;
+      setItems((list) => list?.map((i) => ({ ...i, read: true })) ?? null);
+    } catch {
+      // Keep the current unread state on failure or when navigation aborts.
+    }
+  }, [endpoint]);
 
   const bag: Bag = { unread, items, busy, load, follow, clearAll };
 

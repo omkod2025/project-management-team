@@ -1,7 +1,11 @@
+import { workStorage } from '@/lib/work-storage';
+import { ensureDefects } from '@/lib/defects';
+import type { WorkKind } from '@/lib/work-kind';
 import 'server-only';
+import { cache } from 'react';
 import { and, asc, eq, isNull } from 'drizzle-orm';
 import { db, rawQuery } from '@/db/client';
-import { fieldDefinitions, fieldOptions, holidays, projects, users } from '@/db/schema';
+import { holidays, projects, users } from '@/db/schema';
 import type { LedgerRow } from '@/db/schema';
 import { requireProjectRole, type Role } from '@/lib/permissions';
 import { domainError } from '@/lib/errors';
@@ -37,7 +41,7 @@ export type Ledger = {
   holidays: string[];
 };
 
-export async function loadLedger(userId: string, slug: string): Promise<Ledger> {
+export const loadProjectAccess = cache(async (userId: string, slug: string) => {
   const [project] = await db
     .select({
       id: projects.id,
@@ -55,9 +59,23 @@ export async function loadLedger(userId: string, slug: string): Promise<Ledger> 
   if (!project) throw domainError('E_NOT_FOUND', 'No such project.');
 
   const role = await requireProjectRole(userId, project.id, 'read');
+  return { project, role };
+});
+
+export async function loadLedger(userId: string, slug: string, kind: WorkKind = 'task'): Promise<Ledger> {
+  const access = await loadProjectAccess(userId, slug);
+  const project = { ...access.project };
+  const role = access.role;
+
+  const { fieldDefinitions, fieldOptions, ledgerFunction } = workStorage(kind);
+  if (kind === 'defect') {
+    const config = await ensureDefects(project.id);
+    project.statusFieldId = config.statusFieldId;
+    project.columnOrder = config.columnOrder;
+  }
 
   const [rows, defs, opts, people, hols] = await Promise.all([
-    rawQuery<LedgerRow>('SELECT * FROM pmf_project_ledger($1)', [project.id]),
+    rawQuery<LedgerRow>(`SELECT * FROM ${ledgerFunction}($1)`, [project.id]),
     db
       .select()
       .from(fieldDefinitions)
@@ -74,6 +92,8 @@ export async function loadLedger(userId: string, slug: string): Promise<Ledger> 
         position: fieldOptions.position,
       })
       .from(fieldOptions)
+      .innerJoin(fieldDefinitions, eq(fieldDefinitions.id, fieldOptions.fieldId))
+      .where(eq(fieldDefinitions.projectId, project.id))
       .orderBy(asc(fieldOptions.position)),
     db.select({ id: users.id, name: users.fullName }).from(users).where(eq(users.isActive, true)),
     db.select({ date: holidays.date }).from(holidays),

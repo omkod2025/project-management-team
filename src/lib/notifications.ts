@@ -1,8 +1,10 @@
+import { workStorage } from '@/lib/work-storage';
+import type { WorkKind } from '@/lib/work-kind';
 import 'server-only';
 import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { db } from '@/db/client';
 import {
-  fieldDefinitions, nodes, notifications, projectMembers, projects, users,
+  projectMembers, projects, users,
 } from '@/db/schema';
 import { assignmentsAdded, describeAssignment, type PeopleField } from '@/lib/notification-rules';
 import type { CustomValues } from '@/db/schema';
@@ -58,6 +60,7 @@ type Tx = Pick<typeof db, 'select' | 'insert'>;
 export async function recordAssignments(
   tx: Tx,
   input: {
+    kind?: WorkKind;
     nodeId: string;
     projectId: string;
     actorId: string | null;
@@ -65,6 +68,7 @@ export async function recordAssignments(
     after: CustomValues;
   },
 ): Promise<void> {
+  const { fieldDefinitions, notifications } = workStorage(input.kind ?? 'task');
   const defs = await tx
     .select({ id: fieldDefinitions.id, name: fieldDefinitions.name })
     .from(fieldDefinitions)
@@ -120,7 +124,8 @@ export async function recordAssignments(
  * sites, so a new reader cannot forget one of them and quietly publish a
  * project's task names to somebody who was removed from it last month.
  */
-function reachable(userId: string) {
+function reachable(userId: string, kind: WorkKind) {
+  const { nodes, notifications } = workStorage(kind);
   return and(
     eq(notifications.userId, userId),
     // Still a member — the stored project id is not authority for this.
@@ -132,7 +137,9 @@ function reachable(userId: string) {
   );
 }
 
-const READ_JOIN = (userId: string) => db
+const READ_JOIN = (userId: string, kind: WorkKind) => {
+  const { nodes, notifications } = workStorage(kind);
+  return db
   .select({
     id: notifications.id,
     fieldName: notifications.fieldName,
@@ -152,7 +159,8 @@ const READ_JOIN = (userId: string) => db
     eq(projectMembers.userId, userId),
   ))
   .leftJoin(users, eq(users.id, notifications.actorId))
-  .where(reachable(userId));
+  .where(reachable(userId, kind));
+};
 
 /**
  * The bell's contents, newest first.
@@ -162,8 +170,13 @@ const READ_JOIN = (userId: string) => db
  * fifty is not looking for a notification any more — they are looking for a
  * task, and the List is the tool for that.
  */
-export async function loadNotifications(userId: string, limit = 50): Promise<NotificationRow[]> {
-  const rows = await READ_JOIN(userId).orderBy(desc(notifications.createdAt)).limit(limit);
+export async function loadNotifications(userId: string, limit = 50, scope?: WorkKind): Promise<NotificationRow[]> {
+  const groups = await Promise.all((scope ? [scope] : ['task', 'defect'] as const).map(async kind => {
+    const { notifications } = workStorage(kind);
+    const rows = await READ_JOIN(userId, kind).orderBy(desc(notifications.createdAt)).limit(limit);
+    return rows.map(row => ({ ...row, kind }));
+  }));
+  const rows = groups.flat().sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).slice(0, limit);
 
   return rows.map((r) => ({
     id: r.id,
@@ -173,14 +186,16 @@ export async function loadNotifications(userId: string, limit = 50): Promise<Not
     nodeId: r.nodeId,
     nodeName: r.nodeName,
     projectName: r.projectName,
-    href: `/p/${r.slug}?node=${r.nodeId}`,
+    href: `/p/${r.slug}${r.kind === 'defect' ? '/defects' : ''}?node=${r.nodeId}`,
     createdAt: r.createdAt.toISOString(),
     read: r.readAt !== null,
   }));
 }
 
 /** What the badge shows. The same filtering, counted rather than listed. */
-export async function countUnread(userId: string): Promise<number> {
+export async function countUnread(userId: string, scope?: WorkKind): Promise<number> {
+  const counts = await Promise.all((scope ? [scope] : ['task', 'defect'] as const).map(async kind => {
+  const { nodes, notifications } = workStorage(kind);
   const [row] = await db
     .select({ n: sql<number>`count(*)::int` })
     .from(notifications)
@@ -190,9 +205,11 @@ export async function countUnread(userId: string): Promise<number> {
       eq(projectMembers.projectId, notifications.projectId),
       eq(projectMembers.userId, userId),
     ))
-    .where(and(reachable(userId), isNull(notifications.readAt)));
+    .where(and(reachable(userId, kind), isNull(notifications.readAt)));
 
   return row?.n ?? 0;
+  }));
+  return counts.reduce((sum, n) => sum + n, 0);
 }
 
 /**
@@ -203,8 +220,10 @@ export async function countUnread(userId: string): Promise<number> {
  * gets the same answer as an id that does not exist — so the endpoint cannot
  * be used to find out whether an id is real.
  */
-export async function markRead(userId: string, id: string): Promise<void> {
-  await db
+export async function markRead(userId: string, id: string, scope?: WorkKind): Promise<void> {
+  await Promise.all((scope ? [scope] : ['task', 'defect'] as const).map(async kind => {
+    const { notifications } = workStorage(kind);
+    await db
     .update(notifications)
     .set({ readAt: new Date() })
     .where(and(
@@ -212,12 +231,16 @@ export async function markRead(userId: string, id: string): Promise<void> {
       eq(notifications.userId, userId),
       isNull(notifications.readAt),
     ));
+  }));
 }
 
 /** Clear the badge without following anything. */
-export async function markAllRead(userId: string): Promise<void> {
-  await db
+export async function markAllRead(userId: string, scope?: WorkKind): Promise<void> {
+  await Promise.all((scope ? [scope] : ['task', 'defect'] as const).map(async kind => {
+    const { notifications } = workStorage(kind);
+    await db
     .update(notifications)
     .set({ readAt: new Date() })
     .where(and(eq(notifications.userId, userId), isNull(notifications.readAt)));
+  }));
 }

@@ -1,3 +1,6 @@
+import { workStorage } from '@/lib/work-storage';
+import { ensureDefects } from '@/lib/defects';
+import type { WorkKind } from '@/lib/work-kind';
 import 'server-only';
 import { randomBytes } from 'node:crypto';
 import { and, asc, eq, isNull, sql } from 'drizzle-orm';
@@ -45,7 +48,9 @@ export type Settings = {
   holidays: { date: string; name: string }[];
 };
 
-export async function loadSettings(projectId: string): Promise<Settings> {
+export async function loadSettings(projectId: string, kind: WorkKind = 'task'): Promise<Settings> {
+  if (kind === 'defect') await ensureDefects(projectId);
+  const { fieldDefinitions, fieldOptions, settings } = workStorage(kind);
   const [project] = await db
     .select({ id: projects.id, name: projects.name, slug: projects.slug, statusFieldId: projects.statusFieldId })
     .from(projects)
@@ -70,7 +75,9 @@ export async function loadSettings(projectId: string): Promise<Settings> {
   ]);
 
   return {
-    project,
+    project: { ...project, statusFieldId: kind === 'defect'
+      ? (await db.select().from(settings).where(eq(settings.id, projectId)))[0]?.statusFieldId ?? null
+      : project.statusFieldId },
     fields: defs.map((d) => ({
       id: d.id,
       name: d.name,
@@ -199,7 +206,8 @@ export async function createProject(
  * never heard of, so a stale key is harmless and a strict check here would buy
  * nothing but failures.
  */
-export async function setColumnOrder(projectId: string, input: unknown): Promise<{ columnOrder: string[] }> {
+export async function setColumnOrder(projectId: string, input: unknown, kind: WorkKind = 'task'): Promise<{ columnOrder: string[] }> {
+  const { settings: projects } = workStorage(kind);
   if (!Array.isArray(input) || input.some((k) => typeof k !== 'string' || !k || k.length > 100)) {
     throw domainError('E_UNKNOWN_FIELD', 'A column order is a list of column keys.');
   }
@@ -244,6 +252,8 @@ export async function renameProject(projectId: string, nameInput: unknown): Prom
     [projectId, name],
   );
 
+  await rawQuery('UPDATE pmt_defect_nodes SET node_name = $2, node_updated_at = now() WHERE node_project_id = $1 AND node_depth = 1', [projectId, name]);
+
   return { name: row.name };
 }
 
@@ -251,8 +261,8 @@ export async function renameProject(projectId: string, nameInput: unknown): Prom
 
 export async function createField(
   projectId: string,
-  input: { name?: unknown; kind?: unknown; currency?: unknown },
-): Promise<string> {
+  input: { name?: unknown; kind?: unknown; currency?: unknown }, workKind: WorkKind = 'task'): Promise<string> {
+  const { fieldDefinitions, fieldTable } = workStorage(workKind);
   const name = assertFieldName(input.name);
   const kind = assertFieldKind(input.kind);
 
@@ -264,7 +274,7 @@ export async function createField(
 
   const [{ next }] = await rawQuery<{ next: number }>(
     `SELECT COALESCE(max(field_position), -1) + 1 AS next
-       FROM pmt_field_definitions WHERE field_project_id = $1`,
+       FROM ${fieldTable} WHERE field_project_id = $1`,
     [projectId],
   ) as [{ next: number }];
 
@@ -278,8 +288,8 @@ export async function createField(
 
 export async function updateField(
   fieldId: string,
-  patch: { name?: unknown; kind?: unknown; position?: unknown; archived?: unknown },
-): Promise<void> {
+  patch: { name?: unknown; kind?: unknown; position?: unknown; archived?: unknown }, kind: WorkKind = 'task'): Promise<void> {
+  const { fieldDefinitions, settings: projects } = workStorage(kind);
   const [field] = await db.select().from(fieldDefinitions).where(eq(fieldDefinitions.id, fieldId)).limit(1);
   if (!field) throw domainError('E_UNKNOWN_FIELD', 'No such column.');
 
@@ -312,7 +322,8 @@ export async function updateField(
   await db.update(fieldDefinitions).set(set).where(eq(fieldDefinitions.id, fieldId));
 }
 
-export async function setStatusField(projectId: string, fieldId: string | null): Promise<void> {
+export async function setStatusField(projectId: string, fieldId: string | null, kind: WorkKind = 'task'): Promise<void> {
+  const { fieldDefinitions, fieldOptions, settings: projects } = workStorage(kind);
   if (fieldId === null) {
     assertStatusFieldKind(null);
     await db.update(projects).set({ statusFieldId: null, updatedAt: new Date() })
@@ -342,8 +353,8 @@ export async function setStatusField(projectId: string, fieldId: string | null):
 
 export async function createOption(
   fieldId: string,
-  input: { label?: unknown; stage?: unknown; colorIndex?: unknown },
-): Promise<string> {
+  input: { label?: unknown; stage?: unknown; colorIndex?: unknown }, kind: WorkKind = 'task'): Promise<string> {
+  const { fieldDefinitions, fieldOptions, optionTable } = workStorage(kind);
   const [field] = await db.select().from(fieldDefinitions).where(eq(fieldDefinitions.id, fieldId)).limit(1);
   if (!field) throw domainError('E_UNKNOWN_FIELD', 'No such column.');
   if (field.kind !== 'select' && field.kind !== 'multi_select') {
@@ -352,7 +363,7 @@ export async function createOption(
 
   const [{ next }] = await rawQuery<{ next: number }>(
     `SELECT COALESCE(max(option_position), -1) + 1 AS next
-       FROM pmt_field_options WHERE option_field_id = $1`,
+       FROM ${optionTable} WHERE option_field_id = $1`,
     [fieldId],
   ) as [{ next: number }];
 
@@ -369,8 +380,8 @@ export async function createOption(
 
 export async function updateOption(
   optionId: string,
-  patch: { label?: unknown; stage?: unknown; colorIndex?: unknown; archived?: unknown },
-): Promise<void> {
+  patch: { label?: unknown; stage?: unknown; colorIndex?: unknown; archived?: unknown }, kind: WorkKind = 'task'): Promise<void> {
+  const { fieldDefinitions, fieldOptions, settings: projects } = workStorage(kind);
   const [option] = await db.select().from(fieldOptions).where(eq(fieldOptions.id, optionId)).limit(1);
   if (!option) throw domainError('E_UNKNOWN_FIELD', 'No such option.');
 
@@ -716,6 +727,7 @@ export async function updateOwnName(userId: string, nameInput: unknown): Promise
     .where(eq(users.id, userId))
     .returning({ name: users.fullName });
   if (!row) throw domainError('E_NOT_FOUND', 'No such person.');
+
   return { name: row.name };
 }
 

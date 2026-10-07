@@ -1,4 +1,5 @@
 'use client';
+import dynamic from 'next/dynamic';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -7,9 +8,7 @@ import type { FieldDef, Person } from '@/lib/ledger';
 import { MAX_DEPTH } from '@/lib/constants';
 import { ImageField } from './image-field';
 import { FileField } from './file-field';
-import DetailPanel from './detail-panel';
-import ProjectTitle from './project-title';
-import ConfirmArchive from './confirm-archive';
+import ListHeader from './list-header';
 import {
   loadSet, saveSet, loadRecord, saveRecord, selectedFromUrl, writeSelectedToUrl, siblingHref,
 } from './view-state';
@@ -25,7 +24,19 @@ import {
   planDrop, zoneFor, subtreeHeightOf, type DropPlan, type DropZone,
 } from './list-move';
 import './list.css';
-import Bell from '../../bell';
+
+import { workApi, workStateKey, type WorkKind } from '@/lib/work-kind';
+import { WorkKindProvider } from './work-kind-context';
+import LoadingStatus from './loading-status';
+import ListTabLink from './list-tab-link';
+import LazyTableRow, { LazyRows } from './lazy-table-row';
+
+const DetailPanel = dynamic(() => import('./detail-panel'), {
+  loading: () => <aside className="facing"><LoadingStatus label="กำลังโหลดรายละเอียด…" /></aside>,
+});
+const ConfirmArchive = dynamic(() => import('./confirm-archive'), {
+  loading: () => <LoadingStatus label="กำลังโหลดหน้าต่างยืนยัน…" />,
+});
 
 /**
  * The List view (spec 03).
@@ -41,6 +52,7 @@ import Bell from '../../bell';
  */
 
 type Props = {
+  kind?: WorkKind;
   projectId: string;
   projectName: string;
   slug: string;
@@ -92,9 +104,11 @@ function fmtDate(iso: string | null): string | null {
 }
 
 export default function ListView({
-  projectId, projectName, slug, rows: initialRows, fields, people, statusFieldId,
+  kind = 'task', projectId, projectName, slug, rows: initialRows, fields, people, statusFieldId,
   columnOrder: savedColumnOrder, canEdit, isAdmin, signOut,
 }: Props) {
+  const stateKey = workStateKey(slug, kind);
+  const api = useCallback((url: string) => workApi(url, kind), [kind]);
   const [rows, setRows] = useState(initialRows);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<string | null>(null);
@@ -134,6 +148,8 @@ export default function ListView({
   const [pendingArchive, setPendingArchive] = useState<LedgerRow | null>(null);
   const [undo, setUndo] = useState<{ nodeId: string; name: string; count: number } | null>(null);
   const [ready, setReady] = useState(false);
+  const [loadingRequests, setLoadingRequests] = useState(0);
+  const [pendingTab, setPendingTab] = useState<string | null>(null);
   /* Read rather than written: the selection is still pushed into the URL with
      `history.replaceState`, which the router does not observe — so this only
      changes on a real navigation, which is exactly when arriving from the bell
@@ -141,6 +157,7 @@ export default function ListView({
   const search = useSearchParams();
   /** A row to bring into view as soon as it is drawn — see the effect below. */
   const [pendingScroll, setPendingScroll] = useState<string | null>(null);
+  const scrollerRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const sortRef = useRef<HTMLDivElement>(null);
   const columnsRef = useRef<HTMLDivElement>(null);
@@ -149,7 +166,7 @@ export default function ListView({
   /* ------------------------------------------------- restore view state */
 
   useEffect(() => {
-    const stored = loadSet(slug, 'expanded');
+    const stored = loadSet(stateKey, 'expanded');
     if (stored.size === 0) {
       // First visit: modules open, everything below closed (spec 03 §5).
       const s = new Set<string>();
@@ -161,12 +178,12 @@ export default function ListView({
     // The sort belongs to this reader on this machine, like the expansion —
     // not to the project. Somebody triaging by date must not reorder the page
     // for everyone else, and the filed order is what `led_sort_order` is for.
-    setSortTerms(loadRecord<SortTerm[]>(slug, 'sort', []));
-    setFilterTerms(loadRecord<FilterTerm[]>(slug, 'filter', []));
+    setSortTerms(loadRecord<SortTerm[]>(stateKey, 'sort', []));
+    setFilterTerms(loadRecord<FilterTerm[]>(stateKey, 'filter', []));
     const carried = selectedFromUrl();
     if (carried) setSelected(carried);
     setReady(true);
-  }, [slug, initialRows]);
+  }, [stateKey, initialRows]);
 
   /*
    * Arriving from the bell (spec 11 §7).
@@ -226,9 +243,9 @@ export default function ListView({
     setPendingScroll(target);
   }, [ready, rows, search]);
 
-  useEffect(() => { if (ready) saveSet(slug, 'expanded', expanded); }, [ready, slug, expanded]);
-  useEffect(() => { if (ready) saveRecord(slug, 'sort', sortTerms); }, [ready, slug, sortTerms]);
-  useEffect(() => { if (ready) saveRecord(slug, 'filter', filterTerms); }, [ready, slug, filterTerms]);
+  useEffect(() => { if (ready) saveSet(stateKey, 'expanded', expanded); }, [ready, stateKey, expanded]);
+  useEffect(() => { if (ready) saveRecord(stateKey, 'sort', sortTerms); }, [ready, stateKey, sortTerms]);
+  useEffect(() => { if (ready) saveRecord(stateKey, 'filter', filterTerms); }, [ready, stateKey, filterTerms]);
   /* The project's own value is the truth. If somebody else moves a column and
      this page is refreshed, the server's order wins over what is in hand. */
   useEffect(() => { setColumnOrder(savedColumnOrder); }, [savedColumnOrder]);
@@ -315,7 +332,7 @@ export default function ListView({
     setColumnOrder(next);
     setFailure(null);
     try {
-      const res = await fetch(`/api/projects/${projectId}`, {
+      const res = await fetch(api(`/api/projects/${projectId}`), {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ columnOrder: next }),
@@ -329,7 +346,7 @@ export default function ListView({
       setColumnOrder(before);
       setFailure({ cell: '', message: 'No connection. The column did not move.' });
     }
-  }, [columnOrder, projectId]);
+  }, [api, columnOrder, projectId]);
 
   const moveColumn = useCallback(
     (key: string, to: number | 'left' | 'right') =>
@@ -474,13 +491,20 @@ export default function ListView({
     return m;
   }, [byParent, filedModules]);
 
-  const descendantCount = useCallback(
-    (id: string): number => {
+  const descendantCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    const count = (id: string): number => {
+      const cached = counts.get(id);
+      if (cached !== undefined) return cached;
       const kids = byParent.get(id) ?? [];
-      return kids.length + kids.reduce((n, k) => n + descendantCount(k.led_node_id), 0);
-    },
-    [byParent],
-  );
+      const total = kids.length + kids.reduce((n, k) => n + count(k.led_node_id), 0);
+      counts.set(id, total);
+      return total;
+    };
+    for (const id of byParent.keys()) if (id) count(id);
+    return counts;
+  }, [byParent]);
+  const descendantCount = useCallback((id: string) => descendantCounts.get(id) ?? 0, [descendantCounts]);
 
   /* ---------------------------------------------------------- filtering */
 
@@ -586,7 +610,7 @@ export default function ListView({
     setSaving((s) => new Set(s).add(cellKey));
     setFailure(null);
     try {
-      const res = await fetch(`/api/nodes/${node.led_node_id}`, {
+      const res = await fetch(api(`/api/nodes/${node.led_node_id}`), {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(body),
@@ -606,7 +630,7 @@ export default function ListView({
     } finally {
       setSaving((s) => { const n = new Set(s); n.delete(cellKey); return n; });
     }
-  }, []);
+  }, [api]);
 
   const rename = useCallback(async (node: LedgerRow, name: string) => {
     const trimmed = name.trim();
@@ -614,7 +638,7 @@ export default function ListView({
     const before = node;
     setFailure(null);
     try {
-      const res = await fetch(`/api/nodes/${node.led_node_id}`, {
+      const res = await fetch(api(`/api/nodes/${node.led_node_id}`), {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ name: trimmed }),
@@ -630,7 +654,7 @@ export default function ListView({
     } catch {
       setFailure({ cell: '', message: 'No connection. The name did not save.' });
     }
-  }, []);
+  }, [api]);
 
   /**
    * Archiving takes the whole subtree (D-4), so the row says how many go with
@@ -645,7 +669,7 @@ export default function ListView({
     setPendingArchive(null);
     setFailure(null);
     try {
-      const res = await fetch(`/api/nodes/${node.led_node_id}`, { method: 'DELETE' });
+      const res = await fetch(api(`/api/nodes/${node.led_node_id}`), { method: 'DELETE' });
       if (!res.ok) {
         const err = (await res.json()) as { message?: string };
         setFailure({ cell: '', message: err.message ?? 'The task was not archived.' });
@@ -663,27 +687,30 @@ export default function ListView({
     } catch {
       setFailure({ cell: '', message: 'No connection. The task was not archived.' });
     }
-  }, [byParent]);
+  }, [api, byParent]);
 
   const restore = useCallback(async () => {
     if (!undo) return;
     const target = undo;
     setUndo(null);
+    setLoadingRequests((count) => count + 1);
     try {
-      const res = await fetch(`/api/nodes/${target.nodeId}/restore`, { method: 'POST' });
+      const res = await fetch(api(`/api/nodes/${target.nodeId}/restore`), { method: 'POST' });
       if (!res.ok) { setFailure({ cell: '', message: 'The task was not restored.' }); return; }
-      const fresh = await fetch(`/api/projects/${projectId}/ledger`);
+      const fresh = await fetch(api(`/api/projects/${projectId}/ledger`));
       if (fresh.ok) setRows((await fresh.json()) as LedgerRow[]);
       setSelected(target.nodeId);
     } catch {
       setFailure({ cell: '', message: 'No connection. The task was not restored.' });
+    } finally {
+      setLoadingRequests((count) => count - 1);
     }
-  }, [undo, projectId]);
+  }, [api, undo, projectId]);
 
   const create = useCallback(async (parentId: string, afterId: string | null) => {
     setFailure(null);
     try {
-      const res = await fetch('/api/nodes', {
+      const res = await fetch(api('/api/nodes'), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ parentId, afterId, name: 'Untitled' }),
@@ -700,7 +727,7 @@ export default function ListView({
     } catch {
       setFailure({ cell: '', message: 'No connection. The task was not created.' });
     }
-  }, []);
+  }, [api]);
 
   /**
    * Indent and outdent (D-3, relaxed 2026-09-07).
@@ -722,8 +749,9 @@ export default function ListView({
     placement: { parentId?: string; afterId?: string | null },
   ) => {
     setFailure(null);
+    setLoadingRequests((count) => count + 1);
     try {
-      const res = await fetch(`/api/nodes/${node.led_node_id}`, {
+      const res = await fetch(api(`/api/nodes/${node.led_node_id}`), {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(placement),
@@ -736,12 +764,14 @@ export default function ListView({
       // A move re-depths the whole subtree and renumbers its neighbours, so
       // the single row the response carries is not enough. This is the only
       // write that refetches.
-      const fresh = await fetch(`/api/projects/${projectId}/ledger`);
+      const fresh = await fetch(api(`/api/projects/${projectId}/ledger`));
       if (fresh.ok) setRows((await fresh.json()) as LedgerRow[]);
     } catch {
       setFailure({ cell: '', message: 'No connection. The move did not save.' });
+    } finally {
+      setLoadingRequests((count) => count - 1);
     }
-  }, [projectId]);
+  }, [api, projectId]);
 
   /** Indent and outdent — `Alt ←→`, unchanged in what they mean (D-3). */
   const move = useCallback(async (node: LedgerRow, direction: 'in' | 'out') => {
@@ -854,6 +884,8 @@ export default function ListView({
     function onKey(e: KeyboardEvent) {
       const tag = (e.target as HTMLElement)?.tagName;
       const typing = tag === 'INPUT' || tag === 'TEXTAREA';
+      // Controls keep their native keyboard activation, including the pencil.
+      if (tag === 'BUTTON' || tag === 'SELECT' || tag === 'A') return;
 
       if (e.key === '/' && !typing) {
         e.preventDefault();
@@ -867,7 +899,7 @@ export default function ListView({
         chord.current = null;
         if (e.key.toLowerCase() === 't') {
           e.preventDefault();
-          window.location.href = siblingHref(`/p/${slug}/timeline`, selected);
+          window.location.href = siblingHref(`/p/${slug}/timeline`, kind === 'task' ? selected : null);
           return;
         }
       }
@@ -929,12 +961,7 @@ export default function ListView({
         }
 
         case 'Enter': {
-          const col = columns[focus.col];
-          if ((canEdit || col?.field?.kind === 'long_text') && col && col.kind !== 'computed' && col.kind !== 'closed'
-              && col.kind !== 'misclosure' && col.kind !== 'gutter') {
-            e.preventDefault();
-            setEditing(true);
-          }
+          // Editing starts only through an explicit pencil button.
           break;
         }
 
@@ -947,7 +974,7 @@ export default function ListView({
           break;
 
         case 'F2':
-          if (canEdit && node) { e.preventDefault(); setRenamingId(node.led_node_id); }
+          e.preventDefault();
           break;
 
         case 'Delete':
@@ -990,7 +1017,7 @@ export default function ListView({
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [focus, visible, nodeRows, columns, editing, canEdit, isAdmin, detail, selected, slug, root,
+  }, [kind, focus, visible, nodeRows, columns, editing, canEdit, isAdmin, detail, selected, slug, root,
       create, move, nudge, archive, descendantCount]);
 
   /* -------------------------------------------------------- detail data */
@@ -1011,7 +1038,7 @@ export default function ListView({
   /* --------------------------------------------------------------- view */
 
   return (
-    <div className="book">
+    <WorkKindProvider value={kind}><div className="book">
       <nav className="rail" aria-label="Modules">
         {/* The tabs stand in the run's order, so the rail reads down the page
             as the page does — but each keeps the hue its module owns, which is
@@ -1029,7 +1056,7 @@ export default function ListView({
             aria-current={selected === m.led_node_id}
             onClick={() => {
               setSelected(m.led_node_id);
-              document.getElementById(`row-${m.led_node_id}`)?.scrollIntoView({ block: 'center' });
+              setPendingScroll(m.led_node_id);
             }}
           >
             {m.led_name}
@@ -1038,39 +1065,12 @@ export default function ListView({
       </nav>
 
       <div className="sheet">
-        <header className="head">
-          {/* Up a level, to the shelf. Deliberately not in the view nav
-              beside List / Timeline / Report: those are views *of this
-              project* and this is the way out of it — filing a level change
-              among sibling views because the two sit near each other is the
-              grouping-by-adjacency this page has been unpicking. */}
-          <a className="shelf label" href="/">‹ Home</a>
-          <ProjectTitle projectId={projectId} name={projectName} canRename={isAdmin} />
-          {/* The bell stands immediately before the view nav, so notice and
-              navigation sit together in the one cluster this header already
-              uses for "where do I go from here" (spec 11 §6). */}
-          <Bell />
-          <div className="views label">
-            <span aria-current="page">List</span>
-            <span style={{ color: 'var(--color-rule)' }}>·</span>
-            <a href={siblingHref(`/p/${slug}/timeline`, selected)}>Timeline</a>
-            <span style={{ color: 'var(--color-rule)' }}>·</span>
-            <a href={`/p/${slug}/report`}>Report</a>
-            <a href={`/p/${slug}/docs`}>Docs</a>
-            {isAdmin && (
-              <>
-                <span style={{ color: 'var(--color-rule)' }}>·</span>
-                <a href={`/p/${slug}/settings`}>Settings</a>
-              </>
-            )}
-          </div>
-          {/* Sits after the view nav rather than beside the shelf link, so the
-              one control that ends the session is not adjacent to the one a
-              hand reaches for constantly. Same reasoning as the shelf link's:
-              it changes level, so it is not in the view nav. */}
-          {signOut}
-        </header>
+        <ListHeader {...{ projectId, projectName, slug, isAdmin, kind, selected, signOut }} />
 
+        <nav className="list-kind-tabs label" aria-label="List type">
+          <ListTabLink href={`/p/${slug}`} active={kind === 'task'} label="Task" onPending={setPendingTab} />
+          <ListTabLink href={`/p/${slug}/defects`} active={kind === 'defect'} label="Defect" onPending={setPendingTab} />
+        </nav>
         <div className="toolbar label">
           <input
             ref={searchRef}
@@ -1080,7 +1080,7 @@ export default function ListView({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Escape') { setQuery(''); e.currentTarget.blur(); } }}
-            aria-label="Search tasks"
+            aria-label={kind === 'defect' ? 'Search defects' : 'Search tasks'}
           />
           <span className="count-of">
             <strong className="figure">{nodeRows.length}</strong> of {rows.length - 1}
@@ -1269,6 +1269,7 @@ export default function ListView({
 
         {failure && <div className="errata">{failure.message}</div>}
 
+
         {undo && (
           <div className="undo">
             <span>
@@ -1281,7 +1282,9 @@ export default function ListView({
         )}
 
         <div className="pagebody">
-          <div className="scroller">
+          <div className="table-region">
+          <div className="scroller" ref={scrollerRef} aria-busy={!!pendingTab || loadingRequests > 0}>
+
             {rows.length <= 1 ? (
               <EmptyRun
                 columns={columns}
@@ -1301,7 +1304,7 @@ export default function ListView({
                   : undefined}
               />
             ) : (
-              <table className="run">
+              <LazyRows root={scrollerRef}><table className="run">
                 <colgroup>{columns.map((c) => <col key={c.key} style={{ width: c.width }} />)}</colgroup>
                 <thead>
                   <GroupBand columns={columns} />
@@ -1386,8 +1389,16 @@ export default function ListView({
                   </tr>
                 </thead>
                 <tbody>
-                  {visible.map((v, rowIdx) =>
-                    v.kind === 'grouphead' ? (
+                  {visible.map((v, rowIdx) => (
+                    <LazyTableRow
+                      key={v.kind + ':' + v.row.led_node_id}
+                      id={v.kind === 'node' ? 'row-' + v.row.led_node_id : undefined}
+                      columns={columns.length}
+                      estimatedHeight={v.kind === 'grouphead' ? 28 : v.row.led_depth === 2 && v.kind === 'node' ? 44 : 40}
+                      pinned={focus?.row === rowIdx || (v.kind === 'node' && (
+                        renamingId === v.row.led_node_id || pendingScroll === v.row.led_node_id || dragRow === v.row.led_node_id
+                      ))}
+                    >{() => v.kind === 'grouphead' ? (
                       <tr className="grouphead" key={`heads-${v.row.led_node_id}`} aria-hidden="true">
                         {columns.map((c) => (
                           /* No `scope` and the row is aria-hidden: the real
@@ -1428,7 +1439,7 @@ export default function ListView({
                       >
                         <td className="nm" onClick={() => void create(v.row.led_node_id, null)}>
                           <div className="nm-inner" style={{ paddingLeft: 20 }}>
-                            <span className="hole" />+ Add task
+                            <span className="hole" />+ Add {kind === 'defect' ? 'defect' : 'task'}
                           </div>
                         </td>
                         <td colSpan={columns.length - 1} />
@@ -1508,11 +1519,14 @@ export default function ListView({
                           );
                         })}
                       </tr>
-                    ),
-                  )}
+                    )}</LazyTableRow>
+                  ))}
                 </tbody>
-              </table>
+              </table></LazyRows>
             )}
+          </div>
+
+            {(pendingTab || loadingRequests > 0) && <div className="table-loading"><LoadingStatus label={pendingTab ? `กำลังโหลด ${pendingTab}…` : undefined} /></div>}
           </div>
 
           {pendingArchive && (
@@ -1543,7 +1557,7 @@ export default function ListView({
             always there when a hand goes looking, never in the way of the work. */}
         <div className="keys label" role="note">
           <kbd>↑↓</kbd> move
-          <kbd>Enter</kbd> edit
+          <span>Pencil to edit</span>
           <kbd>E</kbd> detail
           <kbd>N</kbd> new
           <kbd>Shift N</kbd> subtask
@@ -1552,7 +1566,7 @@ export default function ListView({
           <kbd>G T</kbd> timeline
         </div>
       </div>
-    </div>
+    </div></WorkKindProvider>
   );
 }
 
@@ -1648,14 +1662,8 @@ function Cell(p: CellProps) {
         p.failed ? 'failed' : '',
       ].filter(Boolean).join(' ')}
       onClick={() => {
+        if (p.editing || p.renaming) return;
         p.onFocus();
-        if ((!editable && c.field?.kind !== 'long_text') || p.editing || p.renaming) return;
-        if (c.kind === 'name') {
-          p.onCancel();
-          p.onStartRename();
-        } else {
-          p.onEdit();
-        }
       }}
     >
       {c.kind === 'name' && <NameCell {...p} />}
@@ -1668,6 +1676,21 @@ function Cell(p: CellProps) {
       {c.kind === 'closed' && <Closed row={r} />}
       {c.kind === 'misclosure' && <Misclosure row={r} />}
       {c.kind === 'field' && c.field && <FieldCell {...p} field={c.field} />}
+      {editable && c.kind !== 'name' && !p.editing && (
+        <button
+          type="button"
+          className="rowact cell-edit"
+          aria-label={`Edit ${c.group ? `${GROUP_NAMES[c.group]} ${c.label}` : c.label} for ${r.led_name}`}
+          title="Edit"
+          onClick={(e) => { e.stopPropagation(); p.onFocus(); p.onEdit(); }}
+        >
+          <svg viewBox="0 0 14 14" aria-hidden="true">
+            <path d="M2 12 L2.6 9.6 L9.8 2.4 L11.6 4.2 L4.4 11.4 Z" />
+            <path d="M8.6 3.6 L10.4 5.4" />
+            <path d="M2.6 9.6 L4.4 11.4" />
+          </svg>
+        </button>
+      )}
     </td>
   );
 }
@@ -1781,7 +1804,7 @@ function NameCell(p: CellProps) {
             <button
               className="rowact"
               aria-label={`Rename ${r.led_name}`}
-              title="Rename  ·  F2"
+              title="Edit name"
               onClick={(e) => { e.stopPropagation(); p.onStartRename(); }}
             >
               {/* a pencil: shaft, ferrule, point */}
@@ -1938,13 +1961,15 @@ function FieldCell(p: CellProps & { field: FieldDef }) {
 }
 
 function LongTextCell(p: CellProps & { field: FieldDef; value: string }) {
+  const [previewOpen, setPreviewOpen] = useState(false);
   return <>
     <button type="button" className="long-text-preview" aria-label={`Open ${p.field.name}`} aria-haspopup="dialog"
       onKeyDown={(e) => e.stopPropagation()}
-      onClick={(e) => { e.stopPropagation(); p.onFocus(); p.onEdit(); }}>
+      onClick={(e) => { e.stopPropagation(); p.onFocus(); setPreviewOpen(true); }}>
       {p.value || <Dash />}
     </button>
     {p.editing && <LongTextPopup {...p} />}
+    {previewOpen && !p.editing && <LongTextPopup {...p} canEdit={false} onCancel={() => setPreviewOpen(false)} />}
   </>;
 }
 

@@ -1,4 +1,5 @@
 import { handle } from '@/lib/api';
+import { notificationKind } from '@/lib/work-kind';
 import { countUnread, markRead } from '@/lib/notifications';
 
 /**
@@ -9,10 +10,11 @@ import { countUnread, markRead } from '@/lib/notifications';
  * answer the same. An endpoint that distinguished them would be a way to ask
  * whether a given id is real.
  */
-export async function POST(_req: Request, ctx: { params: Promise<{ id: string }> }) {
+export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
+  const kind = notificationKind(new URL(req.url).searchParams.get('kind'));
   const { id } = await ctx.params;
   return handle(`POST /api/notifications/${id}`, async (userId) => {
-    await markRead(userId, id);
-    return { unread: await countUnread(userId) };
+    await markRead(userId, id, kind);
+    return { unread: await countUnread(userId, kind) };
   });
 }

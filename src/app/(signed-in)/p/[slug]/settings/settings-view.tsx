@@ -1,4 +1,5 @@
 'use client';
+import { workApi, type WorkKind } from '@/lib/work-kind';
 
 import { useEffect, useState } from 'react';
 import type { Settings } from '@/lib/admin';
@@ -20,15 +21,15 @@ import Bell from '../../../bell';
  *     must keep an admin. Both are guarded on the server as well as here.
  */
 
-type Props = { settings: Settings; slug: string };
+type Props = { kind?: WorkKind; settings: Settings; slug: string };
 
-export default function SettingsView({ settings: initial, slug }: Props) {
+export default function SettingsView({ settings: initial, slug, kind = 'task' }: Props) {
   const [s, setS] = useState(initial);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const reload = async () => {
-    const res = await fetch(`/api/projects/${s.project.id}/fields`);
+    const res = await fetch(workApi(`/api/projects/${s.project.id}/fields`, kind));
     if (res.ok) setS((await res.json()) as Settings);
   };
 
@@ -37,7 +38,7 @@ export default function SettingsView({ settings: initial, slug }: Props) {
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(url, {
+      const res = await fetch(workApi(url, kind), {
         method,
         headers: body ? { 'content-type': 'application/json' } : {},
         body: body ? JSON.stringify(body) : undefined,
@@ -74,11 +75,11 @@ export default function SettingsView({ settings: initial, slug }: Props) {
               uses for "where do I go from here" (spec 11 §6). */}
           <Bell />
           <div className="views label">
-            <a href={`/p/${slug}`}>List</a>
+            <a href={`/p/${slug}${kind === 'defect' ? '/defects' : ''}`}>List</a>
             <span style={{ color: 'var(--color-rule)' }}>·</span>
             <a href={`/p/${slug}/timeline`}>Timeline</a>
             <span style={{ color: 'var(--color-rule)' }}>·</span>
-            <span aria-current="page">Settings</span>
+            <span aria-current="page">{kind === 'defect' ? 'Defect settings' : 'Settings'}</span>
             <a href={`/p/${slug}/docs`}>Docs</a>
           </div>
         </header>
@@ -86,10 +87,10 @@ export default function SettingsView({ settings: initial, slug }: Props) {
         {error && <div className="errata">{error}</div>}
 
         <div className="settings" aria-busy={busy}>
-          <Project s={s} send={send} />
+          {kind === 'task' && <Project s={s} send={send} />}
           <Columns s={s} send={send} />
-          <Members s={s} send={send} />
-          <Calendar s={s} send={send} />
+          {kind === 'task' && <Members s={s} send={send} />}
+          {kind === 'task' && <Calendar s={s} send={send} />}
         </div>
       </div>
     </div>

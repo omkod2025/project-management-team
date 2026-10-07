@@ -42,7 +42,7 @@ test('image columns browse, paste, persist, remove and enforce access', async ()
     const index = headers.findIndex((h) => h.includes('Screenshots'));
     assert.ok(index >= 0, JSON.stringify(headers));
     const cell = page.locator(`#row-${fx.nodes.module} > td`).nth(index);
-    await cell.click();
+    await cell.getByRole('button', { name: 'Edit Screenshots for Module' }).click();
     const editor = page.getByRole('group', { name: 'Screenshots images' });
     await editor.locator('input[type=file]').setInputFiles({ name: 'browse.png', mimeType: 'image/png', buffer: png });
     await expect(editor.locator('.image-draft img')).toHaveCount(1);
@@ -57,7 +57,7 @@ test('image columns browse, paste, persist, remove and enforce access', async ()
     await expect.poll(async () => (await fx.client.query('SELECT node_custom_values FROM pmt_nodes WHERE node_id = $1', [fx.nodes.module])).rows[0].node_custom_values[field.id]?.length).toBe(2);
     await page.reload();
     await expect(cell.locator('.image-links img')).toHaveCount(2);
-    await cell.click({ position: { x: 100, y: 12 } });
+    await cell.getByRole('button', { name: 'Edit Screenshots for Module' }).click();
     await editor.getByRole('button', { name: 'Remove image 1', exact: true }).click();
     await editor.getByRole('button', { name: 'Save', exact: true }).click();
     await expect.poll(async () => (await fx.client.query('SELECT node_custom_values FROM pmt_nodes WHERE node_id = $1', [fx.nodes.module])).rows[0].node_custom_values[field.id]?.length).toBe(1);

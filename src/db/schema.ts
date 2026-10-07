@@ -319,3 +319,84 @@ export type LedgerRow = {
   led_descendant_count: number;
   led_closed_count: number;
 };
+
+/* Independent Defect storage. */
+export const defectFieldDefinitions = pgTable('pmt_defect_field_definitions', {
+  id: uuid('field_id').primaryKey().defaultRandom(),
+  projectId: uuid('field_project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  name: text('field_name').notNull(),
+  /** Immutable after creation (D-31). */
+  kind: fieldKind('field_kind').notNull(),
+  position: integer('field_position').notNull().default(0),
+  settings: jsonb('field_settings').$type<FieldSettings>().notNull().default({}),
+  archivedAt: timestamp('field_archived_at', { withTimezone: true }),
+  createdAt: timestamp('field_created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('field_updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const defectFieldOptions = pgTable('pmt_defect_field_options', {
+  id: uuid('option_id').primaryKey().defaultRandom(),
+  fieldId: uuid('option_field_id').notNull().references(() => defectFieldDefinitions.id, { onDelete: 'cascade' }),
+  label: text('option_label').notNull(),
+  /** Index into the tab wheel in DESIGN.md, 1..6 — never a raw hex value. */
+  colorIndex: smallint('option_color_index').notNull().default(1),
+  /** NULL means this option triggers no automatic date capture (D-34b). */
+  stage: stageKind('option_stage'),
+  position: integer('option_position').notNull().default(0),
+  /** Options are archived, never deleted (D-33). */
+  archivedAt: timestamp('option_archived_at', { withTimezone: true }),
+  createdAt: timestamp('option_created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index('pmt_defect_field_options_field_idx').on(t.fieldId, t.position)]);
+
+export const defectNodes = pgTable('pmt_defect_nodes', {
+  id: uuid('node_id').primaryKey().defaultRandom(),
+  projectId: uuid('node_project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  parentId: uuid('node_parent_id'),
+  /** 1 project, 2 module, 3 task, 4..6 subtask. Ceiling is MAX_DEPTH (D-2). */
+  depth: smallint('node_depth').notNull(),
+  name: text('node_name').notNull(),
+  sortOrder: doublePrecision('node_sort_order').notNull().default(0),
+
+  // The four independent dates (D-10). Nothing may write one from another.
+  estimateStart: date('node_estimate_start'),
+  estimateEnd: date('node_estimate_end'),
+  actualStart: date('node_actual_start'),
+  actualEnd: date('node_actual_end'),
+
+  // The pre-snap values, written once and never modified (D-15).
+  actualStartRaw: date('node_actual_start_raw'),
+  actualEndRaw: date('node_actual_end_raw'),
+
+  actualSourceStart: sourceKind('node_actual_source_start'),
+  actualSourceEnd: sourceKind('node_actual_source_end'),
+
+  customValues: jsonb('node_custom_values').$type<CustomValues>().notNull().default({}),
+
+  archivedAt: timestamp('node_archived_at', { withTimezone: true }),
+  createdBy: uuid('node_created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('node_created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('node_updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index('pmt_defect_nodes_parent_idx').on(t.parentId),
+  index('pmt_defect_nodes_project_idx').on(t.projectId, t.depth, t.sortOrder),
+]);
+
+export const defectNotifications = pgTable('pmt_defect_notifications', {
+  id: uuid('notification_id').primaryKey().defaultRandom(),
+  userId: uuid('notification_user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  actorId: uuid('notification_actor_id').references(() => users.id, { onDelete: 'set null' }),
+  projectId: uuid('notification_project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  nodeId: uuid('notification_node_id').notNull().references(() => defectNodes.id, { onDelete: 'cascade' }),
+  fieldId: uuid('notification_field_id').references(() => defectFieldDefinitions.id, { onDelete: 'set null' }),
+  fieldName: text('notification_field_name').notNull(),
+  createdAt: timestamp('notification_created_at', { withTimezone: true }).notNull().defaultNow(),
+  /** NULL until the reader followed it through to the task itself. */
+  readAt: timestamp('notification_read_at', { withTimezone: true }),
+}, (t) => [index('pmt_defect_notifications_user_idx').on(t.userId, t.createdAt)]);
+
+export const defectSettings = pgTable('pmt_defect_settings', {
+  id: uuid('defect_project_id').primaryKey().references(() => projects.id, { onDelete: 'cascade' }),
+  statusFieldId: uuid('defect_status_field_id').references(() => defectFieldDefinitions.id, { onDelete: 'set null' }),
+  columnOrder: jsonb('defect_column_order').$type<string[]>().notNull().default([]),
+  updatedAt: timestamp('defect_updated_at', { withTimezone: true }).notNull().defaultNow(),
+});

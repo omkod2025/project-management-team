@@ -220,7 +220,10 @@ describe('D-10 — the rule the product exists for', () => {
 
 describe('D-14 — manual wins, permanently', () => {
   test('a hand-set actual is recorded as manual', async () => {
-    await patchNode(admin, fx.nodes.sub, { actualEnd: '2026-09-14' });
+    // The earlier capture uses today's date. Supply both endpoints so this
+    // fixture remains valid after September instead of silently rejecting it.
+    const res = await patchNode(admin, fx.nodes.sub, { actualStart: '2026-09-01', actualEnd: '2026-09-14' });
+    assert.equal(res.status, 200);
     const r = await row(fx.nodes.sub);
     assert.equal(r.node_actual_source_end, 'manual');
   });
@@ -287,6 +290,12 @@ describe('the JSON boundary refuses what the rules refuse', () => {
 
 describe('Q3 — progress is counted from the status column, never entered', () => {
   test('a parent reports how many descendants are closed', async () => {
+    // Other date tests leave historical manual dates on this shared fixture.
+    // Start this status scenario with uncaptured dates, regardless of today.
+    for (const id of [fx.nodes.task, fx.nodes.sub]) {
+      const reset = await patchNode(admin, id, { actualStart: null, actualEnd: null });
+      assert.equal(reset.status, 200);
+    }
     // put the subtask at a done stage and the task at a running one
     await patchNode(admin, fx.nodes.sub, { values: { [fx.statusFieldId]: fx.options.done } });
     await patchNode(admin, fx.nodes.task, { values: { [fx.statusFieldId]: fx.options.running } });

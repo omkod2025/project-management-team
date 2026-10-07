@@ -3,7 +3,7 @@ import { unlink } from 'node:fs/promises';
 import path from 'node:path';
 import { and, eq, inArray, ne, sql } from 'drizzle-orm';
 import { db } from '@/db/client';
-import { docAssetDeletions, docAssetRemovals, docAssets, docPages, docs, docTemplates, nodes } from '@/db/schema';
+import { docAssetDeletions, docAssetRemovals, docAssets, docPages, docs, docTemplates, nodes, defectNodes } from '@/db/schema';
 import { docAssetStorageKey } from '@/lib/doc-asset-path';
 import { docAssetIds, removedDocAssetIds } from '@/lib/doc-asset-references';
 import { domainError } from '@/lib/errors';
@@ -55,13 +55,14 @@ export async function finalizeRemovedAssets(tx: AssetTransaction, projectId: str
     .innerJoin(docs, eq(docs.id, docPages.docId)).where(eq(docs.projectId, projectId));
   const templates = await tx.select({ content: docTemplates.content }).from(docTemplates).where(eq(docTemplates.projectId, projectId));
   const tasks = await tx.select({ values: nodes.customValues }).from(nodes).where(eq(nodes.projectId, projectId));
+  const defects = await tx.select({ values: defectNodes.customValues }).from(defectNodes).where(eq(defectNodes.projectId, projectId));
   // Another page may have autosaved its removal without pressing Done yet.
   // Keep that page's Undo window open until it finalizes its own edit.
   const otherDrafts = await tx.select({ id: docAssetRemovals.assetId }).from(docAssetRemovals)
     .innerJoin(docPages, eq(docPages.id, docAssetRemovals.pageId)).innerJoin(docs, eq(docs.id, docPages.docId))
     .where(and(eq(docs.projectId, projectId), ne(docAssetRemovals.pageId, pageId)));
   // Conservative retention also covers an asset ID quoted in document text.
-  const references = JSON.stringify([pages, templates, tasks, otherDrafts]).toLowerCase();
+  const references = JSON.stringify([pages, templates, tasks, defects, otherDrafts]).toLowerCase();
   for (const asset of assets) {
     if (references.includes(asset.id.toLowerCase())) continue;
     await tx.insert(docAssetDeletions).values({ id: asset.id, projectId, filename: asset.filename, createdAt: asset.createdAt }).onConflictDoNothing();

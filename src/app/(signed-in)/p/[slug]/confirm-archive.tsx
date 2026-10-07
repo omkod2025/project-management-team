@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import type { LedgerRow } from '@/db/schema';
+import { useWorkKind } from './work-kind-context';
 
 /**
  * Archiving asks first (D-4).
@@ -27,6 +28,7 @@ export default function ConfirmArchive({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  const noun = useWorkKind() === 'defect' ? 'defect' : 'task';
   const keepRef = useRef<HTMLButtonElement>(null);
   const boxRef = useRef<HTMLDivElement>(null);
 
@@ -71,11 +73,11 @@ export default function ConfirmArchive({
         <p className="overleaf-body">
           {descendants > 0 ? (
             <>
-              This will archive <strong className="figure">{total}</strong> tasks — this one and the{' '}
+              This will archive <strong className="figure">{total}</strong> {noun}s — this one and the{' '}
               <strong className="figure">{descendants}</strong> beneath it.
             </>
           ) : (
-            <>This task has nothing beneath it.</>
+            <>This {noun} has nothing beneath it.</>
           )}
         </p>
 
@@ -87,7 +89,7 @@ export default function ConfirmArchive({
         <div className="overleaf-actions">
           <button ref={keepRef} className="label" onClick={onCancel}>Keep it</button>
           <button className="label primary" onClick={onConfirm}>
-            Archive {descendants > 0 ? `${total} tasks` : 'it'}
+            Archive {descendants > 0 ? `${total} ${noun}s` : 'it'}
           </button>
         </div>
       </div>

@@ -2,7 +2,9 @@ import 'server-only';
 import { eq, sql } from 'drizzle-orm';
 import { lockAssetReferences, type AssetTransaction } from '@/lib/doc-asset-cleanup';
 import { db, rawQuery } from '@/db/client';
-import { docAssets, fieldDefinitions, fieldOptions, nodes, projects } from '@/db/schema';
+import { docAssets } from '@/db/schema';
+import { workStorage } from '@/lib/work-storage';
+import type { WorkKind } from '@/lib/work-kind';
 import type { CustomValues, LedgerRow } from '@/db/schema';
 import { domainError } from '@/lib/errors';
 import { recordAssignments } from '@/lib/notifications';
@@ -53,378 +55,389 @@ function todayInBangkok(): string {
  * optional so that a caller with no acting user — a script, a repair — writes
  * an honest "Somebody" rather than being unable to write at all.
  */
-export async function updateNode(
-  nodeId: string, patch: NodePatch, actorId?: string,
-): Promise<LedgerRow> {
-  const [node] = await db.select({ projectId: nodes.projectId }).from(nodes).where(eq(nodes.id, nodeId));
-  if (!node) throw domainError('E_NOT_FOUND', 'No such task.');
-  const result = await db.transaction(async tx => {
-    await lockAssetReferences(tx, node.projectId);
-    return updateNodeWithAssets(tx, nodeId, patch, actorId);
-  });
-  return result;
-}
-async function updateNodeWithAssets(
-  tx: AssetTransaction, nodeId: string, patch: NodePatch, actorId?: string,
-): Promise<LedgerRow> {
-  const query = async <T,>(text: string, values: unknown[] = []): Promise<T[]> => {
-    const chunks = text.split(/(\$\d+)/g).map(chunk => /^\$\d+$/.test(chunk)
-      ? sql`${values[Number(chunk.slice(1)) - 1]}` : sql.raw(chunk));
-    return (await tx.execute(sql.join(chunks, sql.raw('')))).rows as T[];
-  };
-  const [node] = await tx.select().from(nodes).where(eq(nodes.id, nodeId)).limit(1);
-  if (!node) throw domainError('E_NOT_FOUND', 'No such task.');
-
-  const current: NodeDates = {
-    estimateStart: node.estimateStart,
-    estimateEnd: node.estimateEnd,
-    actualStart: node.actualStart,
-    actualEnd: node.actualEnd,
-    actualSourceStart: node.actualSourceStart,
-    actualSourceEnd: node.actualSourceEnd,
-  };
-
-  let dateWrite: DateWrite = planDateWrite(current, patch);
-  let values: CustomValues | undefined;
-
-  /* ------------------------------------------------------------ name */
-  let name: string | undefined;
-  if (patch.name !== undefined) {
-    name = patch.name.trim();
-    if (!name) throw domainError('E_RANGE_INVERTED', 'A name cannot be empty.');
-  }
-
-  /* --------------------------------------------------- custom values */
-  if (patch.values) {
-    const [defs, opts, project] = await Promise.all([
-      tx
-        .select({
-          id: fieldDefinitions.id,
-          kind: fieldDefinitions.kind,
-          settings: fieldDefinitions.settings,
-          archivedAt: fieldDefinitions.archivedAt,
-        })
-        .from(fieldDefinitions)
-        .where(eq(fieldDefinitions.projectId, node.projectId)),
-      tx
-        .select({
-          id: fieldOptions.id,
-          fieldId: fieldOptions.fieldId,
-          stage: fieldOptions.stage,
-          archivedAt: fieldOptions.archivedAt,
-        })
-        .from(fieldOptions),
-      tx
-        .select({ statusFieldId: projects.statusFieldId })
-        .from(projects)
-        .where(eq(projects.id, node.projectId))
-        .limit(1)
-        .then((r) => r[0]),
-    ]);
-
-    const specs = new Map<string, FieldSpec>(
-      defs.map((d) => [
-        d.id,
-        {
-          id: d.id,
-          kind: d.kind as FieldSpec['kind'],
-          archived: d.archivedAt !== null,
-          currency: d.settings?.currency,
-        },
-      ]),
-    );
-    const optionSpecs: OptionSpec[] = opts.map((o) => ({
-      id: o.id,
-      fieldId: o.fieldId,
-      archived: o.archivedAt !== null,
-    }));
-
-    values = { ...node.customValues };
-
-    for (const [key, raw] of Object.entries(patch.values)) {
-      assertWritableKey(key);
-      const spec = specs.get(key);
-      if (!spec) throw domainError('E_UNKNOWN_FIELD', 'No such column in this project.', { key });
-
-      const value = coerceValue(spec, raw, optionSpecs);
-      if (spec.kind === 'image' && Array.isArray(value)) {
-        for (const url of value) {
-          const [asset] = await tx.select().from(docAssets).where(eq(docAssets.id, url.split('/').pop()!)).limit(1);
-          if (!asset || asset.projectId !== node.projectId) {
-            throw domainError('E_UNKNOWN_FIELD', 'Choose an image uploaded to this project.');
-          }
-        }
-      }
-      if (value === null) delete values[key];
-      else values[key] = value as CustomValues[string];
-    }
-
-    /* ------------------------------------- automatic capture (D-13) */
-    const statusFieldId = project?.statusFieldId;
-    if (statusFieldId && Object.hasOwn(patch.values, statusFieldId)) {
-      const optionId = values[statusFieldId];
-      const stage: Stage =
-        typeof optionId === 'string'
-          ? (opts.find((o) => o.id === optionId)?.stage as Stage) ?? null
-          : null;
-      dateWrite = planAutoCapture(current, stage, todayInBangkok(), dateWrite);
-    }
-  }
-
-  /* ----------------------------------------------------------- write */
-  const sets: string[] = [];
-  const params: unknown[] = [];
-  const add = (frag: string, value: unknown) => {
-    params.push(value);
-    sets.push(`${frag} $${params.length}`);
-  };
-
-  if (name !== undefined) add('node_name =', name);
-  if (dateWrite.estimateStart !== undefined) add('node_estimate_start =', dateWrite.estimateStart);
-  if (dateWrite.estimateEnd !== undefined) add('node_estimate_end =', dateWrite.estimateEnd);
-  if (values !== undefined) add('node_custom_values =', JSON.stringify(values));
-
-  // Snapped by the database so the holiday calendar stays the single source of
-  // truth, with the raw value preserved beside it (D-15).
-  if (dateWrite.actualStartRaw !== undefined) {
-    params.push(dateWrite.actualStartRaw);
-    const i = params.length;
-    sets.push(`node_actual_start = pmf_next_workday($${i}::date)`);
-    sets.push(`node_actual_start_raw = $${i}::date`);
-    add('node_actual_source_start =', dateWrite.actualSourceStart ?? null);
-  }
-  if (dateWrite.actualEndRaw !== undefined) {
-    params.push(dateWrite.actualEndRaw);
-    const i = params.length;
-    sets.push(`node_actual_end = pmf_next_workday($${i}::date)`);
-    sets.push(`node_actual_end_raw = $${i}::date`);
-    add('node_actual_source_end =', dateWrite.actualSourceEnd ?? null);
-  }
-
-  if (sets.length) {
-    sets.push('node_updated_at = now()');
-    params.push(nodeId);
-    await query(
-      `UPDATE pmt_nodes SET ${sets.join(', ')} WHERE node_id = $${params.length}`,
-      params,
-    );
-
-    // Snapping can invert a range; collapse it to one working day (D-16).
-    await query(
-      `UPDATE pmt_nodes SET node_actual_end = node_actual_start
-        WHERE node_id = $1
-          AND node_actual_start IS NOT NULL AND node_actual_end IS NOT NULL
-          AND node_actual_end < node_actual_start`,
-      [nodeId],
-    );
-  }
-
-  /* --------------------------------------------- telling people (spec 11)
-   * Inside the same transaction as the write, so a save that fails cannot
-   * leave a notification claiming it succeeded. `node.customValues` is the row
-   * as it was read at the top of this function, and `values` is the settled
-   * result — the sparse patch is no use here, since a field it does not
-   * mention has not been cleared. */
-  if (values !== undefined) {
-    await recordAssignments(tx, {
-      nodeId,
-      projectId: node.projectId,
-      actorId: actorId ?? null,
-      before: node.customValues,
-      after: values,
-    });
-  }
-
-  const [row] = await query<LedgerRow>(
-    `SELECT * FROM pmf_project_ledger($1) WHERE led_node_id = $2`,
-    [node.projectId, nodeId],
-  );
-  if (!row) throw domainError('E_NOT_FOUND', 'The task disappeared while saving.');
-  return row;
-}
-
-
-/**
- * Create a child of `parentId`.
- *
- * `afterId` is the sibling the new node should follow; omit it to append. Sort
- * order is a float placed midway between neighbours, so inserting between two
- * rows never rewrites the rest of the list (D-5).
- */
-/**
- * A parent's live children, in the order they sit, as `placeAmong` wants them.
- * Archived rows are excluded: they are not in the run, so they are not
- * neighbours, and ranking against one would leave a visible gap in the order.
- */
-async function siblingsOf(parentId: string, excludeId?: string) {
-  const rows = await rawQuery<{ node_id: string; node_sort_order: number }>(
-    `SELECT node_id, node_sort_order FROM pmt_nodes
-      WHERE node_parent_id = $1 AND node_archived_at IS NULL
-      ORDER BY node_sort_order`,
-    [parentId],
-  );
-  return rows
-    .filter((r) => r.node_id !== excludeId)
-    .map((r) => ({ id: r.node_id, sortOrder: r.node_sort_order }));
-}
-
-export async function createNode(
-  parentId: string,
-  name: string,
-  afterId?: string | null,
-): Promise<LedgerRow> {
-  const [parent] = await db.select().from(nodes).where(eq(nodes.id, parentId)).limit(1);
-  if (!parent) throw domainError('E_NOT_FOUND', 'No such parent.');
-
-  const depth = childDepth(parent.depth);            // throws E_MAX_DEPTH at the ceiling
-
-  /* `afterId ?? undefined`, deliberately. For a *move*, `null` means the front
-     of the run — that is how a row dropped above the first child lands first.
-     For a create it has always meant "no particular sibling", which is the end:
-     the "+ Add task" row at the foot of a module passes null and must append,
-     not jump the queue. Same word, two acts, and the translation belongs here
-     rather than in a rule that would then need a flag. */
-  const sortOrder = placeAmong(await siblingsOf(parentId), afterId ?? undefined);
-
-  const [created] = await rawQuery<{ node_id: string }>(
-    `INSERT INTO pmt_nodes (node_project_id, node_parent_id, node_depth, node_name, node_sort_order)
-     VALUES ($1, $2, $3, $4, $5)
-     RETURNING node_id`,
-    [parent.projectId, parentId, depth, name.trim() || 'Untitled', sortOrder],
-  );
-
-  const [row] = await rawQuery<LedgerRow>(
-    `SELECT * FROM pmf_project_ledger($1) WHERE led_node_id = $2`,
-    [parent.projectId, created!.node_id],
-  );
-  if (!row) throw domainError('E_NOT_FOUND', 'The task vanished as it was created.');
-  return row;
-}
-
-
-/**
- * Move a node: to another parent, to another place among its siblings, or both
- * (D-3).
- *
- * One entry point for every kind of move the List offers — promoting a subtask
- * to a task, demoting a task under another, carrying a subtree across to a
- * different module, or just sliding a row up two places. They differ only in
- * which of `parentId` and `afterId` are given, and treating them as one act is
- * what keeps the cycle check and the depth ceiling in front of all of them
- * rather than in front of some.
- *
- * `parentId` omitted means "stay where you are"; `afterId` omitted means "keep
- * your place in the order", and `null` means the front of the run.
- *
- * The checks run in the order that makes the failure message useful: the
- * target must be in the same project, it must not be inside the node's own
- * subtree, and the deepest descendant must still fit under the ceiling.
- */
 export type MovePlacement = { parentId?: string; afterId?: string | null };
 
-export async function moveNode(nodeId: string, placement: MovePlacement): Promise<LedgerRow> {
-  const [node] = await db.select().from(nodes).where(eq(nodes.id, nodeId)).limit(1);
-  if (!node) throw domainError('E_NOT_FOUND', 'No such task.');
+export function nodeStore(kind: WorkKind = 'task') {
+  const storage = workStorage(kind);
+  const { nodes, fieldDefinitions, fieldOptions, settings: projects } = storage;
+  async function updateNode(
+    nodeId: string, patch: NodePatch, actorId?: string,
+  ): Promise<LedgerRow> {
+    const [node] = await db.select({ projectId: nodes.projectId }).from(nodes).where(eq(nodes.id, nodeId));
+    if (!node) throw domainError('E_NOT_FOUND', 'No such task.');
+    const result = await db.transaction(async tx => {
+      await lockAssetReferences(tx, node.projectId);
+      return updateNodeWithAssets(tx, nodeId, patch, actorId);
+    });
+    return result;
+  }
+  async function updateNodeWithAssets(
+    tx: AssetTransaction, nodeId: string, patch: NodePatch, actorId?: string,
+  ): Promise<LedgerRow> {
+    const query = async <T,>(text: string, values: unknown[] = []): Promise<T[]> => {
+      const chunks = text.split(/(\$\d+)/g).map(chunk => /^\$\d+$/.test(chunk)
+        ? sql`${values[Number(chunk.slice(1)) - 1]}` : sql.raw(chunk));
+      return (await tx.execute(sql.join(chunks, sql.raw('')))).rows as T[];
+    };
+    const [node] = await tx.select().from(nodes).where(eq(nodes.id, nodeId)).limit(1);
+    if (!node) throw domainError('E_NOT_FOUND', 'No such task.');
 
-  const newParentId = placement.parentId ?? node.parentId;
-  if (!newParentId) throw domainError('E_LEVEL_MISMATCH', 'The project itself cannot be moved.');
+    const current: NodeDates = {
+      estimateStart: node.estimateStart,
+      estimateEnd: node.estimateEnd,
+      actualStart: node.actualStart,
+      actualEnd: node.actualEnd,
+      actualSourceStart: node.actualSourceStart,
+      actualSourceEnd: node.actualSourceEnd,
+    };
 
-  const [target] = await db.select().from(nodes).where(eq(nodes.id, newParentId)).limit(1);
-  if (!target) throw domainError('E_NOT_FOUND', 'No such parent.');
+    let dateWrite: DateWrite = planDateWrite(current, patch);
+    let values: CustomValues | undefined;
 
-  if (target.projectId !== node.projectId) {
-    throw domainError('E_LEVEL_MISMATCH', 'A task cannot move to another project.');
+    /* ------------------------------------------------------------ name */
+    let name: string | undefined;
+    if (patch.name !== undefined) {
+      name = patch.name.trim();
+      if (!name) throw domainError('E_RANGE_INVERTED', 'A name cannot be empty.');
+    }
+
+    /* --------------------------------------------------- custom values */
+    if (patch.values) {
+      const [defs, opts, project] = await Promise.all([
+        tx
+          .select({
+            id: fieldDefinitions.id,
+            kind: fieldDefinitions.kind,
+            settings: fieldDefinitions.settings,
+            archivedAt: fieldDefinitions.archivedAt,
+          })
+          .from(fieldDefinitions)
+          .where(eq(fieldDefinitions.projectId, node.projectId)),
+        tx
+          .select({
+            id: fieldOptions.id,
+            fieldId: fieldOptions.fieldId,
+            stage: fieldOptions.stage,
+            archivedAt: fieldOptions.archivedAt,
+          })
+          .from(fieldOptions),
+        tx
+          .select({ statusFieldId: projects.statusFieldId })
+          .from(projects)
+          .where(eq(projects.id, node.projectId))
+          .limit(1)
+          .then((r) => r[0]),
+      ]);
+
+      const specs = new Map<string, FieldSpec>(
+        defs.map((d) => [
+          d.id,
+          {
+            id: d.id,
+            kind: d.kind as FieldSpec['kind'],
+            archived: d.archivedAt !== null,
+            currency: d.settings?.currency,
+          },
+        ]),
+      );
+      const optionSpecs: OptionSpec[] = opts.map((o) => ({
+        id: o.id,
+        fieldId: o.fieldId,
+        archived: o.archivedAt !== null,
+      }));
+
+      values = { ...node.customValues };
+
+      for (const [key, raw] of Object.entries(patch.values)) {
+        assertWritableKey(key);
+        const spec = specs.get(key);
+        if (!spec) throw domainError('E_UNKNOWN_FIELD', 'No such column in this project.', { key });
+
+        const value = coerceValue(spec, raw, optionSpecs);
+        if (spec.kind === 'image' && Array.isArray(value)) {
+          for (const url of value) {
+            const [asset] = await tx.select().from(docAssets).where(eq(docAssets.id, url.split('/').pop()!)).limit(1);
+            if (!asset || asset.projectId !== node.projectId) {
+              throw domainError('E_UNKNOWN_FIELD', 'Choose an image uploaded to this project.');
+            }
+          }
+        }
+        if (value === null) delete values[key];
+        else values[key] = value as CustomValues[string];
+      }
+
+      /* ------------------------------------- automatic capture (D-13) */
+      const statusFieldId = project?.statusFieldId;
+      if (statusFieldId && Object.hasOwn(patch.values, statusFieldId)) {
+        const optionId = values[statusFieldId];
+        const stage: Stage =
+          typeof optionId === 'string'
+            ? (opts.find((o) => o.id === optionId)?.stage as Stage) ?? null
+            : null;
+        dateWrite = planAutoCapture(current, stage, todayInBangkok(), dateWrite);
+      }
+    }
+
+    /* ----------------------------------------------------------- write */
+    const sets: string[] = [];
+    const params: unknown[] = [];
+    const add = (frag: string, value: unknown) => {
+      params.push(value);
+      sets.push(`${frag} $${params.length}`);
+    };
+
+    if (name !== undefined) add('node_name =', name);
+    if (dateWrite.estimateStart !== undefined) add('node_estimate_start =', dateWrite.estimateStart);
+    if (dateWrite.estimateEnd !== undefined) add('node_estimate_end =', dateWrite.estimateEnd);
+    if (values !== undefined) add('node_custom_values =', JSON.stringify(values));
+
+    // Snapped by the database so the holiday calendar stays the single source of
+    // truth, with the raw value preserved beside it (D-15).
+    if (dateWrite.actualStartRaw !== undefined) {
+      params.push(dateWrite.actualStartRaw);
+      const i = params.length;
+      sets.push(`node_actual_start = pmf_next_workday($${i}::date)`);
+      sets.push(`node_actual_start_raw = $${i}::date`);
+      add('node_actual_source_start =', dateWrite.actualSourceStart ?? null);
+    }
+    if (dateWrite.actualEndRaw !== undefined) {
+      params.push(dateWrite.actualEndRaw);
+      const i = params.length;
+      sets.push(`node_actual_end = pmf_next_workday($${i}::date)`);
+      sets.push(`node_actual_end_raw = $${i}::date`);
+      add('node_actual_source_end =', dateWrite.actualSourceEnd ?? null);
+    }
+
+    if (sets.length) {
+      sets.push('node_updated_at = now()');
+      params.push(nodeId);
+      await query(
+        `UPDATE ${storage.nodeTable} SET ${sets.join(', ')} WHERE node_id = $${params.length}`,
+        params,
+      );
+
+      // Snapping can invert a range; collapse it to one working day (D-16).
+      await query(
+        `UPDATE ${storage.nodeTable} SET node_actual_end = node_actual_start
+          WHERE node_id = $1
+            AND node_actual_start IS NOT NULL AND node_actual_end IS NOT NULL
+            AND node_actual_end < node_actual_start`,
+        [nodeId],
+      );
+    }
+
+    /* --------------------------------------------- telling people (spec 11)
+     * Inside the same transaction as the write, so a save that fails cannot
+     * leave a notification claiming it succeeded. `node.customValues` is the row
+     * as it was read at the top of this function, and `values` is the settled
+     * result — the sparse patch is no use here, since a field it does not
+     * mention has not been cleared. */
+    if (values !== undefined) {
+      await recordAssignments(tx, {
+        nodeId,
+        projectId: node.projectId,
+        actorId: actorId ?? null,
+        kind,
+        before: node.customValues,
+        after: values,
+      });
+    }
+
+    const [row] = await query<LedgerRow>(
+      `SELECT * FROM ${storage.ledgerFunction}($1) WHERE led_node_id = $2`,
+      [node.projectId, nodeId],
+    );
+    if (!row) throw domainError('E_NOT_FOUND', 'The task disappeared while saving.');
+    return row;
   }
 
-  /* Staying under the same parent is a reorder, not a re-parent: no subtree
-     to carry, no depth to recompute, no cycle to be made. It is still a move
-     the caller asked for, so it answers with the same recomputed row. */
-  if (node.parentId === newParentId) {
+
+  /**
+   * Create a child of `parentId`.
+   *
+   * `afterId` is the sibling the new node should follow; omit it to append. Sort
+   * order is a float placed midway between neighbours, so inserting between two
+   * rows never rewrites the rest of the list (D-5).
+   */
+  /**
+   * A parent's live children, in the order they sit, as `placeAmong` wants them.
+   * Archived rows are excluded: they are not in the run, so they are not
+   * neighbours, and ranking against one would leave a visible gap in the order.
+   */
+  async function siblingsOf(parentId: string, excludeId?: string) {
+    const rows = await rawQuery<{ node_id: string; node_sort_order: number }>(
+      `SELECT node_id, node_sort_order FROM ${storage.nodeTable}
+        WHERE node_parent_id = $1 AND node_archived_at IS NULL
+        ORDER BY node_sort_order`,
+      [parentId],
+    );
+    return rows
+      .filter((r) => r.node_id !== excludeId)
+      .map((r) => ({ id: r.node_id, sortOrder: r.node_sort_order }));
+  }
+
+  async function createNode(
+    parentId: string,
+    name: string,
+    afterId?: string | null,
+  ): Promise<LedgerRow> {
+    const [parent] = await db.select().from(nodes).where(eq(nodes.id, parentId)).limit(1);
+    if (!parent) throw domainError('E_NOT_FOUND', 'No such parent.');
+
+    const depth = childDepth(parent.depth);            // throws E_MAX_DEPTH at the ceiling
+
+    /* `afterId ?? undefined`, deliberately. For a *move*, `null` means the front
+       of the run — that is how a row dropped above the first child lands first.
+       For a create it has always meant "no particular sibling", which is the end:
+       the "+ Add task" row at the foot of a module passes null and must append,
+       not jump the queue. Same word, two acts, and the translation belongs here
+       rather than in a rule that would then need a flag. */
+    const sortOrder = placeAmong(await siblingsOf(parentId), afterId ?? undefined);
+
+    const [created] = await rawQuery<{ node_id: string }>(
+      `INSERT INTO ${storage.nodeTable} (node_project_id, node_parent_id, node_depth, node_name, node_sort_order)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING node_id`,
+      [parent.projectId, parentId, depth, name.trim() || 'Untitled', sortOrder],
+    );
+
+    const [row] = await rawQuery<LedgerRow>(
+      `SELECT * FROM ${storage.ledgerFunction}($1) WHERE led_node_id = $2`,
+      [parent.projectId, created!.node_id],
+    );
+    if (!row) throw domainError('E_NOT_FOUND', 'The task vanished as it was created.');
+    return row;
+  }
+
+
+  /**
+   * Move a node: to another parent, to another place among its siblings, or both
+   * (D-3).
+   *
+   * One entry point for every kind of move the List offers — promoting a subtask
+   * to a task, demoting a task under another, carrying a subtree across to a
+   * different module, or just sliding a row up two places. They differ only in
+   * which of `parentId` and `afterId` are given, and treating them as one act is
+   * what keeps the cycle check and the depth ceiling in front of all of them
+   * rather than in front of some.
+   *
+   * `parentId` omitted means "stay where you are"; `afterId` omitted means "keep
+   * your place in the order", and `null` means the front of the run.
+   *
+   * The checks run in the order that makes the failure message useful: the
+   * target must be in the same project, it must not be inside the node's own
+   * subtree, and the deepest descendant must still fit under the ceiling.
+   */
+
+
+  async function moveNode(nodeId: string, placement: MovePlacement): Promise<LedgerRow> {
+    const [node] = await db.select().from(nodes).where(eq(nodes.id, nodeId)).limit(1);
+    if (!node) throw domainError('E_NOT_FOUND', 'No such task.');
+
+    const newParentId = placement.parentId ?? node.parentId;
+    if (!newParentId) throw domainError('E_LEVEL_MISMATCH', 'The project itself cannot be moved.');
+
+    const [target] = await db.select().from(nodes).where(eq(nodes.id, newParentId)).limit(1);
+    if (!target) throw domainError('E_NOT_FOUND', 'No such parent.');
+
+    if (target.projectId !== node.projectId) {
+      throw domainError('E_LEVEL_MISMATCH', 'A task cannot move to another project.');
+    }
+
+    /* Staying under the same parent is a reorder, not a re-parent: no subtree
+       to carry, no depth to recompute, no cycle to be made. It is still a move
+       the caller asked for, so it answers with the same recomputed row. */
+    if (node.parentId === newParentId) {
+      if (placement.afterId !== undefined) {
+        await rawQuery(`UPDATE ${storage.nodeTable} SET node_sort_order = $2 WHERE node_id = $1`, [
+          nodeId,
+          placeAmong(await siblingsOf(newParentId, nodeId), placement.afterId),
+        ]);
+      }
+      return readLedgerRow(node.projectId, nodeId);
+    }
+
+    const ancestors = await rawQuery<{ ancestor_id: string }>(
+      `WITH RECURSIVE up AS (
+         SELECT node_id, node_parent_id FROM ${storage.nodeTable} WHERE node_id = $1
+         UNION ALL
+         SELECT p.node_id, p.node_parent_id
+           FROM ${storage.nodeTable} p JOIN up ON p.node_id = up.node_parent_id
+       )
+       SELECT node_id AS ancestor_id FROM up WHERE node_id <> $1`,
+      [newParentId],
+    );
+    assertMoveTarget(nodeId, newParentId, ancestors.map((a) => a.ancestor_id));
+
+    const [deepest] = await rawQuery<{ max_depth: number | null }>(
+      `SELECT max(descendant_depth) AS max_depth FROM ${storage.descendantsFunction}($1)`,
+      [nodeId],
+    );
+    const subtreeHeight = deepest?.max_depth ? deepest.max_depth - node.depth : 0;
+
+    planMove(node.depth, target.depth, subtreeHeight);   // throws on a bad level or the ceiling
+
+    await rawQuery(`CALL ${storage.moveProcedure}($1, $2)`, [nodeId, newParentId]);
+
+    /* Placed after the move, never before: until the subtree has been re-parented
+       the node is not among these siblings, and a sort order written against a
+       run it is not in yet would rank it against the wrong neighbours. A move
+       with no `afterId` keeps whatever order it had, which puts it wherever that
+       number happens to fall — so the List always sends one. */
     if (placement.afterId !== undefined) {
-      await rawQuery('UPDATE pmt_nodes SET node_sort_order = $2 WHERE node_id = $1', [
+      await rawQuery(`UPDATE ${storage.nodeTable} SET node_sort_order = $2 WHERE node_id = $1`, [
         nodeId,
         placeAmong(await siblingsOf(newParentId, nodeId), placement.afterId),
       ]);
     }
+
     return readLedgerRow(node.projectId, nodeId);
   }
 
-  const ancestors = await rawQuery<{ ancestor_id: string }>(
-    `WITH RECURSIVE up AS (
-       SELECT node_id, node_parent_id FROM pmt_nodes WHERE node_id = $1
-       UNION ALL
-       SELECT p.node_id, p.node_parent_id
-         FROM pmt_nodes p JOIN up ON p.node_id = up.node_parent_id
-     )
-     SELECT node_id AS ancestor_id FROM up WHERE node_id <> $1`,
-    [newParentId],
-  );
-  assertMoveTarget(nodeId, newParentId, ancestors.map((a) => a.ancestor_id));
+  /**
+   * Soft-archive a node and everything beneath it (D-4).
+   *
+   * Returns how many rows went with it, because "archive this module" quietly
+   * taking 57 subtasks along is exactly the kind of thing a person should be
+   * told after the fact, and asked about before it.
+   */
+  async function archiveNode(nodeId: string): Promise<{ projectId: string; archived: number }> {
+    const [node] = await db.select().from(nodes).where(eq(nodes.id, nodeId)).limit(1);
+    if (!node) throw domainError('E_NOT_FOUND', 'No such task.');
+    if (node.archivedAt) return { projectId: node.projectId, archived: 0 };
 
-  const [deepest] = await rawQuery<{ max_depth: number | null }>(
-    `SELECT max(descendant_depth) AS max_depth FROM pmf_descendants($1)`,
-    [nodeId],
-  );
-  const subtreeHeight = deepest?.max_depth ? deepest.max_depth - node.depth : 0;
+    assertArchivable(node.depth);
 
-  planMove(node.depth, target.depth, subtreeHeight);   // throws on a bad level or the ceiling
+    const before = await rawQuery<{ n: string }>(
+      `SELECT count(*) AS n FROM ${storage.nodeTable}
+        WHERE node_archived_at IS NULL
+          AND (node_id = $1 OR node_id IN (SELECT descendant_id FROM ${storage.descendantsFunction}($1)))`,
+      [nodeId],
+    );
 
-  await rawQuery('CALL pmp_move_subtree($1, $2)', [nodeId, newParentId]);
-
-  /* Placed after the move, never before: until the subtree has been re-parented
-     the node is not among these siblings, and a sort order written against a
-     run it is not in yet would rank it against the wrong neighbours. A move
-     with no `afterId` keeps whatever order it had, which puts it wherever that
-     number happens to fall — so the List always sends one. */
-  if (placement.afterId !== undefined) {
-    await rawQuery('UPDATE pmt_nodes SET node_sort_order = $2 WHERE node_id = $1', [
-      nodeId,
-      placeAmong(await siblingsOf(newParentId, nodeId), placement.afterId),
-    ]);
+    await rawQuery(`CALL ${storage.archiveProcedure}($1)`, [nodeId]);
+    return { projectId: node.projectId, archived: Number(before[0]?.n ?? 0) };
   }
 
-  return readLedgerRow(node.projectId, nodeId);
+  /** Undo an archive, restoring the whole subtree (D-4). */
+  async function restoreNode(nodeId: string): Promise<LedgerRow> {
+    const [node] = await db.select().from(nodes).where(eq(nodes.id, nodeId)).limit(1);
+    if (!node) throw domainError('E_NOT_FOUND', 'No such task.');
+
+    await rawQuery(`CALL ${storage.restoreProcedure}($1)`, [nodeId]);
+    return readLedgerRow(node.projectId, nodeId);
+  }
+
+  async function readLedgerRow(projectId: string, nodeId: string): Promise<LedgerRow> {
+    const [row] = await rawQuery<LedgerRow>(
+      `SELECT * FROM ${storage.ledgerFunction}($1) WHERE led_node_id = $2`,
+      [projectId, nodeId],
+    );
+    if (!row) throw domainError('E_NOT_FOUND', 'The task is not in this project.');
+    return row;
+  }
+
+  return { updateNode, createNode, moveNode, archiveNode, restoreNode };
 }
 
-/**
- * Soft-archive a node and everything beneath it (D-4).
- *
- * Returns how many rows went with it, because "archive this module" quietly
- * taking 57 subtasks along is exactly the kind of thing a person should be
- * told after the fact, and asked about before it.
- */
-export async function archiveNode(nodeId: string): Promise<{ projectId: string; archived: number }> {
-  const [node] = await db.select().from(nodes).where(eq(nodes.id, nodeId)).limit(1);
-  if (!node) throw domainError('E_NOT_FOUND', 'No such task.');
-  if (node.archivedAt) return { projectId: node.projectId, archived: 0 };
-
-  assertArchivable(node.depth);
-
-  const before = await rawQuery<{ n: string }>(
-    `SELECT count(*) AS n FROM pmt_nodes
-      WHERE node_archived_at IS NULL
-        AND (node_id = $1 OR node_id IN (SELECT descendant_id FROM pmf_descendants($1)))`,
-    [nodeId],
-  );
-
-  await rawQuery('CALL pmp_archive_subtree($1)', [nodeId]);
-  return { projectId: node.projectId, archived: Number(before[0]?.n ?? 0) };
-}
-
-/** Undo an archive, restoring the whole subtree (D-4). */
-export async function restoreNode(nodeId: string): Promise<LedgerRow> {
-  const [node] = await db.select().from(nodes).where(eq(nodes.id, nodeId)).limit(1);
-  if (!node) throw domainError('E_NOT_FOUND', 'No such task.');
-
-  await rawQuery('CALL pmp_restore_subtree($1)', [nodeId]);
-  return readLedgerRow(node.projectId, nodeId);
-}
-
-async function readLedgerRow(projectId: string, nodeId: string): Promise<LedgerRow> {
-  const [row] = await rawQuery<LedgerRow>(
-    `SELECT * FROM pmf_project_ledger($1) WHERE led_node_id = $2`,
-    [projectId, nodeId],
-  );
-  if (!row) throw domainError('E_NOT_FOUND', 'The task is not in this project.');
-  return row;
-}
+export const { updateNode, createNode, moveNode, archiveNode, restoreNode } = nodeStore();
