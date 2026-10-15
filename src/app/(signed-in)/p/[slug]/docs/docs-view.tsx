@@ -74,7 +74,7 @@ export default function DocsView({ project, initialDocs, canCreate }: Props) {
           <Bell />
           <nav className="views label" aria-label="Project views">
             <a href={base}>List</a><a href={`${base}/timeline`}>Timeline</a>
-            <a href={`${base}/report`}>Report</a><span aria-current="page">Docs</span>
+            <span aria-current="page">Docs</span>
             {canCreate && <a href={`${base}/settings`}>Settings</a>}
           </nav>
         </header>

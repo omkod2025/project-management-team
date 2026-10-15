@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import type { AccessBoard, PersonAccess } from '@/lib/people';
 import { MIN_PASSWORD_LENGTH, PROTECTED_EMAIL, type Role } from '@/lib/admin-rules';
 import InviteLink, { inviteUrl } from '../invite-link';
@@ -61,7 +62,9 @@ function monogram(name: string, email: string): string {
 type Props = { board: AccessBoard; actingUserId: string; signOut: React.ReactNode };
 
 export default function PeopleView({ board, actingUserId, signOut }: Props) {
+  const router = useRouter();
   const [people, setPeople] = useState(board.people);
+  useEffect(() => setPeople(board.people), [board.people]);
   const [query, setQuery] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
@@ -120,6 +123,7 @@ export default function PeopleView({ board, actingUserId, signOut }: Props) {
         return;
       }
       setPeople((ps) => ps.filter((p) => p.id !== person.id));
+      router.refresh();
     } catch {
       setFailure('No connection. That account was not deleted.');
     } finally {
@@ -255,7 +259,7 @@ export default function PeopleView({ board, actingUserId, signOut }: Props) {
     }
   }
 
-  if (board.projects.length === 0) {
+  if (board.projects.length === 0 && !board.canDeleteUsers) {
     return (
       <main className="people">
         <div className="people-sheet">
@@ -305,6 +309,8 @@ export default function PeopleView({ board, actingUserId, signOut }: Props) {
         <button
           type="button"
           className="people-add"
+          disabled={board.projects.length === 0}
+          title={board.projects.length === 0 ? 'Administer a project before inviting people.' : undefined}
           onClick={() => {
             inviteEmail.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
             inviteEmail.current?.focus({ preventScroll: true });
@@ -407,7 +413,7 @@ export default function PeopleView({ board, actingUserId, signOut }: Props) {
                     onCancel={() => setResetting(null)}
                     onConfirm={() => void resetPassword(person)}
                   />}
-                  {resetting !== person.id && <DeleteCell
+                  {board.canDeleteUsers && resetting !== person.id && <DeleteCell
                     person={person}
                     protectedAccount={person.email.toLowerCase() === PROTECTED_EMAIL}
                     isSelf={person.id === actingUserId}
@@ -435,12 +441,12 @@ export default function PeopleView({ board, actingUserId, signOut }: Props) {
         </p>
       )}
 
-      <Invite
+      {board.projects.length > 0 && <Invite
         projects={board.projects}
         busy={busy === 'invite'}
         onInvite={invite}
         emailRef={inviteEmail}
-      />
+      />}
 
       {invited && (invited.link ? (
         <p className="people-token">
@@ -523,7 +529,7 @@ function DeleteCell({
       className="acct-del"
       onClick={onArm}
       aria-label={`Delete ${person.name}'s account`}
-      title="Removes the account, every membership it holds, and its name from every task it created."
+      title="Removes the account and its memberships. Projects where they are the last admin transfer to the install account."
     >
       Delete
     </button>

@@ -28,7 +28,7 @@ export const ACTIONS = {
   'node.editDates': ['admin', 'member'],
   'node.editValues': ['admin', 'member'],
   'node.move': ['admin', 'member'],
-  'node.archive': ['admin'],
+  'node.archive': ['admin', 'member'],
 
   'field.define': ['admin'],
   'field.archive': ['admin'],

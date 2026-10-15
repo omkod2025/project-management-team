@@ -14,12 +14,22 @@ import {
   assertStage, assertOptionLabel, assertColorIndex, assertKeepsADoneStage,
   assertRole, assertKeepsAnAdmin, assertHolidayDate, assertHolidayName, assertEmail,
   assertPassword, assertNewPassword, MIN_PASSWORD_LENGTH,
-  assertNotProtectedAccount, assertNotSelf, assertLeavesNoProjectAdminless,
-  assertAdminsEveryProjectOf, PROTECTED_EMAIL,
+  assertNotProtectedAccount, assertNotSelf,
+  PROTECTED_EMAIL, canDeleteUsers, assertCanDeleteUsers,
   assertFullName, assertNotProtectedReset, assertResetIsNotSelf,
   assertSharesAnAdministeredProject,
 } from '../src/lib/admin-rules.ts';
 import { DomainError } from '../src/lib/errors.ts';
+
+test('only the active install administrator can delete accounts', () => {
+  assert.equal(canDeleteUsers(' ADMIN@CIT.COM ', true), true);
+  assert.equal(canDeleteUsers('admin@cit.com', false), false);
+  for (const email of ['admin@example.com', 'admin@cit.com.co', '', 'member@cit.com']) {
+    assert.equal(canDeleteUsers(email, true), false);
+    refuses('E_FORBIDDEN', () => assertCanDeleteUsers(email, true));
+  }
+  refuses('E_FORBIDDEN', () => assertCanDeleteUsers(PROTECTED_EMAIL, false));
+});
 
 function refuses(code: string, fn: () => unknown) {
   assert.throws(fn, (err: unknown) => {
@@ -185,23 +195,6 @@ describe('deleting a user — the four refusals', () => {
     assert.equal(assertNotSelf('u1', 'u2'), undefined);
   });
 
-  /*
-   * Membership cascades on delete, so removing an account removes every
-   * membership it held. Without this rule, deleting is a back door into
-   * exactly the adminless project `assertKeepsAnAdmin` refuses to create.
-   */
-  test('deleting the only admin of a project is refused, and the project is named', () => {
-    refuses('E_FORBIDDEN', () => assertLeavesNoProjectAdminless(['Bannayuu Next']));
-    refuses('E_FORBIDDEN', () => assertLeavesNoProjectAdminless(['A', 'B']));
-    assert.equal(assertLeavesNoProjectAdminless([]), undefined);
-  });
-
-  test('you cannot delete somebody whose projects you do not administer', () => {
-    // There is no workspace superuser (spec 05 §2), so admin of one project is
-    // no standing to destroy access to another.
-    refuses('E_FORBIDDEN', () => assertAdminsEveryProjectOf(1));
-    assert.equal(assertAdminsEveryProjectOf(0), undefined);
-  });
 });
 
 /* ============================================================ own profile */
@@ -271,9 +264,8 @@ describe('resetting somebody else’s password — the three refusals', () => {
   });
 
   test('this is deliberately looser than the rule for deleting the same person', () => {
-    // Somebody on two projects, one of which the caller does not administer.
-    // Their password may be reset; their account may not be deleted.
+    // A project admin may reset a shared member, but cannot delete accounts.
     assert.equal(assertSharesAnAdministeredProject(1), undefined);
-    refuses('E_FORBIDDEN', () => assertAdminsEveryProjectOf(1));
+    refuses('E_FORBIDDEN', () => assertCanDeleteUsers('project-admin@test.invalid', true));
   });
 });

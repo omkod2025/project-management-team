@@ -11,6 +11,7 @@ import ListHeader from './list-header';
 import ListTabLink from './list-tab-link';
 import LoadingStatus from './loading-status';
 import './list.css';
+import './list-polish.css';
 
 async function LoadedList({ userId, slug, kind }: { userId: string; slug: string; kind: WorkKind }) {
   const { project, role, rows, fields, people } = await loadLedger(userId, slug, kind);
@@ -19,6 +20,7 @@ async function LoadedList({ userId, slug, kind }: { userId: string; slug: string
     slug={project.slug} rows={rows} fields={fields} people={people}
     statusFieldId={project.statusFieldId} columnOrder={project.columnOrder}
     canEdit={can(role, 'node.editValues')} isAdmin={can(role, 'field.define')}
+    canArchive={can(role, 'node.archive')}
     signOut={<SignOut className="shelf" />}
   />;
 }
@@ -32,7 +34,7 @@ export default async function ListPage({ params, kind }: {
   try {
     // Resolve the small, authorized header first; stream the ledger below it.
     const { project, role } = await loadProjectAccess(userId, slug);
-    const fallback = <div className="book">
+    const fallback = <div className="book list-surface">
       <nav className="rail" aria-label="Modules" />
       <div className="sheet">
         <ListHeader projectId={project.id} projectName={project.name} slug={slug}

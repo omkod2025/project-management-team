@@ -87,7 +87,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
 }
 
 
-/** Archive a node and its subtree. Admin only (D-4). */
+/** Archive a node and its subtree. Admin or Member (D-4). */
 export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const userId = await currentUserId();
   if (!userId) return NextResponse.json({ code: 'E_FORBIDDEN', message: 'Sign in first.' }, { status: 401 });

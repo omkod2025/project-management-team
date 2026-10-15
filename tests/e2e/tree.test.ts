@@ -222,7 +222,7 @@ describe('placing a moved row', () => {
 /* ================================================================== archive */
 
 describe('archive and restore (D-4)', () => {
-  test('archiving is admin-only', async () => {
+  test('archiving is refused to a viewer', async () => {
     const res = await archiveNode(viewer, fx.nodes.task);
     assert.equal(res.status, 403);
   });

@@ -331,6 +331,17 @@ export function assertFullName(name: unknown): string {
  */
 export const PROTECTED_EMAIL = 'admin@cit.com';
 
+/** The install administrator alone may permanently delete accounts. */
+export function canDeleteUsers(email: string, active: boolean): boolean {
+  return active && email.trim().toLowerCase() === PROTECTED_EMAIL;
+}
+
+export function assertCanDeleteUsers(email: string, active: boolean): void {
+  if (!canDeleteUsers(email, active)) {
+    throw domainError('E_FORBIDDEN', 'Only the install administrator can delete accounts.');
+  }
+}
+
 export function assertNotProtectedAccount(email: string): void {
   if (email.trim().toLowerCase() === PROTECTED_EMAIL) {
     throw domainError(
@@ -351,41 +362,6 @@ export function assertNotProtectedAccount(email: string): void {
 export function assertNotSelf(targetUserId: string, actingUserId: string): void {
   if (targetUserId === actingUserId) {
     throw domainError('E_FORBIDDEN', 'You cannot delete your own account.');
-  }
-}
-
-/**
- * Deleting a user must not leave a project with no admin.
- *
- * `pmt_project_members.member_user_id` cascades on delete, so removing an
- * account silently removes every membership it held — which makes deletion a
- * back door to exactly the state `assertKeepsAnAdmin` exists to prevent. The
- * role select refuses to demote the last admin; this refuses to delete them.
- */
-export function assertLeavesNoProjectAdminless(orphanedProjectNames: string[]): void {
-  if (orphanedProjectNames.length > 0) {
-    throw domainError(
-      'E_FORBIDDEN',
-      `They are the only admin of ${orphanedProjectNames.join(', ')}. `
-      + 'Promote someone else there first.',
-      { projects: orphanedProjectNames },
-    );
-  }
-}
-
-/**
- * You may only delete somebody whose every project you administer.
- *
- * There is no workspace-wide superuser (spec 05 §2), so an admin of one
- * project has no standing to destroy that person's access to four others.
- */
-export function assertAdminsEveryProjectOf(unadministeredCount: number): void {
-  if (unadministeredCount > 0) {
-    throw domainError(
-      'E_FORBIDDEN',
-      'They belong to projects you do not administer, so you cannot delete them.',
-      { projects: unadministeredCount },
-    );
   }
 }
 

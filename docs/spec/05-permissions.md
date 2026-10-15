@@ -53,7 +53,7 @@ Held in `pmt_project_members(member_project_id, member_user_id, member_role)`. A
 | Edit custom field values | ● | ● | |
 | Drag timeline bars | ● | ● | |
 | Move nodes within the tree | ● | ● | |
-| Archive / restore nodes | ● | | |
+| Archive / restore nodes | ● | ● | |
 | Create, archive, reorder field definitions | ● | | |
 | Add / archive select options | ● | | |
 | Set the project's status field | ● | | |
@@ -87,16 +87,17 @@ Roles are surfaced in two places, which are the same data asked from opposite en
 
 **Added 2026-09-08 at the owner's instruction.** `DELETE /api/users/:id`, offered as the Account column on `/people`. It is the destructive twin of deactivation and they are not interchangeable: `user_is_active = false` keeps the row, so `node_created_by` still names who filed each task; deleting removes the row, cascades away every membership, and — because `pmt_nodes.node_created_by` is `ON DELETE SET NULL` — **strips the author from every task that person ever created, permanently and install-wide.** There is no undo. Prefer deactivation unless the account was created in error.
 
-Four refusals stand in front of it, all pure functions in `admin-rules.ts`:
+Three refusals stand in front of it, all pure functions in `admin-rules.ts`:
 
 | Refusal | Why it is not merely a nicety |
 |---|---|
 | `admin@cit.com` (`PROTECTED_EMAIL`) | The seeded install account — the way back in when every other route has been lost. A constant, not a `user_is_protected` column, precisely because a column can be cleared. |
 | Not yourself | Your memberships cascade with the row; the request would succeed and leave a live session pointing at a user that no longer exists. |
-| Not the last admin of any project | Membership cascades, so deletion is otherwise a back door into exactly the adminless project `assertKeepsAnAdmin` refuses to create. |
-| Only somebody whose every project you administer | There is no workspace superuser, so admin of one project is no standing to destroy access to four others. |
+| Only the active install administrator (`admin@cit.com`) may delete accounts | Updated 2026-10-15: project admins cannot permanently delete users. The install administrator may delete all other users across projects, including the last project admin. |
 
-**There is no workspace-wide superuser.** Admin is per project. Creating the first project and the first user is a seeding operation, documented as a script, not a UI.
+When deleting a project's last admin, the install account is added or promoted to Admin on that project, including archived projects. The transfer and account deletion share one transaction; a failed deletion rolls back the transfer. The People page refreshes to show the inherited projects.
+
+**Project administration remains per project.** The install account has one explicit global capability: deleting users. Its People page shows accounts even when it administers no projects; this does not grant project membership management. Creating the first project and the first user is a seeding operation, documented as a script, not a UI.
 
 Notes on two deliberate choices:
 
@@ -118,7 +119,7 @@ const role = await requireProjectRole(session.userId, projectId);
 Capability checks are a static table keyed by role, not scattered conditionals:
 
 ```ts
-can(role, 'node.archive')        // admin only
+can(role, 'node.archive')        // admin | member
 can(role, 'node.editDates')      // admin | member
 can(role, 'field.define')        // admin only
 ```

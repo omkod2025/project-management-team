@@ -452,6 +452,7 @@ export default function TimelineView({
             <a href={siblingHref(`/p/${slug}`, selected)}>List</a>
             <span style={{ color: 'var(--color-rule)' }}>·</span>
             <span aria-current="page">Timeline</span>
+            <a href={siblingHref(`/p/${slug}/calendar`, selected)}>Calendar</a>
             <a href={`/p/${slug}/docs`}>Docs</a>
           </div>
         </header>

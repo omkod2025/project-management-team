@@ -2,7 +2,7 @@ import 'server-only';
 import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
 import { db } from '@/db/client';
 import { projectMembers, projects, users } from '@/db/schema';
-import type { Role } from '@/lib/admin-rules';
+import { canDeleteUsers, type Role } from '@/lib/admin-rules';
 
 /**
  * The access board (spec 05 §2).
@@ -12,13 +12,14 @@ import type { Role } from '@/lib/admin-rules';
  * now only answerable by opening every project's settings in turn and holding
  * the answer in your head.
  *
- * Two things this module is careful about, both of them consequences of the
- * rule that **there is no workspace-wide superuser**:
+ * Project membership management stays scoped to administered projects.
+ * The install administrator has a separate account-deletion capability and
+ * can therefore see the account list even with no project memberships.
  *
  *   - the board is scoped to the projects the acting user administers. It is
  *     not "all projects"; a person who admins one project out of five sees one
  *     column, and the other four are not merely read-only here, they are
- *     absent. Anything else would invent the superuser the spec refuses.
+ *     absent. Account-deletion permission grants no project access.
  *   - it therefore grants nothing on its own. Every change it offers goes
  *     through `POST/DELETE /api/projects/:id/members`, which runs the same
  *     `authorize(..., 'member.manage')` check as the settings page. The board
@@ -37,12 +38,16 @@ export type PersonAccess = {
 };
 
 export type AccessBoard = {
+  canDeleteUsers: boolean;
   /** Only the projects the acting user is an admin of. */
   projects: { id: string; name: string; slug: string }[];
   people: PersonAccess[];
 };
 
 export async function loadAccessBoard(actingUserId: string): Promise<AccessBoard> {
+  const [actor] = await db.select({ email: users.email, active: users.isActive })
+    .from(users).where(eq(users.id, actingUserId)).limit(1);
+  const mayDelete = canDeleteUsers(actor?.email ?? '', actor?.active ?? false);
   const administered = await db
     .select({ id: projects.id, name: projects.name, slug: projects.slug })
     .from(projects)
@@ -57,7 +62,7 @@ export async function loadAccessBoard(actingUserId: string): Promise<AccessBoard
     ))
     .orderBy(asc(projects.name));
 
-  if (administered.length === 0) return { projects: [], people: [] };
+  if (administered.length === 0 && !mayDelete) return { projects: [], people: [], canDeleteUsers: false };
 
   const ids = administered.map((p) => p.id);
 
@@ -93,6 +98,7 @@ export async function loadAccessBoard(actingUserId: string): Promise<AccessBoard
   }
 
   return {
+    canDeleteUsers: mayDelete,
     projects: administered,
     people: everyone.map((u) => ({
       id: u.id,

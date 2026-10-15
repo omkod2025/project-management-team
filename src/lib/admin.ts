@@ -10,8 +10,8 @@ import { domainError } from '@/lib/errors';
 import {
   assertColorIndex, assertEmail, assertFieldKind, assertFieldName, assertFullName,
   assertHolidayDate,
-  assertAdminsEveryProjectOf, assertHolidayName, assertKeepsADoneStage, assertKeepsAnAdmin,
-  assertKindUnchanged, assertLeavesNoProjectAdminless, assertNotProtectedAccount, assertNotSelf,
+  assertCanDeleteUsers, assertHolidayName, assertKeepsADoneStage, assertKeepsAnAdmin,
+  assertKindUnchanged, assertNotProtectedAccount, assertNotSelf,
   assertNotProtectedReset, assertResetIsNotSelf, assertSharesAnAdministeredProject,
   assertNewPassword, assertOptionLabel, assertPassword, assertProjectName, assertRole,
   assertStage, assertStatusFieldKind, slugFromName,
@@ -471,12 +471,16 @@ export async function removeMember(projectId: string, userId: string): Promise<v
  *     they ever created loses its author, permanently and for the whole
  *     install. Nothing here restores that.
  *
- * Four refusals stand in front of it, each in `admin-rules.ts` where a test can
- * reach it without a database. The order matters: identity first, then
- * standing, then consequences.
+ * Refusals live in `admin-rules.ts`: only the active install administrator
+ * may delete other accounts. Projects losing their last admin transfer to it.
  */
 export async function deleteUser(actingUserId: string, targetUserId: string): Promise<void> {
-  const [target] = await db
+  await db.transaction(async (tx) => {
+  const [actor] = await tx.select({ email: users.email, active: users.isActive })
+    .from(users).where(eq(users.id, actingUserId)).limit(1);
+  assertCanDeleteUsers(actor?.email ?? '', actor?.active ?? false);
+
+  const [target] = await tx
     .select({ id: users.id, email: users.email })
     .from(users)
     .where(eq(users.id, targetUserId))
@@ -486,38 +490,26 @@ export async function deleteUser(actingUserId: string, targetUserId: string): Pr
   assertNotProtectedAccount(target.email);
   assertNotSelf(target.id, actingUserId);
 
-  /*
-   * Every project the target belongs to, answered in one pass: how many admins
-   * it has, whether the target is one of them, and whether the acting user is
-   * one of them. Three separate queries would have to be reconciled afterwards
-   * and could disagree with each other under concurrent edits.
-   */
-  const rows = await rawQuery<{
-    project_name: string;
-    target_is_only_admin: boolean;
-    actor_is_admin: boolean;
-  }>(
-    `SELECT p.project_name,
-            (tm.member_role = 'admin'
-              AND (SELECT count(*) FROM pmt_project_members a
-                    WHERE a.member_project_id = p.project_id
-                      AND a.member_role = 'admin') = 1)          AS target_is_only_admin,
-            (am.member_role = 'admin')                           AS actor_is_admin
-       FROM pmt_project_members tm
-       JOIN pmt_projects p        ON p.project_id = tm.member_project_id
-       LEFT JOIN pmt_project_members am
-              ON am.member_project_id = p.project_id
-             AND am.member_user_id    = $2
-      WHERE tm.member_user_id = $1`,
-    [targetUserId, actingUserId],
-  );
-
-  assertAdminsEveryProjectOf(rows.filter((r) => !r.actor_is_admin).length);
-  assertLeavesNoProjectAdminless(
-    rows.filter((r) => r.target_is_only_admin).map((r) => r.project_name),
-  );
-
-  await db.delete(users).where(eq(users.id, targetUserId));
+  // Serialize membership writes while deciding which projects need an admin.
+  // The transfer and deletion commit together or both roll back.
+  await tx.execute(sql`LOCK TABLE pmt_project_members IN SHARE ROW EXCLUSIVE MODE`);
+  await tx.execute(sql`
+    INSERT INTO pmt_project_members (member_project_id, member_user_id, member_role)
+    SELECT tm.member_project_id, ${actingUserId}::uuid, 'admin'
+      FROM pmt_project_members tm
+     WHERE tm.member_user_id = ${targetUserId}::uuid
+       AND tm.member_role = 'admin'
+       AND NOT EXISTS (
+         SELECT 1 FROM pmt_project_members other
+          WHERE other.member_project_id = tm.member_project_id
+            AND other.member_user_id <> ${targetUserId}::uuid
+            AND other.member_role = 'admin'
+       )
+    ON CONFLICT (member_project_id, member_user_id)
+    DO UPDATE SET member_role = 'admin'
+  `);
+  await tx.delete(users).where(eq(users.id, targetUserId));
+  });
 }
 
 /* -------------------------------------------------------------- calendar */
@@ -778,11 +770,11 @@ export async function issuePasswordReset(
    * How many projects the caller administers that this person is also on.
    *
    * One project is enough, at the owner's instruction (2026-09-08). Deletion
-   * asks for more — `deleteUser` refuses unless the caller administers *every*
-   * project the target holds — and the two are deliberately not the same test:
+   * asks for more — `deleteUser` permits only the install administrator —
+   * and the two are deliberately not the same test:
    *
    *   - deletion is irreversible and takes the person off projects the caller
-   *     has no standing over, so it asks for standing over all of them;
+   *     has no standing over, so it requires the install account;
    *   - a reset is the everyday act of somebody who has lost their password,
    *     and the stricter rule made it unusable: on an install where people sit
    *     on several projects, only an admin of all of them could help, which in

@@ -59,7 +59,7 @@ Moving across projects is also refused — field definitions belong to a project
 > **The cost, stated so nobody rediscovers it as a surprise: the names of depths 1–3 are positions, not kinds.** A *module* is whatever sits at depth 2. Promote a task and it becomes a module; demote a module and it becomes a task. Nothing about the row changes except where it sits — which is also why a module and a task share one table and one set of columns (see `02-data-model.md` §2.1).
 
 **D-4. Deletion is soft and cascading.**
-Deleting a node sets `node_archived_at` on it and every descendant. Archived nodes are excluded from lists, timelines, and all roll-up computation. Only an Admin may archive.
+Deleting a node sets `node_archived_at` on it and every descendant. Archived nodes are excluded from lists, timelines, and all roll-up computation. Admins and Members may archive and restore modules and tasks; the project root cannot be archived through this operation.
 
 **D-5. Ordering.**
 Siblings are ordered by `node_sort_order` (a float, so an insert between two siblings needs no rewrite), then by `node_created_at`. Phase one exposes no UI to change `node_sort_order`; it exists so the migration can preserve ClickUp's order.

@@ -6,10 +6,8 @@ import { handle } from '@/lib/api';
  *
  * No `authorize(...)` call, for the same reason `POST /api/projects` has none:
  * capabilities are scoped to a project (spec 05 §4) and a user is not inside
- * one. Standing is established instead by `deleteUser`, which refuses unless
- * the caller administers **every** project the target belongs to — a stricter
- * test than any single `member.manage` check, and the only one that makes
- * sense without a workspace superuser.
+ * one. `deleteUser` re-reads the caller from the database and permits only the
+ * active install administrator. Project-admin membership does not grant it.
  *
  * `admin@cit.com` is refused there too, so the rule holds for any caller by
  * any route, not only for the button that happens to hide itself.

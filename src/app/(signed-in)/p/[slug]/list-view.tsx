@@ -63,6 +63,7 @@ type Props = {
   /** The project's column arrangement — one order, shared by everybody. */
   columnOrder: string[];
   canEdit: boolean;
+  canArchive: boolean;
   isAdmin: boolean;
   /** Rendered on the server: signing out is a server action. */
   signOut: React.ReactNode;
@@ -105,7 +106,7 @@ function fmtDate(iso: string | null): string | null {
 
 export default function ListView({
   kind = 'task', projectId, projectName, slug, rows: initialRows, fields, people, statusFieldId,
-  columnOrder: savedColumnOrder, canEdit, isAdmin, signOut,
+  columnOrder: savedColumnOrder, canEdit, canArchive, isAdmin, signOut,
 }: Props) {
   const stateKey = workStateKey(slug, kind);
   const api = useCallback((url: string) => workApi(url, kind), [kind]);
@@ -979,7 +980,7 @@ export default function ListView({
 
         case 'Delete':
           // Both routes to archiving lead through the same question.
-          if (isAdmin && node) { e.preventDefault(); setPendingArchive(node); }
+          if (canArchive && node) { e.preventDefault(); setPendingArchive(node); }
           break;
 
         case 'n': case 'N': {
@@ -1017,7 +1018,7 @@ export default function ListView({
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [kind, focus, visible, nodeRows, columns, editing, canEdit, isAdmin, detail, selected, slug, root,
+  }, [kind, focus, visible, nodeRows, columns, editing, canEdit, canArchive, detail, selected, slug, root,
       create, move, nudge, archive, descendantCount]);
 
   /* -------------------------------------------------------- detail data */
@@ -1038,7 +1039,7 @@ export default function ListView({
   /* --------------------------------------------------------------- view */
 
   return (
-    <WorkKindProvider value={kind}><div className="book">
+    <WorkKindProvider value={kind}><div className="book list-surface">
       <nav className="rail" aria-label="Modules">
         {/* The tabs stand in the run's order, so the rail reads down the page
             as the page does — but each keeps the hue its module owns, which is
@@ -1505,7 +1506,7 @@ export default function ListView({
                               onEdit={() => setEditing(true)}
                               onCommit={(body) => { setEditing(false); void patch(v.row, body, cellKey); }}
                               onCancel={() => setEditing(false)}
-                              canArchive={isAdmin}
+                              canArchive={canArchive}
                               canAddChild={v.row.led_depth < MAX_DEPTH}
                               /* `create` opens the parent and selects the new
                                  row itself, so there is nothing to do here. */
