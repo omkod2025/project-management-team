@@ -2,6 +2,7 @@ import React, { type CSSProperties } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import FilterableTable from './filterable-table';
+import DocImage from './doc-image';
 import {
   decodeRich,
   safeColor,
@@ -81,9 +82,9 @@ export default function DocContent({
               </a>
             );
           },
-          img: ({ src, alt, ...rest }) => {
+          img: ({ src, alt, node: _node, ...rest }) => {
             const to = url(src);
-            return to ? <img {...rest} src={to} alt={alt ?? ""} /> : null;
+            return to ? <DocImage {...rest} src={to} alt={alt ?? ""} /> : null;
           },
         }}
       >
@@ -173,7 +174,7 @@ export default function DocContent({
     if (n.type === "horizontalRule") return <hr key={key} />;
     if (n.type === "image") {
       const src = url(a.src);
-      return src ? <img key={key} src={src} alt={String(a.alt ?? "")} /> : null;
+      return src ? <DocImage key={key} src={src} alt={String(a.alt ?? "")} /> : null;
     }
     if (n.type === "linkButton") {
       const to = url(a.href);
