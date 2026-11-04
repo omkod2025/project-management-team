@@ -44,8 +44,12 @@ Project management for software delivery. Plan and reality are recorded separate
 | [`tests/wiki-rules.test.ts`](tests/wiki-rules.test.ts) | 67 tests: who sees and writes a wiki, what a token reads, token and page input, Thai-safe search terms, the rate limiter, the breadcrumb |
 | [`tests/wiki-tree-order.test.ts`](tests/wiki-tree-order.test.ts) | 6 tests: the wiki page tree in reading order |
 | [`tests/e2e/wiki.test.ts`](tests/e2e/wiki.test.ts) | 67 end-to-end tests: the wiki role table, strangers' 404s, pages, search, assets, the public link, access tokens |
-| [`tests/e2e/wiki.browser.test.ts`](tests/e2e/wiki.browser.test.ts) | 1 browser test: create a wiki, write Thai and Mermaid, the read-only member, the stranger's 404, `.md` import |
-| [`tests/e2e/wiki-mcp.test.ts`](tests/e2e/wiki-mcp.test.ts) | 23 end-to-end tests: the MCP endpoint — Bearer only, the four read-only tools, scope decided per request, revoked/expired/deactivated → 401, injection, the rate limit |
+| [`tests/e2e/wiki.browser.test.ts`](tests/e2e/wiki.browser.test.ts) | 1 browser test: create a wiki, write Thai and Mermaid, the read-only member, the stranger's 404, `.md` import, whole-wiki export in tree order |
+| [`tests/e2e/wiki-mcp.test.ts`](tests/e2e/wiki-mcp.test.ts) | 24 end-to-end tests: the MCP endpoint — Bearer only, the four read-only tools, ids in any case, scope decided per request, revoked/expired/deactivated → 401, injection, the rate limit |
+| [`tests/e2e/wiki-guide.test.ts`](tests/e2e/wiki-guide.test.ts) | 6 end-to-end tests: the in-app MCP guide names the real origin, is for signed-in people only, and its every example still parses and connects |
+| [`tests/mermaid-rules.test.ts`](tests/mermaid-rules.test.ts) | 9 tests: what counts as a Mermaid block, the 50,000-character ceiling, and the locked config — strict, no HTML labels, no shadow, and the keys no diagram directive may override |
+| [`tests/doc-mermaid-render.test.ts`](tests/doc-mermaid-render.test.ts) | 5 tests: a Mermaid fence survives Markdown, rich JSON and back byte for byte, hostile source included |
+| [`tests/e2e/doc-mermaid.browser.test.ts`](tests/e2e/doc-mermaid.browser.test.ts) | 1 browser test: diagrams draw in read mode and on the public link, a parse error is shown to the editor only, an `%%{init}%%` directive cannot override the house theme, live preview, HTML export and re-import |
 | [`docs/TASKS.md`](docs/TASKS.md) | Build plan T0–T9 with per-task checklists |
 | [`docs/wireframes/index.html`](docs/wireframes/index.html) | Rendered wireframes for both views |
 | [`docs/guides/wiki-mcp.md`](docs/guides/wiki-mcp.md) | Connecting AI clients to the Wiki over MCP |
@@ -73,9 +77,11 @@ npm run db:seed -- <email> <password>
 
 ```bash
 npm run check      # typecheck + domain tests — the pre-commit bar
-npm test           # 326 domain rule tests (nodes, admin, list, roster, notifications), no database needed
+npm test           # 429 domain rule tests (nodes, admin, list, roster, notifications, docs, wiki, mermaid), no database needed
 npm run db:test    # 14 SQL groups, rolled back
 npm run test:e2e   # 147 API tests — REQUIRES `npm run dev` in another terminal
+npm run test:wiki  # 98 wiki tests: REST, browser, MCP, guide — same requirement (5 skip without E2E_INSTALL_ADMIN_PASSWORD)
+npm run test:docs  # 15 Docs API tests — same requirement
 npm run test:acceptance  # 15 acceptance criteria, same requirement
 ```
 
