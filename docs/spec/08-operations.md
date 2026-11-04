@@ -57,6 +57,8 @@ Two things worth knowing before trusting a restore:
 - **`pg_restore` succeeding is not a verified backup.** Restore into a scratch database and run `npm run db:test` against it. The suite runs in a transaction and rolls back, so it is safe to point at a copy.
 - **The dump contains client budget figures and delivery commitments.** Encrypt it at rest, and keep it off any location a client could reach.
 
+**Uploaded images are not in the dump.** Document images live on disk under `DOC_ASSET_DIR` and wiki images under `WIKI_ASSET_DIR` — in production, the host directories named by the `ASSET_DIR` and `WIKI_ASSET_DIR` deploy secrets, mounted at `/app/data/doc-assets` and `/app/data/wiki-assets`. Back up both directories alongside each dump (a plain `tar` of each is enough) and restore them to the same paths before starting the container; a database restored without them shows every image as missing.
+
 Frequency: the data changes as fast as the team works. Daily is proportionate; hourly is not, given a handful of writers.
 
 ---

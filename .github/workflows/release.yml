@@ -65,6 +65,7 @@ jobs:
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
           DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
           ASSET_DIR: ${{ secrets.ASSET_DIR }}
+          WIKI_ASSET_DIR: ${{ secrets.WIKI_ASSET_DIR }}
           GHCR_TOKEN: ${{ secrets.GHCR_PULL_TOKEN }}
           GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
           IMAGE: ${{ needs.build.outputs.image }}
@@ -72,7 +73,7 @@ jobs:
           host: 141.136.47.194
           username: ${{ secrets.DEPLOY_SSH_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          envs: DEPLOY_PATH,DEPLOY_PORT,ASSET_DIR,GHCR_TOKEN,GHCR_USERNAME,IMAGE
+          envs: DEPLOY_PATH,DEPLOY_PORT,ASSET_DIR,WIKI_ASSET_DIR,GHCR_TOKEN,GHCR_USERNAME,IMAGE
           script: |
             set -eu
 
@@ -80,6 +81,10 @@ jobs:
             test -n "$DEPLOY_PORT"
             if [ -z "$ASSET_DIR" ]; then
               echo "Missing GitHub secret: ASSET_DIR"
+              exit 1
+            fi
+            if [ -z "$WIKI_ASSET_DIR" ]; then
+              echo "Missing GitHub secret: WIKI_ASSET_DIR"
               exit 1
             fi
             test -n "$GHCR_TOKEN"
@@ -113,6 +118,9 @@ jobs:
             docker run --rm --user 0 \
               --volume "$ASSET_DIR:/app/data/doc-assets" \
               --entrypoint chown "$IMAGE" 1001:1001 /app/data/doc-assets
+            docker run --rm --user 0 \
+              --volume "$WIKI_ASSET_DIR:/app/data/wiki-assets" \
+              --entrypoint chown "$IMAGE" 1001:1001 /app/data/wiki-assets
 
             if docker container inspect fieldbook-app >/dev/null 2>&1; then
               CURRENT_ASSET_DIR=$(docker inspect --format '{{range .Mounts}}{{if eq .Destination "/app/data/doc-assets"}}{{.Source}}{{end}}{{end}}' fieldbook-app)
@@ -128,6 +136,20 @@ jobs:
                   --entrypoint sh "$IMAGE" -c \
                   'cp -an /backup/. /app/data/doc-assets/ && chown -R 1001:1001 /app/data/doc-assets'
               fi
+              CURRENT_WIKI_ASSET_DIR=$(docker inspect --format '{{range .Mounts}}{{if eq .Destination "/app/data/wiki-assets"}}{{.Source}}{{end}}{{end}}' fieldbook-app)
+              # Same preservation for wiki images, which have their own directory.
+              if [ "$CURRENT_WIKI_ASSET_DIR" != "$WIKI_ASSET_DIR" ]; then
+                WIKI_ASSET_BACKUP=$(mktemp -d "$DEPLOY_PATH/wiki-assets-backup.XXXXXX")
+                docker stop fieldbook-app
+                # A release from before the wiki has no such directory to copy.
+                if docker cp fieldbook-app:/app/data/wiki-assets/. "$WIKI_ASSET_BACKUP/"; then
+                  docker run --rm --user 0 \
+                    --volume "$WIKI_ASSET_BACKUP:/backup:ro" \
+                    --volume "$WIKI_ASSET_DIR:/app/data/wiki-assets" \
+                    --entrypoint sh "$IMAGE" -c \
+                    'cp -an /backup/. /app/data/wiki-assets/ && chown -R 1001:1001 /app/data/wiki-assets'
+                fi
+              fi
               echo "Removing existing container: fieldbook-app"
               docker rm --force fieldbook-app
             fi
@@ -139,6 +161,8 @@ jobs:
               --env-file "$DEPLOY_PATH/.env" \
               --env DOC_ASSET_DIR=/app/data/doc-assets \
               --volume "$ASSET_DIR:/app/data/doc-assets" \
+              --env WIKI_ASSET_DIR=/app/data/wiki-assets \
+              --volume "$WIKI_ASSET_DIR:/app/data/wiki-assets" \
               --publish "${DEPLOY_PORT}:3000" \
               "$IMAGE"
 
