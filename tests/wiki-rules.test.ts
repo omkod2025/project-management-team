@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
 
 import {
   isInstallAdmin, wikiRole, canSeeWiki, canWriteWiki, canManageWiki,
-  parseNewWiki, parseMemberGrant,
+  parseNewWiki, parseMemberGrant, parseMemberRef, parseWikiUpdate, assertNotOwner, isUuid,
   TOKEN_PREFIX, MAX_ACTIVE_TOKENS, newTokenSecret, hashTokenSecret, bearerSecret,
   effectiveTokenWikis, parseTokenInput,
   searchTerms, likePattern, searchSnippet, takeRateSlot, publicWikiToken,
@@ -176,6 +176,53 @@ describe('parseMemberGrant', () => {
 
   test('an invalid access value throws E_INVALID_DOC', () => {
     refuses('E_INVALID_DOC', () => parseMemberGrant({ userId: READ_MEMBER_ID, access: 'admin' }));
+  });
+});
+
+describe('parseMemberRef', () => {
+  test('a uuid passes; anything else is E_INVALID_DOC', () => {
+    assert.deepEqual(parseMemberRef({ userId: READ_MEMBER_ID }), { userId: READ_MEMBER_ID });
+    refuses('E_INVALID_DOC', () => parseMemberRef({ userId: 'x' }));
+    refuses('E_INVALID_DOC', () => parseMemberRef(null));
+  });
+});
+
+describe('parseWikiUpdate', () => {
+  test('each action parses to its own shape, trimmed', () => {
+    assert.deepEqual(parseWikiUpdate({ action: 'rename', title: '  คู่มือ  ' }), { action: 'rename', title: 'คู่มือ' });
+    assert.deepEqual(parseWikiUpdate({ action: 'describe', description: ' d ' }), { action: 'describe', description: 'd' });
+    assert.deepEqual(parseWikiUpdate({ action: 'describe' }), { action: 'describe', description: '' });
+    assert.deepEqual(parseWikiUpdate({ action: 'archive' }), { action: 'archive' });
+    assert.deepEqual(parseWikiUpdate({ action: 'restore' }), { action: 'restore' });
+    assert.deepEqual(parseWikiUpdate({ action: 'transfer', userId: OWNER_ID }), { action: 'transfer', userId: OWNER_ID });
+  });
+
+  test('the same limits as creating apply', () => {
+    refuses('E_INVALID_DOC', () => parseWikiUpdate({ action: 'rename', title: '  ' }));
+    refuses('E_INVALID_DOC', () => parseWikiUpdate({ action: 'rename', title: 'x'.repeat(201) }));
+    refuses('E_INVALID_DOC', () => parseWikiUpdate({ action: 'describe', description: 'x'.repeat(1001) }));
+    refuses('E_INVALID_DOC', () => parseWikiUpdate({ action: 'transfer', userId: 'nope' }));
+  });
+
+  test('an unknown or missing action is refused', () => {
+    refuses('E_INVALID_DOC', () => parseWikiUpdate({ action: 'delete' }));
+    refuses('E_INVALID_DOC', () => parseWikiUpdate({}));
+  });
+});
+
+describe('assertNotOwner', () => {
+  test('refuses the owner, allows anyone else', () => {
+    refuses('E_INVALID_DOC', () => assertNotOwner(OWNER_ID, OWNER_ID));
+    assertNotOwner(READ_MEMBER_ID, OWNER_ID);
+    assertNotOwner(READ_MEMBER_ID, null);
+  });
+});
+
+describe('isUuid', () => {
+  test('shape only', () => {
+    assert.equal(isUuid(OWNER_ID), true);
+    assert.equal(isUuid('not-a-uuid'), false);
+    assert.equal(isUuid(''), false);
   });
 });
 

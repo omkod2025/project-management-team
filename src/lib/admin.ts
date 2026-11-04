@@ -508,6 +508,23 @@ export async function deleteUser(actingUserId: string, targetUserId: string): Pr
     ON CONFLICT (member_project_id, member_user_id)
     DO UPDATE SET member_role = 'admin'
   `);
+  // Wikis the target owns move to the install administrator — the acting
+  // user, whom `assertCanDeleteUsers` has just established is that account —
+  // in this same transaction, before the row goes (wiki spec §5a). The owner
+  // FK is ON DELETE RESTRICT, so a wiki can never be left ownerless. The new
+  // owner's own member row, if any, is dropped: an owner holds none.
+  await tx.execute(sql`
+    DELETE FROM pmt_wiki_members
+     WHERE wiki_member_user_id = ${actingUserId}::uuid
+       AND wiki_member_wiki_id IN (
+         SELECT wiki_id FROM pmt_wikis WHERE wiki_owner_id = ${targetUserId}::uuid
+       )
+  `);
+  await tx.execute(sql`
+    UPDATE pmt_wikis
+       SET wiki_owner_id = ${actingUserId}::uuid, wiki_updated_at = now()
+     WHERE wiki_owner_id = ${targetUserId}::uuid
+  `);
   await tx.delete(users).where(eq(users.id, targetUserId));
   });
 }

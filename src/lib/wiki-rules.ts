@@ -85,31 +85,67 @@ export function canManageWiki(v: WikiViewer, w: WikiFacts): boolean {
 const MAX_TITLE_LENGTH = 200;
 const MAX_DESCRIPTION_LENGTH = 1000;
 
-export function parseNewWiki(input: unknown): { title: string; description: string } {
-  const obj = (input ?? {}) as Record<string, unknown>;
-  const title = typeof obj.title === 'string' ? obj.title.trim() : '';
+function parseTitle(raw: unknown): string {
+  const title = typeof raw === 'string' ? raw.trim() : '';
   if (!title) throw domainError('E_INVALID_DOC', 'A wiki needs a title.');
   if (title.length > MAX_TITLE_LENGTH) {
     throw domainError('E_INVALID_DOC', 'That title is too long.', { title });
   }
+  return title;
+}
 
-  let description = '';
-  if (obj.description !== undefined && obj.description !== null) {
-    if (typeof obj.description !== 'string') {
-      throw domainError('E_INVALID_DOC', 'That is not a description.', { description: obj.description });
-    }
-    description = obj.description.trim();
-    if (description.length > MAX_DESCRIPTION_LENGTH) {
-      throw domainError('E_INVALID_DOC', 'That description is too long.', { description });
-    }
+function parseDescription(raw: unknown): string {
+  if (raw === undefined || raw === null) return '';
+  if (typeof raw !== 'string') {
+    throw domainError('E_INVALID_DOC', 'That is not a description.', { description: raw });
   }
+  const description = raw.trim();
+  if (description.length > MAX_DESCRIPTION_LENGTH) {
+    throw domainError('E_INVALID_DOC', 'That description is too long.', { description });
+  }
+  return description;
+}
 
-  return { title, description };
+export function parseNewWiki(input: unknown): { title: string; description: string } {
+  const obj = (input ?? {}) as Record<string, unknown>;
+  const title = parseTitle(obj.title);
+  return { title, description: parseDescription(obj.description) };
+}
+
+/* -------------------------------------------------------------- updating */
+
+export type WikiUpdate =
+  | { action: 'rename'; title: string }
+  | { action: 'describe'; description: string }
+  | { action: 'archive' }
+  | { action: 'restore' }
+  | { action: 'transfer'; userId: string };
+
+/**
+ * One change to a wiki's settings, all of which need `canManageWiki`. The
+ * same title and description limits as creating one.
+ */
+export function parseWikiUpdate(input: unknown): WikiUpdate {
+  const obj = (input ?? {}) as Record<string, unknown>;
+  switch (obj.action) {
+    case 'rename': return { action: 'rename', title: parseTitle(obj.title) };
+    case 'describe': return { action: 'describe', description: parseDescription(obj.description) };
+    case 'archive': return { action: 'archive' };
+    case 'restore': return { action: 'restore' };
+    case 'transfer': return { action: 'transfer', userId: parseMemberRef(obj).userId };
+    default:
+      throw domainError('E_INVALID_DOC', 'Unknown wiki action.', { action: obj.action });
+  }
 }
 
 /* ---------------------------------------------------------------- members */
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Whether an id from a URL could name a row at all — a malformed one is a 404, never a 500. */
+export function isUuid(id: string): boolean {
+  return UUID_RE.test(id);
+}
 
 export function parseMemberGrant(input: unknown): { userId: string; access: WikiAccess } {
   const obj = (input ?? {}) as Record<string, unknown>;
@@ -122,6 +158,29 @@ export function parseMemberGrant(input: unknown): { userId: string; access: Wiki
     throw domainError('E_INVALID_DOC', 'Access must be read or write.', { access });
   }
   return { userId, access };
+}
+
+/** The `{ userId }` naming a member to remove, or a new owner. */
+export function parseMemberRef(input: unknown): { userId: string } {
+  const obj = (input ?? {}) as Record<string, unknown>;
+  const userId = typeof obj.userId === 'string' ? obj.userId : '';
+  if (!UUID_RE.test(userId)) {
+    throw domainError('E_INVALID_DOC', 'That is not a user.', { userId: obj.userId });
+  }
+  return { userId };
+}
+
+/**
+ * The owner already holds every right a member row could give, so a row
+ * for them would only be a second, contradictory answer to "what may they
+ * do" — refused rather than stored. Transferring to the current owner is
+ * refused for the same reason: it would demote them to a member of their
+ * own wiki.
+ */
+export function assertNotOwner(targetUserId: string, ownerId: string | null): void {
+  if (ownerId !== null && targetUserId === ownerId) {
+    throw domainError('E_INVALID_DOC', 'That person already owns this wiki.');
+  }
 }
 
 /* ----------------------------------------------------------------- tokens */
