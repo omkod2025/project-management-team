@@ -14,7 +14,7 @@
 
 import test, { before, after, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { randomBytes, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { setup, signIn, makeUser, BASE_URL, type Fixture, type Jar } from '../helpers/harness.ts';
 import { hashPassword } from '../../src/lib/password.ts';
 
@@ -798,5 +798,177 @@ describe('the public link', () => {
     assert.match(res.body.publicToken, /^[A-Za-z0-9_-]{43}$/);
     assert.equal((await anon(`/w/${res.body.publicToken}`)).status, 200);
     assert.equal((await call(installJar, 'PATCH', `/api/wikis/${w.id}`, { action: 'unpublish' })).status, 200);
+  });
+});
+
+/* ------------------------------------------------------ tokens (Task 9) */
+
+describe('access tokens', () => {
+  let tw = '';       // owner's wiki; writer has write, reader has read
+  let hidden = '';   // a wiki the writer cannot see
+  let writerToken = '';
+  let writerSecret = '';
+  let ownerToken = '';
+  let hoarder: U, hoarderJar: Jar;
+
+  const SECRET_RE = /^pmw_[A-Za-z0-9_-]{43}$/;
+
+  before(async () => {
+    tw = await wikiWithMembers('วิกิกับโทเค็น');
+    hidden = (await create(ownerJar, 'วิกิที่มองไม่เห็น')).id;
+    hoarder = await makeUser(fx.client, 'hoarder');
+    hoarderJar = await signIn(hoarder.email, hoarder.password);
+  });
+
+  test('creating returns the secret once; a later GET never carries it or the hash', async () => {
+    const res = await call(writerJar, 'POST', '/api/wiki-tokens', { label: 'แล็ปท็อปของฉัน', wikiIds: [tw] });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.match(res.body.secret, SECRET_RE);
+    writerSecret = res.body.secret;
+    writerToken = res.body.token.id;
+    assert.equal(res.body.token.label, 'แล็ปท็อปของฉัน');
+    assert.equal(res.body.token.prefix, writerSecret.slice(4, 12));
+    assert.equal(res.body.token.status, 'active');
+    assert.deepEqual(res.body.token.wikis.map((w: any) => w.id), [tw]);
+    assert.equal(res.body.token.hash, undefined);
+
+    const list = await call(writerJar, 'GET', '/api/wiki-tokens');
+    assert.equal(list.status, 200);
+    const raw = JSON.stringify(list.body);
+    const { rows } = await fx.client.query('SELECT wiki_token_hash FROM pmt_wiki_tokens WHERE wiki_token_id = $1', [writerToken]);
+    assert.ok(!raw.includes(writerSecret), 'the list never carries the secret');
+    assert.ok(!raw.includes(rows[0].wiki_token_hash), 'the list never carries the hash');
+    assert.ok(!raw.includes('"secret"'));
+    const mine = (list.body as any[]).find((t) => t.id === writerToken);
+    assert.ok(mine);
+    assert.equal(mine.ownerId, writer.id);
+  });
+
+  test('the database stores sha256(secret) and the prefix, never the secret', async () => {
+    const { rows } = await fx.client.query(
+      'SELECT wiki_token_hash, wiki_token_prefix FROM pmt_wiki_tokens WHERE wiki_token_id = $1', [writerToken],
+    );
+    assert.equal(rows[0].wiki_token_hash, createHash('sha256').update(writerSecret).digest('hex'));
+    assert.equal(rows[0].wiki_token_prefix, writerSecret.slice(4, 12));
+    const hit = await fx.client.query(
+      'SELECT 1 FROM pmt_wiki_tokens WHERE wiki_token_hash = $1 OR wiki_token_prefix = $1 OR wiki_token_label = $1', [writerSecret],
+    );
+    assert.equal(hit.rowCount, 0);
+  });
+
+  test('scoping to a wiki the caller cannot see is 404, as is a malformed id', async () => {
+    assert.equal((await call(writerJar, 'POST', '/api/wiki-tokens', { label: 'x', wikiIds: [hidden] })).status, 404);
+    assert.equal((await call(writerJar, 'POST', '/api/wiki-tokens', { label: 'x', wikiIds: ['nope'] })).status, 404);
+    assert.equal((await call(writerJar, 'PATCH', `/api/wiki-tokens/${writerToken}`, { label: 'x', wikiIds: [hidden] })).status, 404);
+  });
+
+  test('a label is required and an expiry must be in the future', async () => {
+    assert.equal((await call(writerJar, 'POST', '/api/wiki-tokens', { label: '  ', wikiIds: [] })).status, 422);
+    assert.equal((await call(writerJar, 'POST', '/api/wiki-tokens', { label: 'old', expiresAt: '2001-01-01' })).status, 422);
+  });
+
+  test('the 21st active token is 422; a revoked one frees a slot', async () => {
+    for (let i = 0; i < 20; i++) {
+      const r = await call(hoarderJar, 'POST', '/api/wiki-tokens', { label: `t${i}`, wikiIds: [] });
+      assert.equal(r.status, 200, JSON.stringify(r.body));
+    }
+    const over = await call(hoarderJar, 'POST', '/api/wiki-tokens', { label: 't20', wikiIds: [] });
+    assert.equal(over.status, 422);
+    assert.match(over.body.message, /20 active tokens/);
+    const list = await call(hoarderJar, 'GET', '/api/wiki-tokens');
+    assert.equal((await call(hoarderJar, 'DELETE', `/api/wiki-tokens/${list.body[0].id}`)).status, 200);
+    assert.equal((await call(hoarderJar, 'POST', '/api/wiki-tokens', { label: 't20', wikiIds: [] })).status, 200);
+  });
+
+  test('the owner renames and rescopes; someone else gets 404 on edit and revoke', async () => {
+    const res = await call(writerJar, 'PATCH', `/api/wiki-tokens/${writerToken}`, { label: 'เครื่องใหม่', wikiIds: [] });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(res.body.label, 'เครื่องใหม่');
+    assert.deepEqual(res.body.wikis, []);
+    assert.equal(res.body.secret, undefined);
+    assert.equal((await call(readerJar, 'PATCH', `/api/wiki-tokens/${writerToken}`, { label: 'mine', wikiIds: [] })).status, 404);
+    assert.equal((await call(readerJar, 'DELETE', `/api/wiki-tokens/${writerToken}`)).status, 404);
+    assert.equal((await call(readerJar, 'DELETE', `/api/wiki-tokens/${randomUUID()}`)).status, 404);
+    assert.equal((await call(readerJar, 'DELETE', '/api/wiki-tokens/not-a-uuid')).status, 404);
+  });
+
+  test('a reader cannot allow a token from the wiki; a stranger cannot tell it exists', async () => {
+    const mine = await call(readerJar, 'POST', '/api/wiki-tokens', { label: 'reader', wikiIds: [] });
+    assert.equal(mine.status, 200);
+    assert.equal((await call(readerJar, 'PUT', `/api/wikis/${tw}/tokens`, { tokenIds: [mine.body.token.id] })).status, 403);
+    assert.equal((await call(strangerJar, 'PUT', `/api/wikis/${tw}/tokens`, { tokenIds: [] })).status, 404);
+  });
+
+  test("a writer allows the wiki on their own token, but someone else's token is 404", async () => {
+    const own = await call(ownerJar, 'POST', '/api/wiki-tokens', { label: 'owner', wikiIds: [] });
+    ownerToken = own.body.token.id;
+    assert.equal((await call(writerJar, 'PUT', `/api/wikis/${tw}/tokens`, { tokenIds: [ownerToken] })).status, 404);
+    const ok = await call(writerJar, 'PUT', `/api/wikis/${tw}/tokens`, { tokenIds: [writerToken] });
+    assert.equal(ok.status, 200, JSON.stringify(ok.body));
+    const list = await call(writerJar, 'GET', '/api/wiki-tokens');
+    const t = (list.body as any[]).find((x) => x.id === writerToken);
+    assert.deepEqual(t.wikis.map((w: any) => w.id), [tw]);
+    // Unticking every token removes the wiki from all of them.
+    assert.equal((await call(writerJar, 'PUT', `/api/wikis/${tw}/tokens`, { tokenIds: [] })).status, 200);
+    const cleared = (await call(writerJar, 'GET', '/api/wiki-tokens')).body.find((x: any) => x.id === writerToken);
+    assert.deepEqual(cleared.wikis, []);
+  });
+
+  test('a token lists only the scoped wikis its owner can still see', async () => {
+    const w = await wikiWithMembers('วิกิที่จะถูกถอด');
+    const r = await call(readerJar, 'POST', '/api/wiki-tokens', { label: 'scoped', wikiIds: [w] });
+    assert.equal(r.status, 200);
+    assert.equal((await call(ownerJar, 'DELETE', `/api/wikis/${w}/members`, { userId: reader.id })).status, 200);
+    const t = (await call(readerJar, 'GET', '/api/wiki-tokens')).body.find((x: any) => x.id === r.body.token.id);
+    assert.deepEqual(t.wikis, []);
+  });
+
+  test('a non-admin asking for ?all=1 gets 404', async () => {
+    assert.equal((await call(writerJar, 'GET', '/api/wiki-tokens?all=1')).status, 404);
+    assert.equal((await call(projectAdminJar, 'GET', '/api/wiki-tokens?all=1')).status, 404);
+  });
+
+  test("the install admin sees every token with its owner email and revokes another user's", async (t) => {
+    if (!installJar) return t.skip(SKIP_INSTALL);
+    const all = await call(installJar, 'GET', '/api/wiki-tokens?all=1');
+    assert.equal(all.status, 200);
+    const row = (all.body as any[]).find((x) => x.id === ownerToken);
+    assert.ok(row);
+    assert.equal(row.ownerEmail, owner.email);
+    assert.ok(!JSON.stringify(all.body).includes('"secret"'));
+    assert.equal((await call(installJar, 'DELETE', `/api/wiki-tokens/${ownerToken}`)).status, 200);
+    const { rows } = await fx.client.query(
+      'SELECT wiki_token_revoked_at, wiki_token_revoked_by FROM pmt_wiki_tokens WHERE wiki_token_id = $1', [ownerToken],
+    );
+    assert.ok(rows[0].wiki_token_revoked_at);
+    assert.equal(rows[0].wiki_token_revoked_by, installId);
+  });
+
+  test('revoking is irreversible: the row records who and when, and the token cannot be edited back', async () => {
+    assert.equal((await call(writerJar, 'DELETE', `/api/wiki-tokens/${writerToken}`)).status, 200);
+    const { rows } = await fx.client.query(
+      'SELECT wiki_token_revoked_at, wiki_token_revoked_by FROM pmt_wiki_tokens WHERE wiki_token_id = $1', [writerToken],
+    );
+    assert.ok(rows[0].wiki_token_revoked_at);
+    assert.equal(rows[0].wiki_token_revoked_by, writer.id);
+    const t = (await call(writerJar, 'GET', '/api/wiki-tokens')).body.find((x: any) => x.id === writerToken);
+    assert.equal(t.status, 'revoked');
+    assert.equal((await call(writerJar, 'PUT', `/api/wikis/${tw}/tokens`, { tokenIds: [writerToken] })).status, 404);
+    assert.equal((await call(writerJar, 'PATCH', `/api/wiki-tokens/${writerToken}`, { label: 'back', wikiIds: [] })).status, 404);
+  });
+
+  test('the token page renders for a signed-in user, and a writer reaches the wiki settings', async () => {
+    const res = await fetch(`${BASE_URL}/wiki/tokens`, { headers: { cookie: writerJar.header }, redirect: 'manual' });
+    assert.equal(res.status, 200);
+    assert.ok(!(await res.text()).includes(writerSecret));
+    const settings = await fetch(`${BASE_URL}/wiki/${tw}/settings`, { headers: { cookie: writerJar.header }, redirect: 'manual' });
+    assert.equal(settings.status, 200);
+    const page = await settings.text();
+    assert.ok(page.includes('Allow my token'), 'a writer is drawn the Allow my token panel');
+    assert.ok(!page.includes('Transfer ownership') && !page.includes('Add member'), 'and nothing a writer cannot use');
+    const asReader = await fetch(`${BASE_URL}/wiki/${tw}/settings`, { headers: { cookie: readerJar.header }, redirect: 'manual' });
+    assert.ok(asReader.status >= 300 && asReader.status < 400, 'a reader is sent back to the wiki');
+    const index = await fetch(`${BASE_URL}/wiki`, { headers: { cookie: writerJar.header } });
+    assert.ok((await index.text()).includes('href="/wiki/tokens"'));
   });
 });

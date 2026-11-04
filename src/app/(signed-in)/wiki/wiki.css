@@ -85,6 +85,33 @@
    cannot push the page wider than the phone. */
 .wiki-book .docs-table-wrap { position: relative; }
 
+/* ---- tokens / MCP ----
+   The secret and the config snippets sit in the figure face on a ruled
+   block: no card, no radius, no shadow. A revoked or expired token is a
+   word and a quieter ink, never red. */
+
+.wiki-token-wikis { display: grid; gap: 6px; margin: 16px 0 0; padding: 10px 0 0; border: 0; border-top: 1px solid var(--cu-line); max-width: 780px; }
+.wiki-token-wikis legend { padding: 0; font-size: 13px; font-weight: 500; }
+.wiki-token-wikis label { display: flex; align-items: center; gap: 8px; font-size: 14px; min-height: 30px; overflow-wrap: anywhere; }
+.wiki-token-wikis p { margin: 0; }
+.wiki-token-create .docs-actions { margin-top: 12px; }
+.wiki-token-secret { margin-top: 22px; padding: 18px 0; border-block: 1px solid var(--cu-line); max-width: 780px; }
+.wiki-token-secret h2 { margin: 0 0 8px; font-size: 16px; }
+.wiki-token-secret > p { margin: 0 0 12px; }
+.wiki-token-snippet { margin: 12px 0 0; }
+.wiki-token-snippet-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; font-weight: 500; }
+.wiki-token-snippet pre { margin: 6px 0 0; padding: 10px 12px; border: 1px solid var(--cu-line); border-radius: 0; background: #fff; overflow-x: auto; }
+.wiki-token-snippet code,
+.wiki-tokens code,
+.wiki-token-prefix { font-family: var(--font-figure), ui-monospace, monospace; font-size: 13px; }
+.wiki-token-snippet pre code { white-space: pre-wrap; overflow-wrap: anywhere; }
+.wiki-token-snippet .docs-notice { margin: 4px 0 0; min-height: 0; }
+.wiki-book .docs-table.wiki-tokens th:first-child { width: auto; }
+.wiki-token-dead th, .wiki-token-dead td { color: #555e70; }
+.wiki-token-actions, .wiki-token-confirm { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.wiki-token-edit { display: grid; gap: 10px; max-width: 780px; margin-top: 16px; padding: 12px 0 12px 12px; border-left: 2px solid var(--cu-ink-faint); }
+.wiki-token-edit > label { display: grid; gap: 6px; font-size: 13px; font-weight: 500; max-width: 420px; }
+
 @media (max-width: 750px) {
   .wiki-book .doc-sidebar { position: static; }
   .wiki-search form { grid-template-columns: minmax(0, 1fr); }

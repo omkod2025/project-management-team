@@ -77,7 +77,7 @@ export default function WikiWorkspace({ wiki, pages, archivedPages, page: server
       <Bell />
       <nav className="views" aria-label="Wiki views">
         <a href="/">Projects</a>
-        {canManage && <a href={`${base}/settings`}>Settings</a>}
+        {(canManage || canWrite) && <a href={`${base}/settings`}>Settings</a>}
       </nav>
     </header>
     <div className="doc-workspace">

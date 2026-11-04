@@ -43,6 +43,10 @@ export default async function WikiIndex() {
       <a href="/">Projects</a>
       <span className="docs-project">Wiki</span>
       <Bell />
+      <nav className="views" aria-label="Wiki menu">
+        <span aria-current="page">Wikis</span>
+        <a href="/wiki/tokens">Tokens / MCP</a>
+      </nav>
     </header>
     <div className="docs-content">
       <div className="docs-heading">

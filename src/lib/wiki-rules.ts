@@ -262,6 +262,37 @@ export function effectiveTokenWikis(
   return result;
 }
 
+export type TokenStatus = 'active' | 'revoked' | 'expired';
+
+/** Revoked outranks expired: revoking is the act a person took, expiry is the calendar's. */
+export function tokenStatus(t: { revokedAt: Date | null; expiresAt: Date | null }, now: Date): TokenStatus {
+  if (t.revokedAt !== null) return 'revoked';
+  if (t.expiresAt !== null && t.expiresAt.getTime() <= now.getTime()) return 'expired';
+  return 'active';
+}
+
+/** `wiki_token_last_used_at` is written at most once a minute per token. */
+export const LAST_USED_GRANULARITY_MS = 60_000;
+
+export function shouldTouchLastUsed(lastUsedAt: Date | null, now: Date): boolean {
+  return lastUsedAt === null || now.getTime() - lastUsedAt.getTime() > LAST_USED_GRANULARITY_MS;
+}
+
+/**
+ * The body of "Allow my token" — `{ tokenIds: string[] }`. A malformed id is
+ * refused like a token that is not the caller's, with `E_NOT_FOUND`, so the
+ * two cannot be told apart.
+ */
+export function parseTokenIds(input: unknown): string[] {
+  const raw = (input as { tokenIds?: unknown } | null)?.tokenIds;
+  if (!Array.isArray(raw) || raw.some((id) => typeof id !== 'string')) {
+    throw domainError('E_INVALID_DOC', 'Send the tokens to allow as { tokenIds: [...] }.');
+  }
+  const ids = [...new Set(raw as string[])];
+  if (ids.some((id) => !UUID_RE.test(id))) throw domainError('E_NOT_FOUND', 'No such token.');
+  return ids;
+}
+
 const MAX_LABEL_LENGTH = 100;
 
 /**

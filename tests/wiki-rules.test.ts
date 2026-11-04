@@ -13,7 +13,7 @@ import {
   isInstallAdmin, wikiRole, canSeeWiki, canWriteWiki, canManageWiki, wikiAbilities,
   parseNewWiki, parseMemberGrant, parseMemberRef, parseWikiUpdate, assertNotOwner, isUuid,
   TOKEN_PREFIX, MAX_ACTIVE_TOKENS, newTokenSecret, hashTokenSecret, bearerSecret,
-  effectiveTokenWikis, parseTokenInput,
+  effectiveTokenWikis, parseTokenInput, tokenStatus, shouldTouchLastUsed, parseTokenIds,
   searchTerms, likePattern, searchSnippet, takeRateSlot, publicWikiToken, pageSearchText,
   parsePageSlug, generatedPageSlug, parseNewWikiPage, parsePageMove,
   type WikiViewer, type WikiFacts,
@@ -308,6 +308,41 @@ describe('tokens', () => {
     test('visibility regained later includes the wiki again', () => {
       assert.deepEqual(effectiveTokenWikis(live, ['a', 'b'], new Set(['a']), now), ['a']);
       assert.deepEqual(effectiveTokenWikis(live, ['a', 'b'], new Set(['a', 'b']), now), ['a', 'b']);
+    });
+  });
+
+  describe('tokenStatus', () => {
+    const now = new Date('2026-11-04T12:00:00Z');
+    test('live, revoked and expired', () => {
+      assert.equal(tokenStatus({ revokedAt: null, expiresAt: null }, now), 'active');
+      assert.equal(tokenStatus({ revokedAt: null, expiresAt: new Date('2026-12-01') }, now), 'active');
+      assert.equal(tokenStatus({ revokedAt: null, expiresAt: now }, now), 'expired');
+      assert.equal(tokenStatus({ revokedAt: new Date('2026-01-01'), expiresAt: new Date('2026-02-01') }, now), 'revoked');
+    });
+  });
+
+  describe('shouldTouchLastUsed', () => {
+    const now = new Date('2026-11-04T12:00:00Z');
+    test('never used, or more than 60 s ago, is touched; within 60 s is not', () => {
+      assert.equal(shouldTouchLastUsed(null, now), true);
+      assert.equal(shouldTouchLastUsed(new Date(now.getTime() - 61_000), now), true);
+      assert.equal(shouldTouchLastUsed(new Date(now.getTime() - 60_000), now), false);
+      assert.equal(shouldTouchLastUsed(new Date(now.getTime() - 5_000), now), false);
+    });
+  });
+
+  describe('parseTokenIds', () => {
+    test('dedupes a list of strings', () => {
+      assert.deepEqual(parseTokenIds({ tokenIds: [OWNER_ID, OWNER_ID] }), [OWNER_ID]);
+      assert.deepEqual(parseTokenIds({ tokenIds: [] }), []);
+    });
+    test('a missing list or a non-string entry is E_INVALID_DOC', () => {
+      refuses('E_INVALID_DOC', () => parseTokenIds({}));
+      refuses('E_INVALID_DOC', () => parseTokenIds({ tokenIds: [1] }));
+      refuses('E_INVALID_DOC', () => parseTokenIds(null));
+    });
+    test('a malformed id is E_NOT_FOUND, like a token that is not yours', () => {
+      refuses('E_NOT_FOUND', () => parseTokenIds({ tokenIds: ['nope'] }));
     });
   });
 

@@ -8,6 +8,7 @@ import { problem, wikiCall } from '../../wiki-api';
 type Wiki = { id: string; title: string; description: string; archived: boolean; ownerId: string | null; ownerName: string | null; publicToken: string | null };
 type Member = { userId: string; name: string; email: string; access: 'read' | 'write' };
 type Person = { userId: string; name: string; email: string };
+type MyToken = { id: string; label: string; prefix: string; allowed: boolean };
 type Run = (work: () => Promise<unknown>, done?: string) => Promise<boolean>;
 
 /**
@@ -173,17 +174,53 @@ function ArchiveSection({ wiki, busy, run }: { wiki: Wiki; busy: boolean; run: R
   </section>;
 }
 
-/** Rename and describe, members, transfer, the public link and archive — everything here is the owner's or the install admin's. */
-export default function WikiSettings({ wiki, members, people }: { wiki: Wiki; members: Member[]; people: Person[] }) {
+/**
+ * "Allow my token" (spec §6a): the writer's own live tokens, ticked when they
+ * already read this wiki. Saving sends the whole ticked set.
+ */
+function AllowTokenSection({ wiki, tokens, busy, run }: { wiki: Wiki; tokens: MyToken[]; busy: boolean; run: Run }) {
+  const [chosen, setChosen] = useState(() => tokens.filter((t) => t.allowed).map((t) => t.id));
+  const saved = tokens.filter((t) => t.allowed).map((t) => t.id);
+  const changed = chosen.length !== saved.length || chosen.some((id) => !saved.includes(id));
+  return <section className="wiki-settings-section" aria-labelledby="wiki-tokens-head">
+    <h2 id="wiki-tokens-head">Allow my token</h2>
+    {tokens.length ? <form onSubmit={(e) => {
+      e.preventDefault();
+      void run(() => wikiCall(`/api/wikis/${wiki.id}/tokens`, 'PUT', { tokenIds: chosen }), 'Your tokens were updated.');
+    }}>
+      <fieldset className="wiki-token-wikis" disabled={busy}>
+        <legend>Your tokens that may read this wiki</legend>
+        {tokens.map((t) => <label key={t.id}>
+          <input type="checkbox" checked={chosen.includes(t.id)}
+            onChange={(e) => setChosen(e.target.checked ? [...chosen, t.id] : chosen.filter((id) => id !== t.id))} />
+          <span>{t.label} <code className="wiki-token-prefix">pmw_{t.prefix}…</code></span>
+        </label>)}
+      </fieldset>
+      <button type="submit" disabled={busy || !changed}><DocIcon name="save" />Save</button>
+    </form> : <p className="docs-muted">You have no active tokens. Make one on the <a href="/wiki/tokens">Tokens / MCP</a> page.</p>}
+  </section>;
+}
+
+/**
+ * Rename and describe, members, transfer, the public link and archive are the
+ * owner's or the install admin's; "Allow my token" is every writer's. Each
+ * viewer is drawn only the sections they can use.
+ */
+export default function WikiSettings({ wiki, canManage, members, people, tokens }: {
+  wiki: Wiki; canManage: boolean; members: Member[]; people: Person[]; tokens: MyToken[] | null;
+}) {
   const { busy, notice, error, run } = useRunner();
   return <div className="wiki-settings">
     <div className="docs-heading"><div><h1>Settings</h1><p>{wiki.title}</p></div></div>
     <p className="docs-notice" role="status">{notice}</p>
     {error && <p className="docs-error" role="alert">{error}</p>}
-    <NameSection wiki={wiki} busy={busy} run={run} />
-    <MembersSection wiki={wiki} members={members} people={people} busy={busy} run={run} />
-    <TransferSection wiki={wiki} people={people} busy={busy} run={run} />
-    <PublicLinkSection wiki={wiki} busy={busy} run={run} />
-    <ArchiveSection wiki={wiki} busy={busy} run={run} />
+    {canManage && <>
+      <NameSection wiki={wiki} busy={busy} run={run} />
+      <MembersSection wiki={wiki} members={members} people={people} busy={busy} run={run} />
+      <TransferSection wiki={wiki} people={people} busy={busy} run={run} />
+      <PublicLinkSection wiki={wiki} busy={busy} run={run} />
+    </>}
+    {tokens && <AllowTokenSection key={tokens.map((t) => `${t.id}:${t.allowed}`).join()} wiki={wiki} tokens={tokens} busy={busy} run={run} />}
+    {canManage && <ArchiveSection wiki={wiki} busy={busy} run={run} />}
   </div>;
 }
