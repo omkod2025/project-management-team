@@ -171,9 +171,12 @@ export async function updateWiki(userId: string, wikiId: string, input: unknown)
       await db.update(wikis).set({ description: change.description, updatedAt: now }).where(eq(wikis.id, wiki.id));
       break;
     case 'archive':
-      if (wiki.archivedAt === null) {
-        await db.update(wikis).set({ archivedAt: now, updatedAt: now }).where(eq(wikis.id, wiki.id));
-      }
+      // Archiving withdraws the public link (spec §5b) in the same write. A
+      // withdrawn link never comes back: restoring does not re-publish, and
+      // publishing again mints a new secret.
+      await db.update(wikis)
+        .set({ archivedAt: wiki.archivedAt ?? now, publicToken: null, updatedAt: now })
+        .where(eq(wikis.id, wiki.id));
       break;
     case 'restore':
       await db.update(wikis).set({ archivedAt: null, updatedAt: now }).where(eq(wikis.id, wiki.id));
@@ -182,7 +185,22 @@ export async function updateWiki(userId: string, wikiId: string, input: unknown)
       await transfer(userId, wiki.id, change.userId);
       break;
   }
-  return summaryFor(userId, wiki.id);
+  return summaryAfterChange(userId, wiki.id);
+}
+
+/**
+ * The summary of a wiki the caller has just changed, with their role as it
+ * now stands. Deliberately not re-gated through `requireWiki`: a transfer on
+ * an archived wiki turns the acting owner into a write member, who cannot
+ * see an archived wiki — re-gating would report a committed change as a 404.
+ * The caller was authorised for the change itself; this only describes it.
+ */
+async function summaryAfterChange(userId: string, wikiId: string): Promise<WikiSummary> {
+  const [v, row] = await Promise.all([wikiViewer(userId), loadWiki(wikiId, userId)]);
+  if (!row) throw notFound();
+  const role = wikiRole(v, factsOf(row.wiki, row.access));
+  if (role === null) throw notFound();
+  return summarize(row.wiki, role, await ownerName(row.wiki.ownerId));
 }
 
 /**

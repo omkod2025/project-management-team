@@ -255,6 +255,47 @@ describe('transferring ownership', () => {
   });
 });
 
+describe('archived wikis', () => {
+  test('transferring an archived wiki succeeds and persists', async () => {
+    const w = await create(ownerJar, 'เก็บแล้วโอน');
+    assert.equal((await call(ownerJar, 'PATCH', `/api/wikis/${w.id}`, { action: 'archive' })).status, 200);
+    const t = await call(ownerJar, 'PATCH', `/api/wikis/${w.id}`, { action: 'transfer', userId: writer.id });
+    assert.equal(t.status, 200, JSON.stringify(t.body));
+    assert.equal(t.body.ownerId, writer.id);
+    assert.equal(t.body.role, 'write');
+    assert.equal(t.body.archived, true);
+    const { rows } = await fx.client.query(
+      `SELECT w.wiki_owner_id, m.wiki_member_access
+         FROM pmt_wikis w
+         LEFT JOIN pmt_wiki_members m ON m.wiki_member_wiki_id = w.wiki_id AND m.wiki_member_user_id = $2
+        WHERE w.wiki_id = $1`,
+      [w.id, owner.id],
+    );
+    assert.equal(rows[0]?.wiki_owner_id, writer.id);
+    assert.equal(rows[0]?.wiki_member_access, 'write');
+    // The previous owner, now a write member, no longer sees the archived wiki.
+    assert.equal((await call(ownerJar, 'GET', `/api/wikis/${w.id}`)).status, 404);
+  });
+
+  test('archiving withdraws the public link and restoring does not bring it back', async () => {
+    const w = await create(ownerJar, 'ลิงก์สาธารณะ');
+    // The publish API arrives in a later task; set the secret directly.
+    await fx.client.query('UPDATE pmt_wikis SET wiki_public_token = $1 WHERE wiki_id = $2',
+      [randomBytes(32).toString('base64url'), w.id]);
+    assert.equal((await call(ownerJar, 'GET', `/api/wikis/${w.id}`)).body.published, true);
+
+    const a = await call(ownerJar, 'PATCH', `/api/wikis/${w.id}`, { action: 'archive' });
+    assert.equal(a.status, 200);
+    assert.equal(a.body.published, false);
+    const { rows } = await fx.client.query('SELECT wiki_public_token FROM pmt_wikis WHERE wiki_id = $1', [w.id]);
+    assert.equal(rows[0]?.wiki_public_token, null);
+
+    const r = await call(ownerJar, 'PATCH', `/api/wikis/${w.id}`, { action: 'restore' });
+    assert.equal(r.status, 200);
+    assert.equal(r.body.published, false);
+  });
+});
+
 describe('account deletion', () => {
   test('deleting the owner hands the wiki to the install admin', async (t) => {
     if (!installJar) return t.skip(SKIP_INSTALL);
