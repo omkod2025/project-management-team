@@ -48,6 +48,7 @@ Project management for software delivery. Plan and reality are recorded separate
 | [`tests/e2e/wiki-mcp.test.ts`](tests/e2e/wiki-mcp.test.ts) | 23 end-to-end tests: the MCP endpoint — Bearer only, the four read-only tools, scope decided per request, revoked/expired/deactivated → 401, injection, the rate limit |
 | [`docs/TASKS.md`](docs/TASKS.md) | Build plan T0–T9 with per-task checklists |
 | [`docs/wireframes/index.html`](docs/wireframes/index.html) | Rendered wireframes for both views |
+| [`docs/guides/wiki-mcp.md`](docs/guides/wiki-mcp.md) | Connecting AI clients to the Wiki over MCP |
 
 ---
 

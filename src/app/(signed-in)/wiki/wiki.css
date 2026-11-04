@@ -112,6 +112,21 @@
 .wiki-token-edit { display: grid; gap: 10px; max-width: 780px; margin-top: 16px; padding: 12px 0 12px 12px; border-left: 2px solid var(--cu-ink-faint); }
 .wiki-token-edit > label { display: grid; gap: 6px; font-size: 13px; font-weight: 500; max-width: 420px; }
 
+/* ---- the connection guide ----
+   The "How to connect" link is a plain ruled box like the settings links.
+   The guide itself wears the doc-prose sheet; it adds only a centred
+   measure and code that wraps inside a phone rather than widening it. */
+
+.wiki-guide-link { display: inline-flex; gap: 8px; align-items: center; padding: 6px 12px; min-height: 34px; box-sizing: border-box; border: 1px solid var(--cu-line); border-radius: 0; color: #303747; font-size: 14px; text-decoration: none; white-space: nowrap; }
+.wiki-guide-link:hover { background: var(--cu-hover, #f2f4f9); }
+.wiki-token-guide { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 14px 0; }
+.wiki-guide { margin: 0 auto; }
+.wiki-guide pre { max-width: 100%; box-sizing: border-box; }
+.wiki-guide :is(pre, code) { font-family: var(--font-figure), ui-monospace, monospace; overflow-wrap: anywhere; }
+.wiki-guide code { font-size: .82em; }
+.wiki-guide pre code { font-size: 13px; line-height: 1.6; }
+.wiki-guide th { text-align: left; }
+
 @media (max-width: 750px) {
   .wiki-book .doc-sidebar { position: static; }
   .wiki-search form { grid-template-columns: minmax(0, 1fr); }

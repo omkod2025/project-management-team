@@ -19,7 +19,7 @@
     "check": "npm run typecheck && npm run test",
     "test:e2e": "node --env-file=.env --test tests/e2e/api.test.ts tests/e2e/tree.test.ts tests/e2e/admin.test.ts tests/e2e/password.test.ts tests/e2e/roster.test.ts tests/e2e/profile.test.ts tests/e2e/notifications.test.ts tests/e2e/default-columns.test.ts",
     "test:acceptance": "node --env-file=.env --test tests/e2e/acceptance.test.ts",
-    "test:wiki": "node --env-file=.env --test tests/e2e/wiki.test.ts tests/e2e/wiki.browser.test.ts tests/e2e/wiki-mcp.test.ts",
+    "test:wiki": "node --env-file=.env --test tests/e2e/wiki.test.ts tests/e2e/wiki.browser.test.ts tests/e2e/wiki-mcp.test.ts tests/e2e/wiki-guide.test.ts",
     "test:docs": "node --env-file=.env --test tests/e2e/docs.test.ts",
     "test:docs-browser": "node --env-file=.env --test tests/e2e/doc-editor.browser.test.ts tests/e2e/doc-mermaid.browser.test.ts",
     "test:defects": "node --env-file=.env --test tests/e2e/defects.test.ts tests/e2e/defects.browser.test.ts tests/e2e/list-loading.test.mjs tests/e2e/list-edit.browser.test.ts tests/e2e/list-lazy.browser.test.ts",

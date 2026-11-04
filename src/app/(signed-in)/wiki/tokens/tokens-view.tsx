@@ -74,6 +74,15 @@ function CopyBlock({ label, text }: { label: string; text: string }) {
   </div>;
 }
 
+/**
+ * The connection guide, in Thai: the step after copying a token. Beside a
+ * secret it opens in a new tab, because leaving this page loses the secret.
+ */
+export function GuideLink({ newTab = false }: { newTab?: boolean }) {
+  return <a className="wiki-guide-link" href="/wiki/tokens/guide"
+    {...(newTab ? { target: '_blank', rel: 'noopener noreferrer' } : {})}><DocIcon name="info" />How to connect</a>;
+}
+
 /** Shown once, straight after creation. Leaving or pressing Done loses it for good. */
 function SecretPanel({ created, origin, onDone }: { created: Created; origin: string; onDone: () => void }) {
   return <section className="wiki-token-secret" aria-labelledby="wiki-token-secret-head">
@@ -82,6 +91,7 @@ function SecretPanel({ created, origin, onDone }: { created: Created; origin: st
     <CopyBlock label="Token" text={created.secret} />
     <CopyBlock label="MCP client config (JSON)" text={mcpConfig(origin, created.secret)} />
     <CopyBlock label="Claude Code" text={mcpCommand(origin, created.secret)} />
+    <p className="wiki-token-guide">Claude Desktop, VS Code, Cursor and troubleshooting, in a new tab so this token stays on screen: <GuideLink newTab /></p>
     <button type="button" className="docs-primary" onClick={onDone}><DocIcon name="check" />Done, I have copied it</button>
   </section>;
 }
