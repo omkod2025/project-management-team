@@ -2,7 +2,7 @@ import 'server-only';
 import { and, desc, eq, inArray, isNotNull, isNull, sql, type SQL } from 'drizzle-orm';
 import { db } from '@/db/client';
 import { users, wikiMembers, wikiPages, wikiRevisions, wikis } from '@/db/schema';
-import { domainError } from '@/lib/errors';
+import { DomainError, domainError } from '@/lib/errors';
 import { extendRevision, nextPageDepth, parsePageContent, type DocPage } from '@/lib/doc-rules';
 import {
   deleteQueuedWikiAssets, finalizeRemovedWikiAssets, lockWikiAssetReferences, stageRemovedWikiAssets,
@@ -103,6 +103,25 @@ export async function requireWiki(
     throw domainError('E_FORBIDDEN', 'Only the owner can change this wiki’s settings.');
   }
   return { wiki: row.wiki, role: wikiRole(v, facts)!, canWrite: canWriteWiki(v, facts) };
+}
+
+/**
+ * `requireWiki` for a request that named a page or an asset rather than the
+ * wiki. Its 404 is rethrown as the resource's own not-found, identical to an
+ * unknown id, so a stranger cannot tell a real id from a missing one (spec §8).
+ */
+export async function requireWikiOr(
+  userId: string,
+  wikiId: string,
+  need: 'read' | 'write' | 'manage',
+  missing: () => DomainError,
+): Promise<{ wiki: WikiRow; role: WikiRole; canWrite: boolean }> {
+  try {
+    return await requireWiki(userId, wikiId, need);
+  } catch (err) {
+    if (err instanceof DomainError && err.code === 'E_NOT_FOUND') throw missing();
+    throw err;
+  }
 }
 
 async function ownerName(ownerId: string | null): Promise<string | null> {
@@ -321,7 +340,7 @@ async function requirePage(userId: string, pageId: string, need: 'read' | 'write
   const [page] = await db.select().from(wikiPages)
     .where(and(eq(wikiPages.id, pageId), isNull(wikiPages.archivedAt))).limit(1);
   if (!page) throw pageNotFound();
-  const { wiki } = await requireWiki(userId, page.wikiId, need);
+  const { wiki } = await requireWikiOr(userId, page.wikiId, need, pageNotFound);
   return { page, wiki };
 }
 

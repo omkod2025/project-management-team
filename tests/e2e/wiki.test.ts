@@ -396,6 +396,22 @@ describe('wiki pages', () => {
     assert.equal((await call(writerJar, 'GET', '/api/wiki-pages/not-a-uuid/history')).status, 404);
   });
 
+  test("a stranger's refusal for a real page id is identical to an unknown id's", async () => {
+    const missing = randomUUID();
+    const probes: Array<[string, string, unknown?]> = [
+      ['GET', '/history'],
+      ['PATCH', '', { content: { body: 'x' }, updatedAt: p1.updatedAt }],
+      ['POST', '', { action: 'archive' }],
+      ['POST', '', { action: 'move', parentId: null }],
+    ];
+    for (const [method, suffix, body] of probes) {
+      const real = await call(strangerJar, method, `/api/wiki-pages/${p1.id}${suffix}`, body);
+      const fake = await call(strangerJar, method, `/api/wiki-pages/${missing}${suffix}`, body);
+      assert.equal(real.status, 404, `${method} ${suffix}`);
+      assert.deepEqual(real, fake, `${method} ${suffix} must not reveal that the page exists`);
+    }
+  });
+
   test('a save returns the PageEditor shape, and a stale save is 409 naming the editor', async () => {
     const ok = await save(writerJar, p1, 'เนื้อหาใหม่', { title: 'ระดับหนึ่ง (แก้)' });
     assert.equal(ok.status, 200, JSON.stringify(ok.body));
@@ -501,6 +517,17 @@ describe('wiki assets', () => {
     assert.equal(no.status, 404);
     const bad = await fetch(`${BASE_URL}/api/wiki-assets/not-a-uuid`, { headers: { cookie: readerJar.header } });
     assert.equal(bad.status, 404);
+  });
+
+  test("a stranger's refusal for a real asset id is identical to an unknown id's", async () => {
+    const get = async (url: string) => {
+      const res = await fetch(`${BASE_URL}${url}`, { headers: { cookie: strangerJar.header } });
+      return { status: res.status, body: await res.text() };
+    };
+    const real = await get(assetUrl);
+    const fake = await get(`/api/wiki-assets/${randomUUID()}`);
+    assert.equal(real.status, 404);
+    assert.deepEqual(real, fake);
   });
 
   test('an attachment is always served as a download', async () => {

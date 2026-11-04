@@ -8,7 +8,7 @@ import { MAX_UPLOAD_BYTES } from '@/lib/upload-limits';
 import { domainError } from '@/lib/errors';
 import { validateDocSvg } from '@/lib/doc-svg';
 import { docAssetStorageKey } from '@/lib/doc-asset-path';
-import { requireWiki } from '@/lib/wiki';
+import { requireWiki, requireWikiOr } from '@/lib/wiki';
 import { WIKI_ASSET_PREFIX, wikiAssetDirectory } from '@/lib/wiki-asset-cleanup';
 import { isUuid } from '@/lib/wiki-rules';
 
@@ -56,18 +56,20 @@ export async function uploadWikiAsset(userId: string, wikiId: string, file: File
   return { url: `${WIKI_ASSET_PREFIX}${id}`, filename, bytes: data.length };
 }
 
+const fileNotFound = () => domainError('E_NOT_FOUND', 'No such file.');
+
 /** The registry row, with no access check — callers prove their right to it. */
 export async function findWikiAsset(id: string) {
-  if (!isUuid(id)) throw domainError('E_NOT_FOUND', 'No such file.');
+  if (!isUuid(id)) throw fileNotFound();
   const [asset] = await db.select().from(wikiAssets).where(eq(wikiAssets.id, id));
-  if (!asset) throw domainError('E_NOT_FOUND', 'No such file.');
+  if (!asset) throw fileNotFound();
   return asset;
 }
 
 /** The file, for someone who can see its wiki. Anyone else gets the same 404 as a missing file. */
 export async function readWikiAsset(userId: string, id: string) {
   const asset = await findWikiAsset(id);
-  await requireWiki(userId, asset.wikiId, 'read');
+  await requireWikiOr(userId, asset.wikiId, 'read', fileNotFound);
   return readWikiAssetBytes(asset);
 }
 
