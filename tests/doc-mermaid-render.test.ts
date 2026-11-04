@@ -4,6 +4,8 @@ import { MarkdownManager } from '@tiptap/markdown';
 import { docEditorExtensions } from '../src/lib/doc-editor-extensions.ts';
 import { encodeRich, decodeRich, contentMarkdown, type RichNode } from '../src/lib/doc-rich-content.ts';
 import { isMermaidLanguage } from '../src/lib/mermaid-rules.ts';
+import { codeBlockLanguageClass } from '../src/lib/doc-code-block-class.ts';
+import CodeBlock from '@tiptap/extension-code-block';
 
 // Importing doc-content.tsx / mermaid-diagram.tsx here is not possible: Node's
 // type-stripping runner has no JSX transform, so it cannot load a .tsx file
@@ -39,6 +41,22 @@ test('a js code block is not treated as mermaid', () => {
   const block = json.content?.[0];
   assert.equal(block?.type, 'codeBlock');
   assert.equal(isMermaidLanguage(block?.attrs?.language), false);
+});
+
+// MermaidNodeView's non-mermaid branch has to reproduce the exact <code>
+// class that CodeBlock.renderHTML would have produced on its own
+// (node_modules/@tiptap/extension-code-block/dist/index.js), since it now
+// renders every codeBlock node, mermaid or not. codeBlockLanguageClass is
+// kept in a plain .ts module (no JSX) so this can be checked without
+// importing the .tsx node view.
+test('codeBlockLanguageClass matches CodeBlock.renderHTML\'s own <code> class', () => {
+  const { languageClassPrefix } = CodeBlock.options;
+  assert.equal(languageClassPrefix, 'language-');
+  assert.equal(codeBlockLanguageClass(languageClassPrefix, 'js'), 'language-js');
+  assert.equal(codeBlockLanguageClass(languageClassPrefix, 'mermaid'), 'language-mermaid');
+  assert.equal(codeBlockLanguageClass(languageClassPrefix, null), undefined);
+  assert.equal(codeBlockLanguageClass(languageClassPrefix, undefined), undefined);
+  assert.equal(codeBlockLanguageClass(languageClassPrefix, ''), undefined);
 });
 
 test('D-mermaid: a hostile source survives encodeRich/decodeRich/contentMarkdown unchanged', () => {
