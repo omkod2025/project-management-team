@@ -10,14 +10,15 @@ import {TextSelection} from '@tiptap/pm/state';
 import { docEditorExtensions } from '@/lib/doc-editor-extensions';
 import { MermaidCodeBlock } from '@/lib/doc-mermaid-extension';
 import EditorToolbar from './editor-toolbar';
+import type { DocEndpoints } from '@/lib/doc-endpoints';
 import { downloadDocFile, isDocAssetLink } from '@/lib/doc-download';
 import { decodeRich, encodeRich, RICH_PREFIX, safeEmbed } from '@/lib/doc-rich-content';
 import { pasteSpreadsheetText, sliceHasTable } from '@/lib/doc-table-paste';
 import { colorTableBand } from '@/lib/doc-table-color';
 import { selectedRect } from '@tiptap/pm/tables';
 
-export default function RichEditor({ value, label, onChange, projectId, onProblem, onUploadChange, onAssetUploaded, autoFocus = false }: {
-  value: string; label: string; onChange: (value: string) => void; projectId: string; onProblem: (message: string) => void; onUploadChange: (delta: number) => void; autoFocus?: boolean;
+export default function RichEditor({ value, label, onChange, endpoints, onProblem, onUploadChange, onAssetUploaded, autoFocus = false }: {
+  value: string; label: string; onChange: (value: string) => void; endpoints: DocEndpoints; onProblem: (message: string) => void; onUploadChange: (delta: number) => void; autoFocus?: boolean;
   onAssetUploaded?: (url: string) => void;
 }) {
   const [toolbarPosition, setToolbarPosition] = useState<'floating' | 'top'>('floating');
@@ -169,7 +170,7 @@ export default function RichEditor({ value, label, onChange, projectId, onProble
     setUploading(true); onUploadChange(1);
     try {
       const data = new FormData(); data.set('file', file); data.set('kind', attachment ? 'attachment' : 'image');
-      const res = await fetch(`/api/projects/${projectId}/doc-assets`, { method: 'POST', body: data });
+      const res = await fetch(endpoints.uploadAsset, { method: 'POST', body: data });
       const body = await res.json();
       if (!res.ok) { onProblem(body.message ?? 'Upload failed. Try again.'); return; }
       onAssetUploaded?.(body.url);

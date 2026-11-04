@@ -1,6 +1,6 @@
 export async function importDocx(
   file: File,
-  projectId: string,
+  uploadUrl: string,
 ): Promise<{ html: string; warnings: string[] }> {
   const worker = new Worker(new URL("./docx-worker.ts", import.meta.url));
   try {
@@ -41,7 +41,7 @@ export async function importDocx(
         ),
       );
       form.set("kind", "image");
-      const response = await fetch(`/api/projects/${projectId}/doc-assets`, {
+      const response = await fetch(uploadUrl, {
         method: "POST",
         body: form,
       });

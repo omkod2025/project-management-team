@@ -17,3 +17,11 @@ test('only stages references removed from the current content', () => {
   assert.deepEqual(removedDocAssetIds([url(first), url(second)], url(second)), [first]);
   assert.deepEqual(removedDocAssetIds([url(first), url(first)], url(first)), []);
 });
+
+test('a custom prefix finds wiki asset links, and the default prefix ignores them', () => {
+  const wiki = `/api/wiki-assets/${first}`;
+  assert.deepEqual([...docAssetIds(wiki, '/api/wiki-assets/')], [first]);
+  assert.deepEqual([...docAssetIds(wiki)], []);
+  assert.deepEqual([...docAssetIds(url(first), '/api/wiki-assets/')], []);
+  assert.deepEqual(removedDocAssetIds([wiki, `/api/wiki-assets/${second}`], wiki, '/api/wiki-assets/'), [second]);
+});

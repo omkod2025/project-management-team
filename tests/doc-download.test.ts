@@ -15,3 +15,8 @@ test('download filenames preserve Thai and fall back safely', () => {
   assert.equal(downloadFilename("attachment; filename*=UTF-8''%zz"), 'download');
   assert.equal(downloadFilename(null), 'download');
 });
+test('downloads also accept wiki asset routes', () => {
+  assert.equal(isDocAssetLink('/api/wiki-assets/12345678-1234-1234-1234-123456789abc'), true);
+  assert.equal(isDocAssetLink('/api/wiki-assets/../x'), false);
+  assert.equal(isDocAssetLink('/api/wiki-assetsx/12345678-1234-1234-1234-123456789abc'), false);
+});

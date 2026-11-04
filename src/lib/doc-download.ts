@@ -1,5 +1,5 @@
 export function isDocAssetLink(href: string): boolean {
-  return /^\/api\/doc-assets\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(href);
+  return /^\/api\/(?:doc|wiki)-assets\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(href);
 }
 
 export function downloadFilename(disposition: string | null): string {
