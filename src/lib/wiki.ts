@@ -285,6 +285,19 @@ export async function removeMember(userId: string, wikiId: string, input: unknow
   await db.delete(wikiMembers).where(and(eq(wikiMembers.wikiId, wiki.id), eq(wikiMembers.userId, target)));
 }
 
+/**
+ * The active accounts a manager may grant access to or hand the wiki to, for
+ * the settings pickers. Gated on `manage`: nobody else is shown the roster.
+ */
+export async function wikiPeopleChoices(
+  userId: string,
+  wikiId: string,
+): Promise<Array<{ userId: string; name: string; email: string }>> {
+  await requireWiki(userId, wikiId, 'manage');
+  return db.select({ userId: users.id, name: users.fullName, email: users.email })
+    .from(users).where(eq(users.isActive, true)).orderBy(users.fullName, users.email);
+}
+
 /* ------------------------------------------------------------------ pages */
 
 export type WikiPage = {
@@ -484,8 +497,9 @@ export async function saveWikiPage(
  * Re-parent and/or reorder a page. The whole subtree moves with it, so the
  * depth check covers every page below it (archived ones too, since they come
  * back where they were), and a page can never land inside its own subtree.
- * A move is not an edit: `updatedAt` is left alone so an open editor does
- * not see a false conflict.
+ * Without `beforeId` the page goes after its last sibling. A move is not an
+ * edit: `updatedAt` is left alone so an open editor does not see a false
+ * conflict.
  */
 export async function moveWikiPage(userId: string, pageId: string, input: unknown): Promise<WikiPage> {
   const { wiki } = await requirePage(userId, pageId, 'write');
@@ -514,7 +528,9 @@ export async function moveWikiPage(userId: string, pageId: string, input: unknow
       const before = siblings[at]!;
       const prev = siblings[at - 1];
       sortOrder = prev ? (prev.sortOrder + before.sortOrder) / 2 : before.sortOrder - 1;
-    } else if (parentId !== current.parentId) {
+    } else {
+      // No `beforeId` is "last among the new siblings" — for a page that
+      // stays under its parent too, so the tree's Move to… → Last works.
       const last = siblings[siblings.length - 1];
       sortOrder = last ? Math.max(last.sortOrder + 1, current.sortOrder) : current.sortOrder;
     }

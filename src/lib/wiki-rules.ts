@@ -77,6 +77,16 @@ export function canManageWiki(v: WikiViewer, w: WikiFacts): boolean {
   return role === 'install' || role === 'owner';
 }
 
+/**
+ * What the screens may draw for a role a wiki already granted, so a page
+ * never offers a control its routes would refuse. The same answers as
+ * `canWriteWiki` / `canManageWiki`, read from the role `wikiRole` returned.
+ */
+export function wikiAbilities(role: WikiRole, archived: boolean): { canWrite: boolean; canManage: boolean } {
+  const canManage = role === 'install' || role === 'owner';
+  return { canWrite: !archived && (canManage || role === 'write'), canManage };
+}
+
 /* -------------------------------------------------------------- creating */
 
 // Matches the DB's own checks (db/migrations/021_wiki.sql): `wiki_title`

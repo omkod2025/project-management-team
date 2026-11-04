@@ -449,6 +449,11 @@ describe('wiki pages', () => {
     const t = await tree(writerJar, pw);
     assert.equal(t.pages.find((p) => p.id === p3.id)?.depth, 2);
     assert.ok(t.pages.findIndex((p) => p.id === p2.id) < t.pages.findIndex((p) => p.id === p1.id), 'beforeId orders siblings');
+    // No beforeId is "last", for a page that keeps its parent too (the tree's Move to… → Last).
+    const last = await call(writerJar, 'POST', `/api/wiki-pages/${p2.id}`, { action: 'move', parentId: null });
+    assert.equal(last.status, 200, JSON.stringify(last.body));
+    const top = (await tree(writerJar, pw)).pages.filter((p) => p.parentId === null);
+    assert.equal(top[top.length - 1]?.id, p2.id);
   });
 
   test('archiving takes the subtree; restoring brings it back with its slug', async () => {

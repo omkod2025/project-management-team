@@ -1,0 +1,86 @@
+/*
+ * The Wiki screens. They wear the Docs sheet (`docs.css`, `editor.css`) and
+ * add only what Docs has no class for: the in-tree search, a writer's page
+ * menu, the transfer panel and the settings sections.
+ *
+ * Nothing here is new colour or new shape: hairline rules, square corners,
+ * no shadows, no vermilion (an archived wiki is a word, not a red flag).
+ *
+ * Wiki titles and page titles are Thai content. The Docs title rules carry a
+ * negative letter-spacing and a 12px archived list; inside the wiki both are
+ * put back to what Thai needs (CLAUDE.md § Language).
+ */
+
+.wiki-book.docs-book .doc-page-heading h1,
+.wiki-book.docs-book .doc-title-input,
+.wiki-book.docs-book .doc-overview h1,
+.wiki-book.docs-book .docs-heading h1 { letter-spacing: normal; }
+.wiki-book.docs-book .doc-archived { font-size: 13px; }
+
+/* The tree stays put while a long page scrolls past it. */
+.wiki-book .doc-sidebar { position: sticky; top: 0; align-self: stretch; }
+
+.wiki-flag { font-size: 13px; color: #555e70; border: 1px solid var(--cu-line); padding: 1px 8px; }
+
+/* ---- the tree ---- */
+
+.wiki-book .doc-tree-row > .wiki-tree-menu { flex: 0 0 28px; color: #555e70; }
+.wiki-page-actions { display: grid; gap: 6px; margin: 4px 0 10px; padding: 8px 0 8px 10px; border-left: 1px solid var(--cu-line); font-size: 13px; }
+.wiki-page-actions form { display: grid; gap: 8px; }
+.wiki-page-actions label { display: grid; gap: 4px; }
+.wiki-page-actions p { margin: 0; overflow-wrap: anywhere; }
+.wiki-book .wiki-page-actions button { justify-self: start; }
+.wiki-book .wiki-quiet { border-color: transparent; background: transparent; color: #555e70; }
+
+/* ---- search ---- */
+
+.wiki-search { margin: 14px 0; font-size: 13px; }
+.wiki-search form { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 6px; }
+.wiki-search label { display: grid; gap: 4px; }
+.wiki-search-hits ol { list-style: none; margin: 8px 0 0; padding: 0; border-top: 1px solid var(--cu-line); }
+.wiki-search-hits li { padding: 8px 0; border-bottom: 1px solid var(--cu-line); overflow-wrap: anywhere; }
+.wiki-search-hits li a { font-weight: 600; }
+.wiki-search-hits li p { margin: 4px 0 0; color: #555e70; line-height: 1.6; }
+
+/* ---- reading tools: export and import ---- */
+
+.wiki-reading-tools { max-width: 760px; margin: 0 auto 24px; }
+.wiki-transfer { font-size: 13px; }
+.wiki-transfer summary { cursor: pointer; display: inline-flex; align-items: center; min-height: 34px; color: #303747; }
+.wiki-transfer-body { display: grid; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--cu-line); }
+.wiki-transfer-body label { display: grid; gap: 4px; max-width: 260px; }
+.wiki-transfer-body h3 { margin: 8px 0 0; font-size: 14px; }
+.wiki-transfer-body p { margin: 0; }
+.wiki-transfer-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.wiki-transfer-body input[type='file'] { border: 0; padding: 0; min-height: 0; max-width: 100%; }
+.wiki-breadcrumb { max-width: 760px; margin: 0 auto 8px; }
+.wiki-description { white-space: pre-line; overflow-wrap: anywhere; line-height: 1.7; }
+
+/* ---- the index ---- */
+
+.wiki-section-head { margin: 32px 0 8px; font-size: 16px; }
+.wiki-row-description { display: block; font-weight: 400; font-size: 13px; color: #555e70; }
+
+/* ---- settings ---- */
+
+.wiki-settings { max-width: 780px; }
+.wiki-settings-section { margin-top: 28px; padding-top: 18px; border-top: 1px solid var(--cu-line); }
+.wiki-settings-section h2 { margin: 0 0 12px; font-size: 16px; }
+.wiki-settings-section form,
+.wiki-settings-row { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; margin-top: 12px; }
+.wiki-settings-section label { display: grid; gap: 6px; flex: 1 1 240px; min-width: 0; font-size: 13px; font-weight: 500; }
+.wiki-book select,
+.wiki-book textarea { font: inherit; font-size: 14px; min-height: 36px; padding: 6px 8px; border: 1px solid var(--cu-line); border-radius: 0; background: #fff; color: #292d34; min-width: 0; max-width: 100%; }
+.wiki-book textarea { width: 100%; resize: vertical; line-height: 1.6; }
+.wiki-confirm { margin-top: 12px; padding: 12px 0 12px 12px; border-left: 2px solid var(--cu-ink-faint); }
+.wiki-confirm p { margin: 0 0 10px; overflow-wrap: anywhere; }
+.wiki-members select { min-height: 30px; }
+/* A visually hidden header is absolutely placed; held inside the scroller it
+   cannot push the page wider than the phone. */
+.wiki-book .docs-table-wrap { position: relative; }
+
+@media (max-width: 750px) {
+  .wiki-book .doc-sidebar { position: static; }
+  .wiki-search form { grid-template-columns: minmax(0, 1fr); }
+  .wiki-book .docs-table.wiki-members { min-width: 0; }
+}

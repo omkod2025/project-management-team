@@ -143,6 +143,12 @@ export default async function Home() {
             <IconTimeline />
             All Timeline
           </Link>
+          {/* Knowledge that belongs to no single project, so it sits on the
+              shelf rather than inside any one of them. */}
+          <Link className="sh-nav-item" href="/wiki" title="คลังความรู้">
+            <IconWiki />
+            Wiki
+          </Link>
           {/* The shelf is the only level at which "who can reach what" is a
               whole question — inside a project you can only ever see that
               project's half of it. */}
@@ -335,6 +341,14 @@ function IconTimeline() {
     <svg {...ICON}>
       <path d="M2 4.6h7M4.5 8h8.5M2 11.4h5.5" />
       <path d="M11.5 2.5v11" strokeDasharray="1.6 1.8" />
+    </svg>
+  );
+}
+
+function IconWiki() {
+  return (
+    <svg {...ICON}>
+      <path d="M3 3h4.2c.9 0 .8.6.8 1.4V13c0-.6-.4-1-1-1H3zM13 3H8.8C7.9 3 8 3.6 8 4.4V13c0-.6.4-1 1-1h4z" />
     </svg>
   );
 }
