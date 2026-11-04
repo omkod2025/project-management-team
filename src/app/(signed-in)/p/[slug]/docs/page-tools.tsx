@@ -181,6 +181,20 @@ export default function PageTools({
                 el.setAttribute(attr, new URL(value, location.origin).href);
             }
           });
+        // A rendered Mermaid block leaves its interactive affordance (the
+        // copy button) and its own class behind for the editor; an exported
+        // document has no script to run that button, and `pre.mermaid` is
+        // the shape other tools — and this app's own HTML import — read a
+        // Mermaid source block back from.
+        exportBody
+          .querySelectorAll<HTMLElement>(".doc-mermaid-source")
+          .forEach((pre) => {
+            pre.classList.remove("doc-mermaid-source");
+            pre.classList.add("mermaid");
+          });
+        exportBody
+          .querySelectorAll<HTMLElement>(".doc-mermaid-copy")
+          .forEach((button) => button.remove());
         const escape = (s: string) =>
           s.replace(
             /[&<>"']/g,
@@ -263,12 +277,17 @@ export default function PageTools({
           throw new Error("Choose a Fieldbook JSON export with 1–100 pages.");
         items = input.pages;
       } else if (/\.(html?|docx)$/i.test(file.name)) {
-        const [{ generateJSON }, { docEditorExtensions }, { encodeRich }] =
-          await Promise.all([
-            import("@tiptap/core"),
-            import("@/lib/doc-editor-extensions"),
-            import("@/lib/doc-rich-content"),
-          ]);
+        const [
+          { generateJSON },
+          { docEditorExtensions },
+          { encodeRich },
+          { MermaidCodeBlock },
+        ] = await Promise.all([
+          import("@tiptap/core"),
+          import("@/lib/doc-editor-extensions"),
+          import("@/lib/doc-rich-content"),
+          import("@/lib/doc-mermaid-extension"),
+        ]);
         items = [
           {
             title: file.name.replace(/\.[^.]+$/, "").slice(0, 200),
@@ -277,7 +296,7 @@ export default function PageTools({
               body: encodeRich(
                 generateJSON(
                   text,
-                  docEditorExtensions(true),
+                  docEditorExtensions(true, { codeBlock: MermaidCodeBlock }),
                 ) as import("@/lib/doc-rich-content").RichNode,
               ),
             },
