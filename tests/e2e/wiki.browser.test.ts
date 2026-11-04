@@ -9,7 +9,7 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { chromium, type Browser, type BrowserContext } from '@playwright/test';
@@ -139,6 +139,28 @@ test('Wiki screens: create, write Thai and Mermaid, read-only member, stranger 4
     assert.equal(imported.rows.length, 1);
     await page.goto(`${BASE_URL}/wiki/${wikiId}/${imported.rows[0].wiki_page_slug}`);
     await page.locator('article .doc-mermaid').filter({ hasText: 'เริ่ม' }).locator('svg').waitFor();
+
+    // Whole-wiki export reads in tree order. A child added under the first
+    // page after the import sorts last in storage, yet exports right after
+    // its parent and before the imported page.
+    const parentRow = await fx.client.query('SELECT wiki_page_id FROM pmt_wiki_pages WHERE wiki_page_wiki_id = $1 AND wiki_page_slug = $2', [wikiId, slug]);
+    const child = await fetch(`${BASE_URL}/api/wikis/${wikiId}/pages`, {
+      method: 'POST', headers: { cookie: ownerJar.header, 'content-type': 'application/json' },
+      body: JSON.stringify({ title: 'หน้าลูกของการติดตั้ง', parentId: parentRow.rows[0].wiki_page_id }),
+    });
+    assert.equal(child.status, 200);
+    await page.getByText('Export & Import', { exact: true }).click();
+    await page.getByLabel(/^Export scope/).selectOption('wiki');
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByRole('button', { name: 'Markdown', exact: true }).click(),
+    ]);
+    const exportPath = path.join(tmpdir(), `wiki-export-${Date.now()}.md`);
+    await download.saveAs(exportPath);
+    const exported = await readFile(exportPath, 'utf8');
+    const at = [PAGE_TITLE, 'หน้าลูกของการติดตั้ง', 'ข้อความภาษาไทย'].map((s) => exported.indexOf(s));
+    assert.ok(at.every((i) => i >= 0), `every page is in the export: ${at}`);
+    assert.ok(at[0]! < at[1]! && at[1]! < at[2]!, `pages export in tree order: ${at}`);
 
     // Phone width: the workspace does not scroll sideways.
     await page.setViewportSize({ width: 375, height: 800 });

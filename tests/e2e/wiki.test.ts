@@ -311,11 +311,49 @@ describe('account deletion', () => {
 });
 
 describe('the boundary', () => {
-  test('a bearer token without a session cookie is 401', async () => {
-    const res = await call(null, 'GET', '/api/wikis', undefined, {
-      authorization: `Bearer pmw_${randomBytes(32).toString('base64url')}`,
+  test('a live access token opens /api/mcp and nothing else: every wiki REST route is 401 without a session', async () => {
+    const w = await create(ownerJar, 'ขอบเขตของโทเค็น');
+    const page = await newPage(ownerJar, w.id, { title: 'หน้าในขอบเขต' });
+    const minted = await call(ownerJar, 'POST', '/api/wiki-tokens', { label: 'boundary', wikiIds: [w.id] });
+    assert.equal(minted.status, 200, JSON.stringify(minted.body));
+    const auth = { authorization: `Bearer ${minted.body.secret}` };
+
+    // The token is genuinely valid: the one route it is for accepts it.
+    const mcp = await fetch(`${BASE_URL}/api/mcp`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream', ...auth },
+      body: JSON.stringify({
+        jsonrpc: '2.0', id: 1, method: 'initialize',
+        params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'e2e', version: '0' } },
+      }),
     });
-    assert.equal(res.status, 401);
+    assert.equal(mcp.status, 200, await mcp.text());
+
+    const routes: Array<[string, string, unknown?]> = [
+      ['GET', '/api/wikis'],
+      ['POST', '/api/wikis', { title: 'ผ่านโทเค็น' }],
+      ['GET', '/api/wikis/search?q=x'],
+      ['GET', `/api/wikis/${w.id}`],
+      ['PATCH', `/api/wikis/${w.id}`, { title: 'ผ่านโทเค็น' }],
+      ['GET', `/api/wikis/${w.id}/pages`],
+      ['POST', `/api/wikis/${w.id}/pages`, { title: 'ผ่านโทเค็น' }],
+      ['GET', `/api/wikis/${w.id}/members`],
+      ['PATCH', `/api/wiki-pages/${page.id}`, { title: 'ผ่านโทเค็น', updatedAt: page.updatedAt }],
+      ['GET', `/api/wiki-pages/${page.id}/history`],
+      ['GET', '/api/wiki-tokens'],
+      ['POST', '/api/wiki-tokens', { label: 'ผ่านโทเค็น', wikiIds: [] }],
+    ];
+    for (const [method, path, body] of routes) {
+      const res = await call(null, method, path, body, auth);
+      assert.equal(res.status, 401, `${method} ${path} answered ${res.status} to a Bearer token`);
+    }
+    // And none of the writes landed.
+    const { rows } = await fx.client.query(
+      "SELECT (SELECT count(*)::int FROM pmt_wikis WHERE wiki_title = 'ผ่านโทเค็น') +"
+      + " (SELECT count(*)::int FROM pmt_wiki_pages WHERE wiki_page_title = 'ผ่านโทเค็น') +"
+      + " (SELECT count(*)::int FROM pmt_wiki_tokens WHERE wiki_token_label = 'ผ่านโทเค็น') AS n",
+    );
+    assert.equal(rows[0].n, 0);
   });
 
   test('an injection-shaped title is stored and read back identically', async () => {
@@ -723,6 +761,8 @@ describe('the public link', () => {
     assert.ok(html.includes('วิกิสาธารณะ'), 'wiki title');
     assert.ok(html.includes('หน้าที่สอง'), 'page title');
     assert.ok(html.includes('หน้าแรกสาธารณะ'), 'the tree names the other page');
+    // On a phone the tree folds into a closed <details> naming this page, so the page comes first.
+    assert.match(html, /<details><summary>(?:(?!<\/summary>).)*หน้าที่สอง(?:(?!<\/summary>).)*<\/summary>/s, 'the folded tree names the current page');
     assert.ok(!html.includes('หน้าที่เก็บแล้ว'), 'an archived page is not in the tree');
     assert.ok(html.includes(`href="/w/${token}/start"`), 'a link to a page of this wiki stays inside the link');
     assert.ok(html.includes(`/w/${token}/assets/${referencedAsset}`), 'the image goes through the token');

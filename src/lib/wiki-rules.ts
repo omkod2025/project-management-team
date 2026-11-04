@@ -456,6 +456,9 @@ export function parsePageTitle(value: unknown): string {
 
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
+/** Addresses under `/wiki/<id>/` that belong to a screen, not a page. */
+const RESERVED_PAGE_SLUGS = new Set(['settings']);
+
 /**
  * A slug chosen at creation (D-62 carried over): lowercase letters, digits
  * and single hyphens, at most 80 characters. Blank means "generate one" and
@@ -468,6 +471,9 @@ export function parsePageSlug(value: unknown): string | null {
   if (!slug) return null;
   if (slug.length > 80 || !SLUG_RE.test(slug)) {
     throw domainError('E_INVALID_DOC', 'Use up to 80 lowercase letters, digits and single hyphens for the address.');
+  }
+  if (RESERVED_PAGE_SLUGS.has(slug)) {
+    throw domainError('E_INVALID_DOC', `“${slug}” is taken by the wiki itself. Choose another address.`);
   }
   return slug;
 }

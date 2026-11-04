@@ -7,6 +7,7 @@ import { exportPages, readImportFile, type ImportItem, type TransferPage } from 
 import { pageMarkdown, type DocPage } from '@/lib/doc-rules';
 import type { DocEndpoints } from '@/lib/doc-endpoints';
 import { problem, wikiCall } from './wiki-api';
+import { treeOrder, type TreePage } from './wiki-tree-order';
 
 type Format = 'md' | 'json' | 'html' | 'print';
 
@@ -65,7 +66,8 @@ export default function WikiTransfer({ wiki, page, hasPages, canWrite, endpoints
     try {
       const pages = scope === 'page' && page
         ? [asTransfer({ id: page.id, title: page.title, body: page.content.body ?? '' })]
-        : (await wikiCall<{ pages: { id: string; title: string; body: string }[] }>(`/api/wikis/${wiki.id}/pages`, 'GET')).pages.map(asTransfer);
+        // The whole wiki reads in the order the tree shows it: each parent, then its children.
+        : treeOrder((await wikiCall<{ pages: (TreePage & { body: string })[] }>(`/api/wikis/${wiki.id}/pages`, 'GET')).pages).map(asTransfer);
       const title = scope === 'page' && page ? page.title : wiki.title;
       const { source, mime } = await exportPages(format, pages, title);
       save(source, mime, title, format);

@@ -523,6 +523,10 @@ describe('page input', () => {
     refuses('E_INVALID_DOC', () => parsePageSlug('ปลั๊ก'));
     refuses('E_INVALID_DOC', () => parsePageSlug("a'; --"));
     refuses('E_INVALID_DOC', () => parsePageSlug('a--b'));
+    // `/wiki/<id>/settings` is the settings screen, so no page may take it.
+    refuses('E_INVALID_DOC', () => parsePageSlug('settings'));
+    refuses('E_INVALID_DOC', () => parsePageSlug(' Settings '));
+    assert.equal(parsePageSlug('settings-notes'), 'settings-notes');
     assert.match(generatedPageSlug(), /^page-[0-9a-f]{8}$/);
   });
 

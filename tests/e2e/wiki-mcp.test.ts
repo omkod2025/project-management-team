@@ -315,6 +315,14 @@ describe('tools', () => {
     assert.deepEqual(bySlug, byId);
   });
 
+  test('ids are case-insensitive: an uppercase page_id or wiki_id reads the same page', async () => {
+    const byId = await payload(secret, 'read_page', { page_id: mermaidPage });
+    assert.deepEqual(await payload(secret, 'read_page', { page_id: mermaidPage.toUpperCase() }), byId);
+    assert.deepEqual(await payload(secret, 'read_page', { wiki_id: shared.toUpperCase(), slug: mermaidSlug }), byId);
+    const pages = await payload(secret, 'list_pages', { wiki_id: shared.toUpperCase() }) as unknown[];
+    assert.equal(pages.length, 2);
+  });
+
   test('read_page outside scope, archived or malformed is Not found.', async () => {
     await assertNotFound(secret, 'read_page', { page_id: hiddenPage });
     await assertNotFound(secret, 'read_page', { page_id: archivedPage });

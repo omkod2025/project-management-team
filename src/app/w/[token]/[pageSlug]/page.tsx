@@ -37,6 +37,22 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   }
 }
 
+type ListedPage = { id: string; slug: string; title: string; depth: number };
+
+function PageList({ pages, token, currentId }: { pages: ListedPage[]; token: string; currentId: string }) {
+  return (
+    <ul>
+      {pages.map((p) => (
+        <li key={p.id} style={{ paddingLeft: (p.depth - 1) * 14 }}>
+          <a href={`/w/${token}/${p.slug}`} aria-current={p.id === currentId ? 'page' : undefined}>
+            {p.title}
+          </a>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export default async function PublishedWikiPage({ params }: Params) {
   const { token, pageSlug } = await params;
   let data;
@@ -53,6 +69,7 @@ export default async function PublishedWikiPage({ params }: Params) {
     assets: new Set(data.assetIds),
     ...wikiPublishOptions(token, wiki.id),
   };
+  const ordered = treeOrder(data.pages);
   const stamp = new Date(page.updatedAt).toLocaleDateString('en-GB', {
     day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Bangkok',
   });
@@ -61,15 +78,20 @@ export default async function PublishedWikiPage({ params }: Params) {
     <main className="published published-wiki">
       <nav className="published-wiki-tree" aria-label="Pages">
         <p className="published-wiki-title">{wiki.title}</p>
-        <ul>
-          {treeOrder(data.pages).map((p) => (
-            <li key={p.id} style={{ paddingLeft: (p.depth - 1) * 14 }}>
-              <a href={`/w/${token}/${p.slug}`} aria-current={p.id === page.id ? 'page' : undefined}>
-                {p.title}
-              </a>
-            </li>
-          ))}
-        </ul>
+        <PageList pages={ordered} token={token} currentId={page.id} />
+      </nav>
+
+      {/* A phone gets the tree folded into one line above the page, so the
+          page comes first. The CSS shows exactly one of the two navs. */}
+      <nav className="published-wiki-pages" aria-label="Pages">
+        <details>
+          <summary>
+            <span className="published-wiki-pages-label">Pages</span>
+            <span className="published-wiki-pages-current">{page.title}</span>
+          </summary>
+          <p className="published-wiki-title">{wiki.title}</p>
+          <PageList pages={ordered} token={token} currentId={page.id} />
+        </details>
       </nav>
 
       <article className="published-sheet">

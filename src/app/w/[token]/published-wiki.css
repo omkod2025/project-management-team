@@ -27,9 +27,11 @@
   overflow-wrap: anywhere;
 }
 
-.published-wiki-tree ul { margin: 0; padding: 0; list-style: none; }
+.published-wiki-tree ul,
+.published-wiki-pages ul { margin: 0; padding: 0; list-style: none; }
 
-.published-wiki-tree a {
+.published-wiki-tree a,
+.published-wiki-pages a {
   display: block;
   padding: 4px 0 4px 8px;
   border-left: 2px solid transparent;
@@ -38,20 +40,116 @@
   overflow-wrap: anywhere;
 }
 
-.published-wiki-tree a:hover { text-decoration: underline; }
+.published-wiki-tree a:hover,
+.published-wiki-pages a:hover { text-decoration: underline; }
 
-.published-wiki-tree a[aria-current='page'] {
+.published-wiki-tree a[aria-current='page'],
+.published-wiki-pages a[aria-current='page'] {
   border-left-color: #2b3240;
   color: #1c2230;
   font-weight: 600;
 }
 
+.published-wiki-tree a:focus-visible,
+.published-wiki-pages a:focus-visible,
+.published-wiki-pages summary:focus-visible {
+  outline: 2px solid #2b3240;
+  outline-offset: 2px;
+}
+
+/* The folded tree, for narrow screens only. One line on top of the sheet —
+   the same white, the same rule — naming the page being read; open, it is
+   the same list as the side tree. */
+.published-wiki-pages { display: none; }
+
+.published-wiki-pages details {
+  max-width: 820px;
+  margin: 0 auto;
+  background: #fff;
+  border: 1px solid var(--cu-line, #dfe3ec);
+  border-bottom: 0;
+  font-size: 14px;
+}
+
+.published-wiki-pages summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 0 18px;
+  list-style: none;
+  cursor: pointer;
+}
+
+.published-wiki-pages summary::-webkit-details-marker { display: none; }
+
+/* A drawn chevron: two sides of a square, turned to point down when open. */
+.published-wiki-pages summary::after {
+  content: '';
+  flex: none;
+  width: 7px;
+  height: 7px;
+  margin-left: auto;
+  border-right: 1.5px solid #555e70;
+  border-bottom: 1.5px solid #555e70;
+  transform: rotate(-45deg);
+  transition: transform 160ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.published-wiki-pages details[open] summary::after { transform: translateY(-2px) rotate(45deg); }
+
+/* Interface chrome, Latin only, so it may take the label's caps. */
+.published-wiki-pages-label {
+  flex: none;
+  color: #555e70;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* The page title is content, often Thai: no caps, no tracking, never below 13px. */
+.published-wiki-pages-current {
+  min-width: 0;
+  overflow: hidden;
+  color: #1c2230;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.published-wiki-pages details[open] summary { border-bottom: 1px solid var(--cu-line, #dfe3ec); }
+
+.published-wiki-pages .published-wiki-title {
+  margin: 0;
+  padding: 14px 18px 8px;
+  border-bottom: 0;
+  color: #555e70;
+  font-size: 13px;
+}
+
+.published-wiki-pages ul { padding: 0 18px 14px; }
+
+/* A finger, not a pointer: every row is a full-height target. */
+.published-wiki-pages a { padding-block: 10px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .published-wiki-pages summary::after { transition: none; }
+}
+
 @media (max-width: 860px) {
-  .published-wiki { grid-template-columns: minmax(0, 1fr); }
-  .published-wiki-tree { position: static; padding: 0 20px; }
+  /* One column on a page at least 100vh tall: rows must not stretch apart. */
+  .published-wiki { grid-template-columns: minmax(0, 1fr); align-content: start; gap: 0; }
+  .published-wiki-tree { display: none; }
+  .published-wiki-pages { display: block; }
+}
+
+@media (max-width: 640px) {
+  .published-wiki-pages details { border-inline: 0; }
 }
 
 @media print {
   .published-wiki { display: block; }
-  .published-wiki-tree { display: none; }
+  .published-wiki-tree,
+  .published-wiki-pages { display: none; }
 }

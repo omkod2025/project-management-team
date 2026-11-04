@@ -75,8 +75,11 @@ async function liveWikis(wikiIds: readonly string[]): Promise<LiveWiki[]> {
 
 /** One wiki from the live effective set, or "Not found." for anything else — malformed ids included. */
 async function liveWiki(wikiIds: readonly string[], wikiId: unknown): Promise<LiveWiki> {
-  if (typeof wikiId !== 'string' || !isUuid(wikiId) || !wikiIds.includes(wikiId)) throw outOfScope();
-  const [wiki] = await liveWikis([wikiId]);
+  if (typeof wikiId !== 'string' || !isUuid(wikiId)) throw outOfScope();
+  // A UUID is case-insensitive; the set and the database hold lowercase.
+  const id = wikiId.toLowerCase();
+  if (!wikiIds.includes(id)) throw outOfScope();
+  const [wiki] = await liveWikis([id]);
   if (!wiki) throw outOfScope();
   return wiki;
 }
@@ -90,10 +93,11 @@ async function readPage(
   args: { page_id?: string; wiki_id?: string; slug?: string },
 ) {
   let wikiId: unknown = args.wiki_id;
-  if (args.page_id !== undefined) {
-    if (!isUuid(args.page_id)) throw outOfScope();
+  const pageId = typeof args.page_id === 'string' ? args.page_id.toLowerCase() : args.page_id;
+  if (pageId !== undefined) {
+    if (!isUuid(pageId)) throw outOfScope();
     const [row] = await db.select({ wikiId: wikiPages.wikiId }).from(wikiPages)
-      .where(and(eq(wikiPages.id, args.page_id), isNull(wikiPages.archivedAt))).limit(1);
+      .where(and(eq(wikiPages.id, pageId), isNull(wikiPages.archivedAt))).limit(1);
     if (!row) throw outOfScope();
     wikiId = row.wikiId;
   } else if (typeof args.slug !== 'string') {
@@ -101,8 +105,8 @@ async function readPage(
   }
   const wiki = await liveWiki(wikiIds, wikiId);
   const pages = await activeWikiPages(wiki.id);
-  const page = args.page_id !== undefined
-    ? pages.find((p) => p.id === args.page_id)
+  const page = pageId !== undefined
+    ? pages.find((p) => p.id === pageId)
     : pages.find((p) => p.slug === args.slug);
   if (!page) throw outOfScope();
   return {
