@@ -10,8 +10,8 @@ import {
 } from '@/lib/wiki-asset-cleanup';
 import {
   assertNotOwner, canManageWiki, canSeeWiki, canWriteWiki, generatedPageSlug, isInstallAdmin, isUuid,
-  pageSearchText, parseMemberGrant, parseMemberRef, parseNewWiki, parseNewWikiPage, parsePageMove,
-  parsePageTitle, parseWikiUpdate, wikiRole,
+  likePattern, pageSearchText, parseMemberGrant, parseMemberRef, parseNewWiki, parseNewWikiPage, parsePageMove,
+  parsePageTitle, parseWikiUpdate, searchSnippet, searchTerms, wikiRole,
   type WikiAccess, type WikiFacts, type WikiRole, type WikiViewer,
 } from '@/lib/wiki-rules';
 
@@ -592,4 +592,87 @@ export async function wikiPageHistory(
     .where(eq(wikiRevisions.pageId, pageId))
     .orderBy(desc(wikiRevisions.updatedAt)).limit(50);
   return rows.map((r) => ({ id: r.id, content: { body: r.content }, updatedAt: r.updatedAt.toISOString(), editor: r.editor }));
+}
+
+/* --------------------------------------------------------------- search */
+
+export type WikiSearchHit = {
+  pageId: string; slug: string; title: string; wikiId: string; wikiTitle: string; snippet: string; rank: number;
+};
+
+const MAX_SEARCH_LIMIT = 20;
+
+/**
+ * Pages in `wikiIds` matching `q` (wiki spec §4b): every term must appear in
+ * the title or the plain-text search index, Thai-safe because the terms are
+ * split on whitespace rather than on word boundaries pg_trgm cannot see for
+ * Thai. Every value is bound — `likePattern` only shapes the pattern, it
+ * never becomes SQL text. No session logic here: `wikiIds` is taken as
+ * given, so the MCP endpoint (Task 10) can pass its own already-resolved set.
+ */
+export async function searchWikiIds(
+  wikiIds: readonly string[],
+  q: unknown,
+  limit: number,
+): Promise<WikiSearchHit[]> {
+  const terms = searchTerms(q);
+  if (terms.length === 0 || wikiIds.length === 0) return [];
+  const cap = Math.max(1, Math.min(Math.trunc(limit) || MAX_SEARCH_LIMIT, MAX_SEARCH_LIMIT));
+
+  const termConditions = terms.map((term) => {
+    const pattern = likePattern(term);
+    return sql`(${wikiPages.title} ILIKE ${pattern} ESCAPE '\\' OR ${wikiPages.searchText} ILIKE ${pattern} ESCAPE '\\')`;
+  });
+  const firstPattern = likePattern(terms[0]!);
+  const joinedQuery = terms.join(' ');
+
+  const rows = await db.select({
+    pageId: wikiPages.id,
+    slug: wikiPages.slug,
+    title: wikiPages.title,
+    wikiId: wikiPages.wikiId,
+    wikiTitle: wikis.title,
+    searchText: wikiPages.searchText,
+    rank: sql<number>`similarity(${wikiPages.searchText}, ${joinedQuery})`,
+  })
+    .from(wikiPages)
+    .innerJoin(wikis, eq(wikis.id, wikiPages.wikiId))
+    .where(and(
+      inArray(wikiPages.wikiId, [...wikiIds]),
+      isNull(wikiPages.archivedAt),
+      isNull(wikis.archivedAt),
+      ...termConditions,
+    ))
+    .orderBy(
+      desc(sql`${wikiPages.title} ILIKE ${firstPattern} ESCAPE '\\'`),
+      desc(sql`similarity(${wikiPages.searchText}, ${joinedQuery})`),
+      desc(wikiPages.updatedAt),
+    )
+    .limit(cap);
+
+  return rows.map((r) => ({
+    pageId: r.pageId, slug: r.slug, title: r.title, wikiId: r.wikiId, wikiTitle: r.wikiTitle,
+    snippet: searchSnippet(r.searchText, terms), rank: r.rank,
+  }));
+}
+
+/**
+ * Search scoped to one caller's session: every wiki they can see, or just
+ * `wikiId` when given — an id they cannot see is the same 404 as any other
+ * unseen wiki (spec §8).
+ */
+export async function searchWikis(
+  userId: string,
+  q: unknown,
+  wikiId?: string,
+  limit = MAX_SEARCH_LIMIT,
+): Promise<WikiSearchHit[]> {
+  let ids: string[];
+  if (wikiId !== undefined) {
+    await requireWiki(userId, wikiId, 'read');
+    ids = [wikiId];
+  } else {
+    ids = [...(await visibleWikiIds(userId))];
+  }
+  return searchWikiIds(ids, q, limit);
 }

@@ -484,6 +484,79 @@ describe('wiki pages', () => {
   });
 });
 
+/* -------------------------------------------------------- search (Task 6) */
+
+describe('search', () => {
+  let sw = '';
+  let plugIron: Page, plugOnly: Page, percentPage: Page, underscorePage: Page;
+
+  before(async () => {
+    sw = await wikiWithMembers('ค้นหา');
+    plugIron = await newPage(writerJar, sw, { title: 'ปลั๊กไฟ', body: 'เปลี่ยนปลั๊กไฟที่ห้องประชุม' });
+    plugOnly = await newPage(writerJar, sw, { title: 'ปลั๊กเสีย', body: 'ปลั๊กเสียแล้วต้องเปลี่ยน' });
+    percentPage = await newPage(writerJar, sw, { title: 'ส่วนลด', body: 'ลดราคา 50% วันนี้เท่านั้น' });
+    underscorePage = await newPage(writerJar, sw, { title: 'ชื่อตัวแปร', body: 'ตัวแปรชื่อ user_id ต้องไม่ว่าง' });
+  });
+
+  async function search(jar: Jar, q: string, wiki?: string) {
+    const params = new URLSearchParams({ q });
+    if (wiki) params.set('wiki', wiki);
+    return call(jar, 'GET', `/api/wikis/search?${params.toString()}`);
+  }
+
+  test('a term finds a page whose body contains it', async () => {
+    const res = await search(readerJar, 'ปลั๊ก', sw);
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    const ids = (res.body as any[]).map((r) => r.pageId);
+    assert.ok(ids.includes(plugIron.id), 'finds เปลี่ยนปลั๊กไฟ');
+    assert.ok(ids.includes(plugOnly.id));
+  });
+
+  test('two terms are combined with AND', async () => {
+    const res = await search(readerJar, 'ปลั๊ก ไฟ', sw);
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    const ids = (res.body as any[]).map((r) => r.pageId);
+    assert.ok(ids.includes(plugIron.id));
+    assert.ok(!ids.includes(plugOnly.id), 'ปลั๊กเสีย has no ไฟ');
+  });
+
+  test('a literal % or _ matches only the page that contains it literally', async () => {
+    const pct = await search(readerJar, '%', sw);
+    assert.equal(pct.status, 200, JSON.stringify(pct.body));
+    assert.deepEqual((pct.body as any[]).map((r) => r.pageId), [percentPage.id]);
+
+    const us = await search(readerJar, '_', sw);
+    assert.equal(us.status, 200, JSON.stringify(us.body));
+    assert.deepEqual((us.body as any[]).map((r) => r.pageId), [underscorePage.id]);
+  });
+
+  test('an injection attempt is just a query with no matches, and the table survives', async () => {
+    const res = await search(ownerJar, "'); DROP TABLE pmt_wikis; --", sw);
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.deepEqual(res.body, []);
+    const { rows } = await fx.client.query("SELECT to_regclass('pmt_wikis') AS t");
+    assert.ok(rows[0]?.t, 'pmt_wikis still exists');
+  });
+
+  test("a stranger's search never returns a page from a wiki they cannot see", async () => {
+    const res = await search(strangerJar, 'ปลั๊ก');
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    const ids = (res.body as any[]).map((r) => r.pageId);
+    assert.ok(!ids.includes(plugIron.id));
+    assert.ok(!ids.includes(plugOnly.id));
+  });
+
+  test('?wiki=<a wiki the caller cannot see> is 404', async () => {
+    const res = await search(strangerJar, 'ปลั๊ก', sw);
+    assert.equal(res.status, 404, JSON.stringify(res.body));
+  });
+
+  test('?wiki=<unknown id> is also 404', async () => {
+    const res = await search(ownerJar, 'ปลั๊ก', randomUUID());
+    assert.equal(res.status, 404, JSON.stringify(res.body));
+  });
+});
+
 describe('wiki assets', () => {
   let wa = '', wb = '';
   let assetUrl = '';
