@@ -14,11 +14,13 @@ import {
   parseNewWiki, parseMemberGrant, parseMemberRef, parseWikiUpdate, assertNotOwner, isUuid,
   TOKEN_PREFIX, MAX_ACTIVE_TOKENS, newTokenSecret, hashTokenSecret, bearerSecret,
   effectiveTokenWikis, parseTokenInput,
-  searchTerms, likePattern, searchSnippet, takeRateSlot, publicWikiToken,
+  searchTerms, likePattern, searchSnippet, takeRateSlot, publicWikiToken, pageSearchText,
+  parsePageSlug, generatedPageSlug, parseNewWikiPage, parsePageMove,
   type WikiViewer, type WikiFacts,
 } from '../src/lib/wiki-rules.ts';
 import { PROTECTED_EMAIL } from '../src/lib/admin-rules.ts';
 import { DomainError } from '../src/lib/errors.ts';
+import { encodeRich } from '../src/lib/doc-rich-content.ts';
 
 function refuses(code: string, fn: () => unknown) {
   assert.throws(fn, (err: unknown) => {
@@ -428,5 +430,52 @@ describe('publicWikiToken', () => {
     const b = publicWikiToken();
     assert.match(a, /^[A-Za-z0-9_-]{40,}$/);
     assert.notEqual(a, b);
+  });
+});
+
+describe('pageSearchText', () => {
+  const mermaid = 'graph TD\n  A[เริ่ม] --> B{"ok?"}';
+  const body = encodeRich({ type: 'doc', content: [
+    { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'ปลั๊ก' }] },
+    { type: 'paragraph', content: [{ type: 'text', text: 'ใช้ไฟ', marks: [{ type: 'bold' }] }] },
+    { type: 'codeBlock', attrs: { language: 'mermaid' }, content: [{ type: 'text', text: mermaid }] },
+  ] });
+
+  test('a rich body gives its words and the Mermaid source, never its JSON', () => {
+    const text = pageSearchText('หน้าแรก', body);
+    assert.ok(text.includes('ปลั๊ก'));
+    assert.ok(text.includes('ใช้ไฟ'));
+    assert.ok(text.includes('หน้าแรก'), 'the title is searchable');
+    assert.ok(text.includes('A[เริ่ม] --> B{"ok?"}'), 'Mermaid source kept verbatim');
+    assert.ok(!text.includes('"type"'));
+    assert.ok(!text.includes('fieldbook-rich-v1'));
+  });
+
+  test('Markdown syntax is stripped from the prose', () => {
+    const text = pageSearchText('t', '## หัวข้อ\n\n**หนา** and [ลิงก์](https://x.test) - item');
+    assert.ok(!text.includes('##'));
+    assert.ok(!text.includes('**'));
+    assert.ok(text.includes('หัวข้อ'));
+    assert.ok(text.includes('ลิงก์'));
+  });
+});
+
+describe('page input', () => {
+  test('a blank slug means generate; a chosen slug is lowercased and checked', () => {
+    assert.equal(parsePageSlug(undefined), null);
+    assert.equal(parsePageSlug('  '), null);
+    assert.equal(parsePageSlug('Level-Two'), 'level-two');
+    refuses('E_INVALID_DOC', () => parsePageSlug('ปลั๊ก'));
+    refuses('E_INVALID_DOC', () => parsePageSlug("a'; --"));
+    refuses('E_INVALID_DOC', () => parsePageSlug('a--b'));
+    assert.match(generatedPageSlug(), /^page-[0-9a-f]{8}$/);
+  });
+
+  test('a new page needs a title; parent and move targets must be ids', () => {
+    refuses('E_INVALID_DOC', () => parseNewWikiPage({ title: ' ' }));
+    refuses('E_INVALID_DOC', () => parseNewWikiPage({ title: 'x', parentId: 'nope' }));
+    assert.deepEqual(parseNewWikiPage({ title: ' ก ' }), { title: 'ก', slug: null, parentId: null, body: undefined });
+    assert.deepEqual(parsePageMove({ parentId: null }), { parentId: null, beforeId: null });
+    refuses('E_INVALID_DOC', () => parsePageMove({ parentId: 'x' }));
   });
 });

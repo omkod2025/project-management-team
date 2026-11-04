@@ -18,6 +18,7 @@ import { createHash, randomBytes } from 'node:crypto';
 
 import { domainError } from './errors.ts';
 import { PROTECTED_EMAIL } from './admin-rules.ts';
+import { contentMarkdown } from './doc-rich-content.ts';
 
 /* -------------------------------------------------------------- identity */
 
@@ -390,4 +391,104 @@ export function takeRateSlot(
 /** The whole guard on `/w/<token>` (spec §5b) — 32 random bytes, base64url. */
 export function publicWikiToken(): string {
   return randomBytes(32).toString('base64url');
+}
+
+/* ------------------------------------------------------------------ pages */
+
+/** Optional page id in a request body: blank is "none", malformed is refused. */
+function optionalPageId(value: unknown, message: string): string | null {
+  if (value === undefined || value === null || value === '') return null;
+  if (typeof value !== 'string' || !isUuid(value)) throw domainError('E_INVALID_DOC', message);
+  return value.toLowerCase();
+}
+
+export function parsePageTitle(value: unknown): string {
+  if (typeof value !== 'string' || !value.trim() || value.trim().length > 200) {
+    throw domainError('E_INVALID_DOC', 'Use a page title between 1 and 200 characters.');
+  }
+  return value.trim();
+}
+
+const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+/**
+ * A slug chosen at creation (D-62 carried over): lowercase letters, digits
+ * and single hyphens, at most 80 characters. Blank means "generate one" and
+ * is returned as null — a Thai title is never romanised into a slug.
+ */
+export function parsePageSlug(value: unknown): string | null {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== 'string') throw domainError('E_INVALID_DOC', 'Use letters, digits and hyphens for the address.');
+  const slug = value.trim().toLowerCase();
+  if (!slug) return null;
+  if (slug.length > 80 || !SLUG_RE.test(slug)) {
+    throw domainError('E_INVALID_DOC', 'Use up to 80 lowercase letters, digits and single hyphens for the address.');
+  }
+  return slug;
+}
+
+/** The address given to a page created with a blank slug: `page-` and 8 hex. */
+export function generatedPageSlug(): string {
+  return 'page-' + randomBytes(4).toString('hex');
+}
+
+export type NewWikiPage = { title: string; slug: string | null; parentId: string | null; body: unknown };
+
+/** `{ title, slug?, parentId?, body? }`. The body itself is checked by `parsePageContent`. */
+export function parseNewWikiPage(input: unknown): NewWikiPage {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) throw domainError('E_INVALID_DOC', 'Enter a page title.');
+  const o = input as Record<string, unknown>;
+  return {
+    title: parsePageTitle(o.title),
+    slug: parsePageSlug(o.slug),
+    parentId: optionalPageId(o.parentId, 'Choose a parent page in this wiki.'),
+    body: o.body,
+  };
+}
+
+/** `{ parentId, beforeId? }` — a null or absent parent moves the page to the top level. */
+export function parsePageMove(input: unknown): { parentId: string | null; beforeId: string | null } {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) throw domainError('E_INVALID_DOC', 'Choose where to move the page.');
+  const o = input as Record<string, unknown>;
+  return {
+    parentId: optionalPageId(o.parentId, 'Choose a parent page in this wiki.'),
+    beforeId: optionalPageId(o.beforeId, 'Choose a sibling page to move before.'),
+  };
+}
+
+/** One Markdown line with its syntax removed, keeping the words a person would search for. */
+function stripMarkdownLine(line: string): string {
+  return line
+    .replace(/^\s{0,3}#{1,6}\s+/, '')
+    .replace(/^(\s*>\s?)+/, '')
+    .replace(/^\s*(?:[-*+]|\d+\.)\s+(?:\[[ xX]\]\s+)?/, '')
+    .replace(/^\s*(?:-{3,}|\*{3,}|_{3,})\s*$/, '')
+    .replace(/^\s*\|?(?:\s*:?-{3,}:?\s*\|)+\s*:?-*:?\s*$/, '')
+    .replace(/!\[((?:\\.|[^\]\\])*)\]\([^)]*\)/g, '$1')
+    .replace(/(?<!\\)\[((?:\\.|[^\]\\])*)\]\([^)]*\)/g, '$1')
+    .replace(/(\\)?(\*\*|~~|[*`|])/g, (all, escaped: string | undefined) => (escaped ? all : ' '))
+    .replace(/\\([\\`*_[\]<>|~])/g, '$1');
+}
+
+/**
+ * The text written to `wiki_page_search_text` on every save (spec §4b): the
+ * title, then the body as `contentMarkdown` renders it with the Markdown
+ * syntax stripped. Code blocks — Mermaid among them — are kept verbatim, so
+ * a diagram's labels are searchable. Rich JSON keys never reach the index:
+ * the body is rendered, not stringified.
+ */
+export function pageSearchText(title: string, body: string): string {
+  const out: string[] = [title];
+  let fence: string | null = null;
+  for (const line of contentMarkdown(body).split('\n')) {
+    const marker = /^\s*(`{3,}|~{3,})/.exec(line)?.[1];
+    if (fence) {
+      if (marker && marker.startsWith(fence) && line.trim() === marker) fence = null;
+      else out.push(line);
+      continue;
+    }
+    if (marker) { fence = marker; continue; }
+    out.push(stripMarkdownLine(line));
+  }
+  return out.map((l) => l.replace(/[ \t]+/g, ' ').trim()).filter(Boolean).join('\n');
 }
