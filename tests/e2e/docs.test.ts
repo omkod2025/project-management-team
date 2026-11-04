@@ -325,3 +325,20 @@ test('rich content persists safely and replies cannot cross page/project boundar
   assert.equal((await request(`/api/doc-pages/${page.id}`,'PATCH',{content:{body:unsafe},updatedAt:page.updatedAt})).status,422);
   assert.equal((await(await request(`/api/docs/${doc.id}/pages`)).json()).pages.find((p:{id:string})=>p.id===page.id).content.body,rich);
 });
+
+test('a published page link is sent noindex and no-referrer, as a published wiki is', async () => {
+  const post = async (url: string, body: unknown) => {
+    const res = await fetch(`${BASE_URL}${url}`, { method: 'POST', headers: { cookie: admin.header, 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    const json = await res.json();
+    assert.equal(res.status, 200, JSON.stringify(json));
+    return json;
+  };
+  const doc = await (await call(admin, 'POST', { title: 'ลิงก์สาธารณะ' })).json();
+  const page = await post(`/api/docs/${doc.id}/pages`, { title: 'หน้าเผยแพร่', template: 'free', content: { body: 'ข้อความ' } });
+  const published = await post(`/api/doc-pages/${page.id}/tools`, { action: 'publish', updatedAt: page.updatedAt });
+  const res = await fetch(`${BASE_URL}/d/${published.publishToken}`, { redirect: 'manual' });
+  assert.equal(res.status, 200);
+  // The URL is the credential: no crawler lists it, no referrer carries it off.
+  assert.equal(res.headers.get('x-robots-tag'), 'noindex, nofollow');
+  assert.equal(res.headers.get('referrer-policy'), 'no-referrer');
+});

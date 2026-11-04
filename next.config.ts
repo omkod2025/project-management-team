@@ -14,14 +14,17 @@ const nextConfig: NextConfig = {
   // it either: its pages are force-dynamic, which Next answers with
   // `private, no-cache, no-store, …` — a Cache-Control set here would be
   // overwritten, so it is not pretended to be set here.)
+  // A published Docs page (`/d/<token>`, spec 10 §8b) is the same kind of
+  // credential and gets the same two headers.
   async headers() {
-    return [{
-      source: '/w/:path*',
-      headers: [
-        { key: 'X-Robots-Tag', value: 'noindex, nofollow' },
-        { key: 'Referrer-Policy', value: 'no-referrer' },
-      ],
-    }];
+    const unlisted = [
+      { key: 'X-Robots-Tag', value: 'noindex, nofollow' },
+      { key: 'Referrer-Policy', value: 'no-referrer' },
+    ];
+    return [
+      { source: '/w/:path*', headers: unlisted },
+      { source: '/d/:path*', headers: unlisted },
+    ];
   },
 };
 
