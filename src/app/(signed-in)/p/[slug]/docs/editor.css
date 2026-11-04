@@ -201,6 +201,15 @@
 .doc-tools-panel > button { display: block; margin-top: 8px; width: 100%; text-align: left; }
 .doc-tools-panel fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 
+/* Mermaid diagrams (spec: 2026-11-04-mermaid-blocks). Square corners and no
+   shadow, per DESIGN.md's colour law; a wide diagram scrolls inside its own
+   box, never the page. */
+.doc-mermaid { overflow-x: auto; border-radius: 0; box-shadow: none; margin: 12px 0; }
+.doc-mermaid svg { display: block; max-width: 100%; }
+.doc-mermaid-error { margin: 8px 0; font-size: 13px; }
+.docs-book .doc-mermaid-copy { border-radius: 0; box-shadow: none; min-height: 30px; padding: 4px 10px; font-size: 12px; margin: 8px 0; background: #fff; color: #303747; border: 1px solid var(--cu-line); cursor: pointer; }
+.docs-book .doc-mermaid-copy:hover { background: var(--cu-hover); }
+
 /* Published state (spec 10 §8b). Stated, not implied: a page that is readable
    outside the product says so every time the menu is opened. */
 .doc-published { margin: 12px 0 4px; padding: 8px 10px; background: #fff6e8; border: 1px solid #e6c893; font-size: 12px; line-height: 1.45; }
