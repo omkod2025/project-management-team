@@ -14,6 +14,7 @@ import { MERMAID_CONFIG, MERMAID_FONT_PX } from '@/lib/mermaid-rules.ts';
  */
 
 let initialized = false;
+const COPY_IDLE = 'Copy Mermaid';
 let renderCounter = 0;
 
 /**
@@ -25,6 +26,7 @@ function cloneConfig() {
   const read = getComputedStyle(document.documentElement).getPropertyValue('--font-read').trim();
   return {
     ...MERMAID_CONFIG,
+    secure: [...MERMAID_CONFIG.secure],
     themeVariables: { ...MERMAID_CONFIG.themeVariables, ...(read ? { fontFamily: `${read}, sans-serif` } : {}) },
   };
 }
@@ -51,7 +53,7 @@ export default function MermaidDiagram({
   const container = useRef<HTMLDivElement>(null);
   const [html, setHtml] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [copyLabel, setCopyLabel] = useState(COPY_IDLE);
 
   useEffect(() => {
     let cancelled = false;
@@ -92,21 +94,25 @@ export default function MermaidDiagram({
     holdLegible(container.current);
   }, [html]);
 
+  // The clipboard can refuse (no permission, an insecure origin, a
+  // locked-down browser); say so on the button rather than throw.
   const copy = () => {
-    navigator.clipboard.writeText(source).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
+    navigator.clipboard
+      .writeText(source)
+      .then(() => setCopyLabel('Copied'), () => setCopyLabel('Copy failed'))
+      .finally(() => setTimeout(() => setCopyLabel(COPY_IDLE), 2000));
   };
 
   return (
-    <div data-mermaid-block="">
+    <div data-mermaid-block="" data-mermaid-state={html ? 'rendered' : error ? 'failed' : 'pending'}>
       {!html && <pre className="doc-mermaid-source"><code>{source}</code></pre>}
       {html && <div ref={container} className="doc-mermaid" />}
-      {error && <p className="doc-mermaid-error">{error}</p>}
+      {/* Mermaid's parse error is for the author fixing the source (spec §3c).
+          A reader gets the source block alone, not a stack of parser jargon. */}
+      {error && showSource && <p className="doc-mermaid-error">{error}</p>}
       {!showSource && (
         <button type="button" className="doc-mermaid-copy" onClick={copy}>
-          {copied ? 'Copied' : 'Copy Mermaid'}
+          {copyLabel}
         </button>
       )}
     </div>

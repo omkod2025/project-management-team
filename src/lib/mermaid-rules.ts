@@ -85,8 +85,32 @@ export const MERMAID_FONT_PX = 16;
  * `look: 'classic'` and `dropShadow: 'none'`: Mermaid's default "neo" look
  * puts a blurred drop shadow and a gradient stroke on every node, and the
  * world has neither (DESIGN.md § Elevation & Depth).
+ *
+ * `secure` lists the keys Mermaid strips, at any depth, from a diagram's own
+ * `%%{init}%%` directive or frontmatter `config:`. Mermaid's default list
+ * covers only the first six; without the rest, any author could switch HTML
+ * labels back on or inject `themeCSS` (a fixed overlay, a remote `url()`)
+ * into a published page.
  */
+export const MERMAID_SECURE_KEYS = Object.freeze([
+  'secure',
+  'securityLevel',
+  'startOnLoad',
+  'maxTextSize',
+  'suppressErrorRendering',
+  'maxEdges',
+  'theme',
+  'themeVariables',
+  'themeCSS',
+  'look',
+  'htmlLabels',
+  'fontFamily',
+  'altFontFamily',
+  'darkMode',
+] as const);
+
 export const MERMAID_CONFIG = Object.freeze({
+  secure: MERMAID_SECURE_KEYS,
   startOnLoad: false,
   securityLevel: 'strict',
   htmlLabels: false,

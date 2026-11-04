@@ -11,6 +11,8 @@ import { decodeRich, type RichNode } from '../../src/lib/doc-rich-content.ts';
 const VALID = 'flowchart LR\n  A["กล้อง"] --> B[NVR]';
 const INVALID = 'flowchart LR\n A-->';
 const MALICIOUS = 'graph TD; A["<img src=x onerror=alert(1)>"]-->B; click A "javascript:alert(2)"';
+// A diagram trying to take back the settings MERMAID_CONFIG locks.
+const DIRECTIVE = '%%{init: {"theme":"dark","themeCSS":"svg{position:fixed}","htmlLabels":true}}%%\nflowchart LR\n  X["ทดสอบ"] --> Y';
 
 const BODY = [
   'Valid diagram:',
@@ -26,6 +28,11 @@ const BODY = [
   'Hostile diagram:',
   '```mermaid',
   MALICIOUS,
+  '```',
+  '',
+  'Directive diagram:',
+  '```mermaid',
+  DIRECTIVE,
   '```',
 ].join('\n');
 
@@ -61,10 +68,30 @@ test('Mermaid blocks render in read mode, survive publishing, and round-trip thr
     await validDiagram.locator('svg').waitFor();
     assert.equal(await validDiagram.locator('svg').count(), 1);
 
-    // The invalid block keeps showing its source and surfaces an error.
-    await page.locator('.doc-mermaid-error').first().waitFor();
-    assert.equal(await page.locator('.doc-mermaid-source').count(), 1);
-    assert.equal(await page.locator('.doc-mermaid-error').count(), 1);
+    // The invalid block keeps showing its source. Mermaid's parse error is for
+    // the editor only (spec §3c): a reader sees the source and nothing else.
+    const failed = page.locator('[data-mermaid-state="failed"]');
+    await failed.waitFor();
+    assert.equal(await failed.count(), 1);
+    assert.equal(await failed.locator('.doc-mermaid-source').count(), 1);
+    assert.equal(await page.locator('.doc-mermaid-error').count(), 0);
+
+    // An init directive cannot take back the locked settings: the house
+    // paper fill stays, no HTML label, and no injected themeCSS.
+    // Found by position, not label: an HTML label would be stripped by the
+    // sanitizer, taking the text with it.
+    const directive = page.locator('[data-mermaid-block]').nth(3).locator('.doc-mermaid');
+    await directive.locator('svg').waitFor();
+    const drawn = await directive.locator('svg').evaluate((svg) => ({
+      foreignObjects: svg.querySelectorAll('foreignObject').length,
+      css: Array.from(svg.querySelectorAll('style')).map((s) => s.textContent ?? '').join(''),
+      position: getComputedStyle(svg).position,
+      fill: getComputedStyle(svg.querySelector('.node rect, .node polygon, .node path')!).fill,
+    }));
+    assert.equal(drawn.foreignObjects, 0);
+    assert.doesNotMatch(drawn.css, /position:\s*fixed/);
+    assert.notEqual(drawn.position, 'fixed');
+    assert.equal(drawn.fill, 'rgb(237, 229, 210)');
 
     // Sanitization held: no attacker-controlled handler, scheme, or dialog.
     assert.equal(await page.locator('img[onerror]').count(), 0);
@@ -88,12 +115,20 @@ test('Mermaid blocks render in read mode, survive publishing, and round-trip thr
     await content.waitFor();
     const mermaidCode = page.locator('[data-mermaid-node-view] code').first();
     await mermaidCode.waitFor();
-    await mermaidCode.click();
+    // The editor opens with the caret moved to the end of the page. Wait for
+    // that to land, or it can arrive after the click below and send the typing
+    // into the last block instead of this one.
+    await page.waitForFunction((el) => el === document.activeElement, await content.elementHandle());
+    // Click the end of the block's last line, so the typing appends to it.
+    const box = (await mermaidCode.boundingBox())!;
+    await mermaidCode.click({ position: { x: box.width - 2, y: box.height - 4 } });
     await page.keyboard.press('End');
     await page.keyboard.type('\nA-->');
-    await page.locator('[data-mermaid-node-view] .doc-mermaid-error').waitFor();
+    // In the editor the author does see the parse error.
+    const editedBlock = page.locator('[data-mermaid-node-view]').first();
+    await editedBlock.locator('.doc-mermaid-error').waitFor();
     for (let i = 0; i < 5; i++) await page.keyboard.press('Backspace');
-    await page.locator('[data-mermaid-node-view] .doc-mermaid svg').waitFor();
+    await editedBlock.locator('.doc-mermaid svg').first().waitFor();
 
     await page.getByRole('button', { name: 'Done editing', exact: true }).click();
     await page.getByRole('button', { name: 'Edit page', exact: true }).waitFor();
@@ -113,7 +148,7 @@ test('Mermaid blocks render in read mode, survive publishing, and round-trip thr
     const htmlPath = path.join(tmpdir(), `mermaid-export-${Date.now()}.html`);
     await download.saveAs(htmlPath);
     const exported = await readFile(htmlPath, 'utf8');
-    assert.equal((exported.match(/<pre class="mermaid"><code>/g) ?? []).length, 3);
+    assert.equal((exported.match(/<pre class="mermaid"><code>/g) ?? []).length, 4);
     assert.ok(!exported.includes('doc-mermaid-copy'));
 
     // Importing that export back in keeps the Mermaid block recognised: the

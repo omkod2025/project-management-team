@@ -68,6 +68,32 @@ test('MERMAID_CONFIG is frozen and locked down', () => {
   assert.equal(Object.isFrozen(MERMAID_CONFIG), true);
 });
 
+test('MERMAID_CONFIG keeps a diagram from overriding the locked settings through %%{init}%% or frontmatter', () => {
+  // Mermaid deletes these keys, at any depth, from every directive. Its own
+  // default list stops at the first six; the rest are the house look and the
+  // HTML-label switch, which a public reader must not be able to flip.
+  assert.deepEqual(
+    [...MERMAID_CONFIG.secure].sort(),
+    [
+      'secure',
+      'securityLevel',
+      'startOnLoad',
+      'maxTextSize',
+      'suppressErrorRendering',
+      'maxEdges',
+      'theme',
+      'themeVariables',
+      'themeCSS',
+      'look',
+      'htmlLabels',
+      'fontFamily',
+      'altFontFamily',
+      'darkMode',
+    ].sort(),
+  );
+  assert.equal(Object.isFrozen(MERMAID_CONFIG.secure), true);
+});
+
 test('MERMAID_CONFIG draws without shadow or gradient (DESIGN.md § Elevation & Depth)', () => {
   assert.equal(MERMAID_CONFIG.look, 'classic');
   assert.equal(MERMAID_CONFIG.themeVariables.dropShadow, 'none');
