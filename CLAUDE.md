@@ -20,6 +20,7 @@ Project management for software delivery. Plan and reality are recorded separate
 | [`docs/spec/09-roster.md`](docs/spec/09-roster.md) | All Timeline (the roster) — one lane per person, across projects |
 | [`docs/spec/10-docs.md`](docs/spec/10-docs.md) | Project documents — pages, templates, Markdown, assets |
 | [`docs/spec/11-notifications.md`](docs/spec/11-notifications.md) | The bell — being told when your name is put on a task |
+| [`docs/spec/12-wiki.md`](docs/spec/12-wiki.md) | Wiki (คลังความรู้) and Mermaid blocks — sharing, public link, access tokens, the read-only MCP endpoint (`D-70`…) |
 | [`db/schema.sql`](db/schema.sql) | Executable DDL — verified against PostgreSQL 18.4 |
 | [`db/tests.sql`](db/tests.sql) | Schema test suite, 14 groups, runs in a rolled-back transaction |
 | [`tests/node-rules.test.ts`](tests/node-rules.test.ts) | 46 domain rule tests, each naming the `D-nn` it defends |
@@ -40,6 +41,11 @@ Project management for software delivery. Plan and reality are recorded separate
 | [`tests/file-columns.test.ts`](tests/file-columns.test.ts) | 5 tests: the file column — what an attachment must carry, the 20 MB ceiling, and every shape the cell refuses |
 | [`tests/default-columns.test.ts`](tests/default-columns.test.ts) | 15 tests: the four columns every project starts with, and the List arrangement that opens Assign and Side beside Status |
 | [`tests/e2e/default-columns.test.ts`](tests/e2e/default-columns.test.ts) | 6 end-to-end tests: the default columns, the designation, and the saved column order are really written |
+| [`tests/wiki-rules.test.ts`](tests/wiki-rules.test.ts) | 67 tests: who sees and writes a wiki, what a token reads, token and page input, Thai-safe search terms, the rate limiter, the breadcrumb |
+| [`tests/wiki-tree-order.test.ts`](tests/wiki-tree-order.test.ts) | 6 tests: the wiki page tree in reading order |
+| [`tests/e2e/wiki.test.ts`](tests/e2e/wiki.test.ts) | 67 end-to-end tests: the wiki role table, strangers' 404s, pages, search, assets, the public link, access tokens |
+| [`tests/e2e/wiki.browser.test.ts`](tests/e2e/wiki.browser.test.ts) | 1 browser test: create a wiki, write Thai and Mermaid, the read-only member, the stranger's 404, `.md` import |
+| [`tests/e2e/wiki-mcp.test.ts`](tests/e2e/wiki-mcp.test.ts) | 23 end-to-end tests: the MCP endpoint — Bearer only, the four read-only tools, scope decided per request, revoked/expired/deactivated → 401, injection, the rate limit |
 | [`docs/TASKS.md`](docs/TASKS.md) | Build plan T0–T9 with per-task checklists |
 | [`docs/wireframes/index.html`](docs/wireframes/index.html) | Rendered wireframes for both views |
 

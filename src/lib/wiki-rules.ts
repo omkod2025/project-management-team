@@ -537,3 +537,29 @@ export function pageSearchText(title: string, body: string): string {
   }
   return out.map((l) => l.replace(/[ \t]+/g, ' ').trim()).filter(Boolean).join('\n');
 }
+
+/* ------------------------------------------------------------- breadcrumb */
+
+/**
+ * The titles above a page, top first, not including the page itself — the
+ * `breadcrumb` the MCP `read_page` tool returns (spec §7). A parent missing
+ * from `pages` ends the trail, and a page seen twice stops it, so a damaged
+ * tree can never loop.
+ */
+export function pageBreadcrumb(
+  pages: ReadonlyArray<{ id: string; parentId: string | null; title: string }>,
+  pageId: string,
+): string[] {
+  const byId = new Map(pages.map((p) => [p.id, p]));
+  const seen = new Set([pageId]);
+  const trail: string[] = [];
+  let parentId = byId.get(pageId)?.parentId ?? null;
+  while (parentId && !seen.has(parentId)) {
+    const parent = byId.get(parentId);
+    if (!parent) break;
+    seen.add(parentId);
+    trail.push(parent.title);
+    parentId = parent.parentId;
+  }
+  return trail.reverse();
+}

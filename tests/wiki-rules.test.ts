@@ -15,7 +15,7 @@ import {
   TOKEN_PREFIX, MAX_ACTIVE_TOKENS, newTokenSecret, hashTokenSecret, bearerSecret,
   effectiveTokenWikis, parseTokenInput, tokenStatus, shouldTouchLastUsed, parseTokenIds,
   searchTerms, likePattern, searchSnippet, takeRateSlot, publicWikiToken, pageSearchText,
-  parsePageSlug, generatedPageSlug, parseNewWikiPage, parsePageMove,
+  parsePageSlug, generatedPageSlug, parseNewWikiPage, parsePageMove, pageBreadcrumb,
   type WikiViewer, type WikiFacts,
 } from '../src/lib/wiki-rules.ts';
 import { PROTECTED_EMAIL } from '../src/lib/admin-rules.ts';
@@ -532,5 +532,25 @@ describe('page input', () => {
     assert.deepEqual(parseNewWikiPage({ title: ' ก ' }), { title: 'ก', slug: null, parentId: null, body: undefined });
     assert.deepEqual(parsePageMove({ parentId: null }), { parentId: null, beforeId: null });
     refuses('E_INVALID_DOC', () => parsePageMove({ parentId: 'x' }));
+  });
+});
+
+describe('breadcrumb (MCP read_page)', () => {
+  const pages = [
+    { id: 'a', parentId: null, title: 'หนึ่ง' },
+    { id: 'b', parentId: 'a', title: 'สอง' },
+    { id: 'c', parentId: 'b', title: 'สาม' },
+    { id: 'd', parentId: 'missing', title: 'กำพร้า' },
+  ];
+
+  test('ancestors from the top down, not including the page itself', () => {
+    assert.deepEqual(pageBreadcrumb(pages, 'c'), ['หนึ่ง', 'สอง']);
+    assert.deepEqual(pageBreadcrumb(pages, 'a'), []);
+  });
+
+  test('a parent that is not among the pages ends the trail; a cycle cannot loop', () => {
+    assert.deepEqual(pageBreadcrumb(pages, 'd'), []);
+    const cyclic = [{ id: 'x', parentId: 'y', title: 'X' }, { id: 'y', parentId: 'x', title: 'Y' }];
+    assert.deepEqual(pageBreadcrumb(cyclic, 'x'), ['Y']);
   });
 });
