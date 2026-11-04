@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import DocIcon from '../../../p/[slug]/docs/doc-icon';
 import { problem, wikiCall } from '../../wiki-api';
 
-type Wiki = { id: string; title: string; description: string; archived: boolean; ownerId: string | null; ownerName: string | null };
+type Wiki = { id: string; title: string; description: string; archived: boolean; ownerId: string | null; ownerName: string | null; publicToken: string | null };
 type Member = { userId: string; name: string; email: string; access: 'read' | 'write' };
 type Person = { userId: string; name: string; email: string };
 type Run = (work: () => Promise<unknown>, done?: string) => Promise<boolean>;
@@ -120,6 +120,38 @@ function TransferSection({ wiki, people, busy, run }: { wiki: Wiki; people: Pers
   </section>;
 }
 
+/**
+ * The whole-wiki public link (spec §5b). The state is said plainly every time
+ * the screen opens: a wiki that is out there says so. Revoking deletes the
+ * secret; publishing again gives a different link.
+ */
+function PublicLinkSection({ wiki, busy, run }: { wiki: Wiki; busy: boolean; run: Run }) {
+  const [copyState, setCopyState] = useState('');
+  const href = wiki.publicToken ? `/w/${wiki.publicToken}` : null;
+  return <section className="wiki-settings-section" aria-labelledby="wiki-public-head">
+    <h2 id="wiki-public-head">Public link</h2>
+    {wiki.archived ? <p className="docs-muted">Private. An archived wiki cannot be published; restore it first.</p>
+      : href ? <>
+        <p><strong>Published.</strong> Anyone with this link can read every page of this wiki. They see no members, authors or owner.</p>
+        <p className="wiki-public-link"><code>{href}</code></p>
+        <div className="docs-actions">
+          <button type="button" disabled={busy} onClick={() => {
+            void navigator.clipboard.writeText(`${location.origin}${href}`)
+              .then(() => setCopyState('Public link copied.'))
+              .catch(() => setCopyState('Could not copy the link. Open it and copy it from the address bar.'));
+          }}><DocIcon name="link" />Copy link</button>
+          <a href={href} target="_blank" rel="noopener noreferrer"><DocIcon name="file" />Open link</a>
+          <button type="button" disabled={busy}
+            onClick={() => { setCopyState(''); void run(() => patch(wiki.id, { action: 'unpublish' }), 'Link revoked. It no longer works.'); }}><DocIcon name="lock" />Revoke (unpublish)</button>
+        </div>
+        <p className="docs-notice" role="status">{copyState}</p>
+      </> : <>
+        <p><strong>Private.</strong> Only members can read this wiki. Publishing makes a read-only link to the whole wiki that works without signing in.</p>
+        <button type="button" disabled={busy} onClick={() => void run(() => patch(wiki.id, { action: 'publish' }), 'Published.')}><DocIcon name="link" />Publish</button>
+      </>}
+  </section>;
+}
+
 function ArchiveSection({ wiki, busy, run }: { wiki: Wiki; busy: boolean; run: Run }) {
   const [confirming, setConfirming] = useState(false);
   return <section className="wiki-settings-section" aria-labelledby="wiki-archive-head">
@@ -141,7 +173,7 @@ function ArchiveSection({ wiki, busy, run }: { wiki: Wiki; busy: boolean; run: R
   </section>;
 }
 
-/** Rename and describe, members, transfer and archive — everything here is the owner's or the install admin's. */
+/** Rename and describe, members, transfer, the public link and archive — everything here is the owner's or the install admin's. */
 export default function WikiSettings({ wiki, members, people }: { wiki: Wiki; members: Member[]; people: Person[] }) {
   const { busy, notice, error, run } = useRunner();
   return <div className="wiki-settings">
@@ -151,6 +183,7 @@ export default function WikiSettings({ wiki, members, people }: { wiki: Wiki; me
     <NameSection wiki={wiki} busy={busy} run={run} />
     <MembersSection wiki={wiki} members={members} people={people} busy={busy} run={run} />
     <TransferSection wiki={wiki} people={people} busy={busy} run={run} />
+    <PublicLinkSection wiki={wiki} busy={busy} run={run} />
     <ArchiveSection wiki={wiki} busy={busy} run={run} />
   </div>;
 }

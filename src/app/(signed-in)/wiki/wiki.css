@@ -75,6 +75,12 @@
 .wiki-confirm { margin-top: 12px; padding: 12px 0 12px 12px; border-left: 2px solid var(--cu-ink-faint); }
 .wiki-confirm p { margin: 0 0 10px; overflow-wrap: anywhere; }
 .wiki-members select { min-height: 30px; }
+/* The public link: the address in the figure face, wrapping rather than
+   widening the page; the open link sits in the button row as a plain ruled box. */
+.wiki-public-link code { font-family: var(--font-figure), ui-monospace, monospace; font-size: 13px; overflow-wrap: anywhere; }
+.wiki-settings-section .docs-actions { flex-wrap: wrap; }
+.wiki-settings-section .docs-actions a { display: inline-flex; gap: 8px; align-items: center; padding: 6px 12px; min-height: 34px; box-sizing: border-box; border: 1px solid var(--cu-line); border-radius: 0; color: #303747; font-size: 14px; text-decoration: none; }
+.wiki-settings-section .docs-actions a:hover { background: var(--cu-hover, #f2f4f9); }
 /* A visually hidden header is absolutely placed; held inside the scroller it
    cannot push the page wider than the phone. */
 .wiki-book .docs-table-wrap { position: relative; }

@@ -1,0 +1,57 @@
+/* A published wiki: the Docs published sheet (published.css), with the page
+   tree beside it. Same paper, same quiet rules — no cards, no radius, no
+   shadows; the current page is marked by weight and a rule, not by colour. */
+
+.published-wiki {
+  display: grid;
+  grid-template-columns: minmax(180px, 240px) minmax(0, 820px);
+  justify-content: center;
+  align-items: start;
+  gap: 24px;
+}
+
+.published-wiki .published-sheet { margin: 0; width: 100%; }
+
+.published-wiki-tree {
+  position: sticky;
+  top: 40px;
+  padding: 4px 0;
+  font-size: 14px;
+}
+
+.published-wiki-title {
+  margin: 0 0 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--cu-line, #dfe3ec);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.published-wiki-tree ul { margin: 0; padding: 0; list-style: none; }
+
+.published-wiki-tree a {
+  display: block;
+  padding: 4px 0 4px 8px;
+  border-left: 2px solid transparent;
+  color: #3a4252;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.published-wiki-tree a:hover { text-decoration: underline; }
+
+.published-wiki-tree a[aria-current='page'] {
+  border-left-color: #2b3240;
+  color: #1c2230;
+  font-weight: 600;
+}
+
+@media (max-width: 860px) {
+  .published-wiki { grid-template-columns: minmax(0, 1fr); }
+  .published-wiki-tree { position: static; padding: 0 20px; }
+}
+
+@media print {
+  .published-wiki { display: block; }
+  .published-wiki-tree { display: none; }
+}

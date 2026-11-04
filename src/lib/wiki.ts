@@ -10,7 +10,7 @@ import {
 } from '@/lib/wiki-asset-cleanup';
 import {
   assertNotOwner, canManageWiki, canSeeWiki, canWriteWiki, generatedPageSlug, isInstallAdmin, isUuid,
-  likePattern, pageSearchText, parseMemberGrant, parseMemberRef, parseNewWiki, parseNewWikiPage, parsePageMove,
+  likePattern, pageSearchText, publicWikiToken, parseMemberGrant, parseMemberRef, parseNewWiki, parseNewWikiPage, parsePageMove,
   parsePageTitle, parseWikiUpdate, searchSnippet, searchTerms, wikiRole,
   type WikiAccess, type WikiFacts, type WikiRole, type WikiViewer,
 } from '@/lib/wiki-rules';
@@ -24,6 +24,12 @@ export type WikiSummary = {
   id: string; title: string; description: string;
   ownerId: string | null; ownerName: string | null;
   role: WikiRole; archived: boolean; published: boolean; updatedAt: string;
+  /**
+   * The public link's secret (spec §5b), present only for those who may
+   * publish or revoke it — the owner and the install admin. Members learn
+   * that the wiki is published, never the link itself.
+   */
+  publicToken?: string | null;
 };
 
 type WikiRow = typeof wikis.$inferSelect;
@@ -136,6 +142,7 @@ function summarize(w: WikiRow, role: WikiRole, owner: string | null): WikiSummar
     ownerId: w.ownerId, ownerName: owner, role,
     archived: w.archivedAt !== null, published: w.publicToken !== null,
     updatedAt: w.updatedAt.toISOString(),
+    ...(role === 'owner' || role === 'install' ? { publicToken: w.publicToken } : {}),
   };
 }
 
@@ -209,8 +216,30 @@ export async function updateWiki(userId: string, wikiId: string, input: unknown)
     case 'transfer':
       await transfer(userId, wiki.id, change.userId);
       break;
+    case 'publish':
+      await publish(wiki.id);
+      break;
+    case 'unpublish':
+      // Revocation deletes the secret. The next publish mints a new one, so a
+      // link that was let out never comes back to life.
+      await db.update(wikis).set({ publicToken: null }).where(eq(wikis.id, wiki.id));
+      break;
   }
   return summaryAfterChange(userId, wiki.id);
+}
+
+/**
+ * Mint the wiki's public secret, or keep the one it has — there is only ever
+ * one link per wiki in the wild. `COALESCE` in the write makes two concurrent
+ * publishes agree on one token. An archived wiki is not published: archiving
+ * withdrew its link, and restoring it first is a deliberate step.
+ */
+async function publish(wikiId: string): Promise<void> {
+  const [row] = await db.update(wikis)
+    .set({ publicToken: sql`COALESCE(${wikis.publicToken}, ${publicWikiToken()})` })
+    .where(and(eq(wikis.id, wikiId), isNull(wikis.archivedAt)))
+    .returning({ id: wikis.id });
+  if (!row) throw domainError('E_FORBIDDEN', 'This wiki is archived. Restore it before publishing it.');
 }
 
 /**
@@ -324,6 +353,12 @@ function pageOf(p: PageRow): WikiPage {
 
 /** A strictly later instant than `after`, so an optimistic save always sees a change. */
 const laterThan = (after: Date) => new Date(Math.max(Date.now(), after.getTime() + 1));
+
+/**
+ * A wiki's non-archived pages in tree order, with **no access check** — for
+ * the public link (`wiki-publish.ts`), which proves its right by the secret.
+ */
+export const activeWikiPages = (wikiId: string) => listPages(wikiId, false);
 
 async function listPages(wikiId: string, archived: boolean): Promise<WikiPage[]> {
   const rows = await db.select().from(wikiPages)

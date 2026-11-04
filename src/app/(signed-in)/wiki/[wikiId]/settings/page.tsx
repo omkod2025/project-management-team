@@ -36,7 +36,7 @@ export default async function WikiSettingsPage({ params }: { params: Promise<{ w
     </header>
     <div className="docs-content">
       <WikiSettings
-        wiki={{ id: wiki.id, title: wiki.title, description: wiki.description, archived: wiki.archived, ownerId: wiki.ownerId, ownerName: wiki.ownerName }}
+        wiki={{ id: wiki.id, title: wiki.title, description: wiki.description, archived: wiki.archived, ownerId: wiki.ownerId, ownerName: wiki.ownerName, publicToken: wiki.publicToken ?? null }}
         members={members}
         people={people}
       />

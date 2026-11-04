@@ -11,7 +11,7 @@ import {
   safeEmbed,
   type RichNode,
 } from "@/lib/doc-rich-content";
-import { publishedLink } from "@/lib/doc-publish-rules";
+import { publishedLink, type PublishedLinkOptions } from "@/lib/doc-publish-rules";
 import { isMermaidLanguage } from "@/lib/mermaid-rules";
 
 /**
@@ -37,8 +37,20 @@ const linkTarget = (href: unknown): "_blank" | undefined =>
  * §8b) by somebody with no account, and every URL on the page has to be asked
  * about: an asset becomes the token's own path, an app-internal link stops
  * being a link at all, and only external schemes survive untouched.
+ *
+ * The optional fields are `PublishedLinkOptions`: absent, the page is a Docs
+ * page at `/d/<token>`; the Wiki passes `wikiPublishOptions(...)` so its
+ * assets and its links between its own pages land on `/w/<token>`.
  */
-export type PublishContext = { token: string; assets: ReadonlySet<string> };
+export type PublishContext = {
+  token: string;
+  assets: ReadonlySet<string>;
+} & Partial<PublishedLinkOptions>;
+
+function publishOptions(publish: PublishContext): PublishedLinkOptions | undefined {
+  const { assetPrefix, publicBase, rewriteInternal } = publish;
+  return assetPrefix && publicBase ? { assetPrefix, publicBase, rewriteInternal } : undefined;
+}
 
 /** Explicit renderer: document JSON never becomes executable HTML. */
 export default function DocContent({
@@ -55,7 +67,7 @@ export default function DocContent({
    */
   const url = (raw: unknown): string | null =>
     publish
-      ? publishedLink(raw, publish.token, publish.assets)
+      ? publishedLink(raw, publish.token, publish.assets, publishOptions(publish))
       : safeDocUrl(raw)
         ? raw
         : null;
@@ -68,7 +80,10 @@ export default function DocContent({
         /* A page still held as Markdown reads the same way as one held as
            rich content, so its links leave for their own window too. */
         components={{
-          a: ({ href, children, ...rest }) => {
+          // `node` is the hast element, still holding the *original* href. It
+          // must not be spread onto the <a>: on a published page it would
+          // carry the app address the rewrite just removed into the payload.
+          a: ({ href, children, node: _node, ...rest }) => {
             const to = url(href);
             // A link with nowhere to go keeps its words and loses its href —
             // deleting the text would silently edit the document.

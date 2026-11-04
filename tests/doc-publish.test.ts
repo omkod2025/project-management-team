@@ -11,7 +11,7 @@ import test, { describe } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  mintPublishToken, isPublishToken, publishedHref, publishedAssetHref, publishedLink,
+  mintPublishToken, isPublishToken, publishedHref, publishedAssetHref, publishedLink, wikiPublishOptions,
 } from '../src/lib/doc-publish-rules.ts';
 import { docAssetIds } from '../src/lib/doc-asset-references.ts';
 
@@ -126,5 +126,50 @@ describe('the set of assets a token may read', () => {
 
   test('is empty for a page with no files', () => {
     assert.equal(docAssetIds({ body: 'plain words and https://example.com' }).size, 0);
+  });
+});
+
+describe('a link inside a published wiki (wiki spec §5b)', () => {
+  const W = '11111111-2222-4333-8444-555555555555';
+  const OTHER_WIKI = '99999999-8888-4777-8666-555555555555';
+  const opts = wikiPublishOptions(TOKEN, W);
+  const wikiLink = (href: unknown) => publishedLink(href, TOKEN, referenced, opts);
+
+  test('a page of this wiki is rewritten onto the token', () => {
+    assert.equal(wikiLink(`/wiki/${W}/abc`), `/w/${TOKEN}/abc`);
+    assert.equal(wikiLink(`/wiki/${W.toUpperCase()}/abc`), `/w/${TOKEN}/abc`);
+  });
+
+  test('keeps a fragment on a page link', () => {
+    assert.equal(wikiLink(`/wiki/${W}/abc#heading-1`), `/w/${TOKEN}/abc#heading-1`);
+  });
+
+  test('a page of another wiki is not a link', () => {
+    assert.equal(wikiLink(`/wiki/${OTHER_WIKI}/abc`), null);
+  });
+
+  test('the wiki settings and any other internal path are not links', () => {
+    assert.equal(wikiLink(`/wiki/${W}/settings`), null);
+    assert.equal(wikiLink(`/wiki/${W}`), null);
+    assert.equal(wikiLink('/p/x/docs/y'), null);
+    assert.equal(wikiLink('/api/wikis'), null);
+  });
+
+  test('an external address is unchanged', () => {
+    assert.equal(wikiLink('https://a.b'), 'https://a.b');
+    assert.equal(wikiLink('#top'), '#top');
+  });
+
+  test('a referenced wiki asset goes through the token; an unreferenced one is refused', () => {
+    assert.equal(wikiLink(`/api/wiki-assets/${ASSET}`), `/w/${TOKEN}/assets/${ASSET}`);
+    assert.equal(wikiLink(`/api/wiki-assets/${OTHER}`), null);
+  });
+
+  test('a Docs asset is not a wiki asset', () => {
+    assert.equal(wikiLink(`/api/doc-assets/${ASSET}`), null);
+  });
+
+  test('the Docs default never rewrites a wiki asset', () => {
+    assert.equal(link(`/api/wiki-assets/${ASSET}`), null);
   });
 });

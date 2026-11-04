@@ -58,7 +58,58 @@ export const publishedHref = (token: string) => `/d/${token}`;
 export const publishedAssetHref = (token: string, assetId: string) =>
   `/d/${token}/assets/${assetId}`;
 
-const ASSET_LINK = /^\/api\/doc-assets\/([0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12})$/i;
+const UUID = '[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}';
+const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * Where a published copy lives, and what it may still point at.
+ *
+ * Docs publish one page at `/d/<token>` and its files from `/api/doc-assets/`;
+ * that is the default, so a Docs caller passes nothing. The Wiki publishes a
+ * whole wiki at `/w/<token>` (wiki spec §5b), so it names its own asset route
+ * and — the one difference in kind — a `rewriteInternal` that keeps links
+ * between pages of the same wiki working inside the published copy.
+ */
+export type PublishedLinkOptions = {
+  /** The authenticated asset route content refers to, e.g. `/api/doc-assets/`. */
+  assetPrefix: string;
+  /** The published root; files are served from `<publicBase>/assets/<id>`. */
+  publicBase: string;
+  /**
+   * Another chance for an app-internal path. Returns the published address it
+   * becomes, or `null` — and `null` is the answer for everything it does not
+   * positively recognise.
+   */
+  rewriteInternal?: (path: string) => string | null;
+};
+
+const docsOptions = (token: string): PublishedLinkOptions => ({
+  assetPrefix: '/api/doc-assets/',
+  publicBase: publishedHref(token),
+});
+
+/**
+ * The Wiki's options: its asset route, its `/w/<token>` root, and links to a
+ * page of *this* wiki (`/wiki/<wikiId>/<slug>`, with an optional fragment)
+ * rewritten onto the token. A page of another wiki, the settings screen, or
+ * the wiki root are app addresses like any other and stop being links.
+ */
+export function wikiPublishOptions(token: string, wikiId: string): PublishedLinkOptions {
+  const base = `/w/${token}`;
+  // The slug shape is `parsePageSlug`'s. `settings` can be a page's slug, but
+  // in the app `/wiki/<id>/settings` is always the settings screen.
+  const page = new RegExp(`^/wiki/${escapeRegExp(wikiId)}/([a-z0-9]+(?:-[a-z0-9]+)*)(#\\S*)?$`, 'i');
+  return {
+    assetPrefix: '/api/wiki-assets/',
+    publicBase: base,
+    rewriteInternal: (path) => {
+      const match = page.exec(path);
+      const slug = match?.[1]!.toLowerCase();
+      if (!slug || slug === 'settings') return null;
+      return `${base}/${slug}${match![2] ?? ''}`;
+    },
+  };
+}
 
 /**
  * What a link in a document becomes when the page is read through a published
@@ -68,7 +119,8 @@ const ASSET_LINK = /^\/api\/doc-assets\/([0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]
  * the href. That is the answer for anything addressed to this application,
  * because the reader has no session: following it would land them on a sign-in
  * page, and the URL would have told them a project slug, a page slug or an
- * asset id on the way.
+ * asset id on the way. The one exception is what `options.rewriteInternal`
+ * positively recognises (the Wiki's links between its own pages).
  *
  * An asset the page references is rewritten onto the token's own path. An
  * asset it does not reference is refused here as well as at the endpoint —
@@ -79,20 +131,22 @@ export function publishedLink(
   href: unknown,
   token: string,
   referenced: ReadonlySet<string>,
+  options: PublishedLinkOptions = docsOptions(token),
 ): string | null {
   if (typeof href !== 'string' || !href) return null;
 
-  const asset = ASSET_LINK.exec(href);
+  const asset = new RegExp(`^${escapeRegExp(options.assetPrefix)}(${UUID})$`, 'i').exec(href);
   if (asset) {
     const id = asset[1]!.toLowerCase();
-    return referenced.has(id) ? publishedAssetHref(token, id) : null;
+    return referenced.has(id) ? `${options.publicBase}/assets/${id}` : null;
   }
 
   // A fragment points inside the page already open, so it survives untouched.
   if (href.startsWith('#')) return href;
 
-  // Anything else addressed to this app — `/p/…`, `/api/…`, another `/d/…`.
-  if (href.startsWith('/')) return null;
+  // Anything else addressed to this app — `/p/…`, `/api/…`, another `/d/…` —
+  // unless the caller recognises it as part of what was published.
+  if (href.startsWith('/')) return options.rewriteInternal?.(href) ?? null;
 
   // Only the schemes a document is allowed to hold in the first place (§5).
   return /^(https?:\/\/|mailto:|tel:)/i.test(href) ? href : null;

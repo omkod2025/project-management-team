@@ -9,7 +9,7 @@ export async function GET(_req: Request, { params }: Context) {
   return handle(`GET /api/wikis/${id}`, (userId) => getWiki(userId, id));
 }
 
-/** `{ action: 'rename' | 'describe' | 'archive' | 'restore' | 'transfer', … }` — owner or install admin. */
+/** `{ action: 'rename' | 'describe' | 'archive' | 'restore' | 'transfer' | 'publish' | 'unpublish', … }` — owner or install admin. */
 export async function PATCH(req: Request, { params }: Context) {
   const { id } = await params;
   return handle(`PATCH /api/wikis/${id}`, async (userId) => {

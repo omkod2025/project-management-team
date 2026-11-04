@@ -645,3 +645,158 @@ describe('wiki assets', () => {
     assert.deepEqual(rows[0], { assets: 0, queued: 0 });
   });
 });
+
+/* -------------------------------------------------- public link (Task 8) */
+
+describe('the public link', () => {
+  let pub = '';
+  let token = '';
+  let referencedAsset = '', strayAsset = '';
+
+  async function uploadPng(jar: Jar, wiki: string) {
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
+    const form = new FormData();
+    form.append('file', new File([png], 'สาธารณะ.png', { type: 'image/png' }));
+    const res = await fetch(`${BASE_URL}/api/wikis/${wiki}/assets`, { method: 'POST', headers: { cookie: jar.header }, body: form });
+    assert.equal(res.status, 200);
+    return String(((await res.json()) as { url: string }).url).split('/').pop()!;
+  }
+
+  /** A stranger with no session at all. */
+  const anon = (path: string) => fetch(`${BASE_URL}${path}`, { redirect: 'manual' });
+
+  before(async () => {
+    pub = await wikiWithMembers('วิกิสาธารณะ');
+    referencedAsset = await uploadPng(writerJar, pub);
+    strayAsset = await uploadPng(writerJar, pub);
+    await newPage(writerJar, pub, { title: 'หน้าแรกสาธารณะ', slug: 'start' });
+    await newPage(writerJar, pub, {
+      title: 'หน้าที่สอง',
+      slug: 'second',
+      body: `![รูป](/api/wiki-assets/${referencedAsset})\n\n[กลับหน้าแรก](/wiki/${pub}/start) [ตั้งค่า](/wiki/${pub}/settings) [โครงการ](/p/x/list)`,
+    });
+    const hidden = await newPage(writerJar, pub, { title: 'หน้าที่เก็บแล้ว', slug: 'gone' });
+    assert.equal((await call(writerJar, 'POST', `/api/wiki-pages/${hidden.id}`, { action: 'archive' })).status, 200);
+  });
+
+  test('a reader or writer cannot publish; a stranger cannot tell the wiki exists', async () => {
+    assert.equal((await call(readerJar, 'PATCH', `/api/wikis/${pub}`, { action: 'publish' })).status, 403);
+    assert.equal((await call(writerJar, 'PATCH', `/api/wikis/${pub}`, { action: 'publish' })).status, 403);
+    assert.equal((await call(strangerJar, 'PATCH', `/api/wikis/${pub}`, { action: 'publish' })).status, 404);
+  });
+
+  test('the owner publishes and gets the token; publishing again returns the same one', async () => {
+    const res = await call(ownerJar, 'PATCH', `/api/wikis/${pub}`, { action: 'publish' });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(res.body.published, true);
+    assert.match(res.body.publicToken, /^[A-Za-z0-9_-]{43}$/);
+    token = res.body.publicToken;
+    const again = await call(ownerJar, 'PATCH', `/api/wikis/${pub}`, { action: 'publish' });
+    assert.equal(again.body.publicToken, token);
+  });
+
+  test('the token is shown to the manager only', async () => {
+    assert.equal((await call(ownerJar, 'GET', `/api/wikis/${pub}`)).body.publicToken, token);
+    const asReader = await call(readerJar, 'GET', `/api/wikis/${pub}`);
+    assert.equal(asReader.body.published, true);
+    assert.equal(asReader.body.publicToken, undefined);
+    const listed = (await call(writerJar, 'GET', '/api/wikis')).body as Array<Record<string, unknown>>;
+    assert.equal(listed.find((w) => w.id === pub)?.publicToken, undefined);
+  });
+
+  test('an unauthenticated reader sees the page: noindex, no-store, tree, no owner, no links back in', async () => {
+    const res = await anon(`/w/${token}/second`);
+    assert.equal(res.status, 200);
+    /* A force-dynamic page is sent `private, no-cache, no-store, max-age=0,
+       must-revalidate` in production. `next dev` overwrites every page's
+       Cache-Control with exactly `no-cache, must-revalidate` (base-server.js),
+       so against a dev server that is the one other answer accepted — any
+       public or s-maxage caching fails either way. */
+    const cache = res.headers.get('cache-control') ?? '';
+    assert.ok(/(^|[ ,])no-store/.test(cache) || cache === 'no-cache, must-revalidate', cache);
+    assert.ok(!/public|s-maxage/.test(cache), cache);
+    const html = await res.text();
+    assert.ok(
+      /noindex/.test(res.headers.get('x-robots-tag') ?? '') || /<meta name="robots" content="noindex, nofollow"/.test(html),
+      'noindex, nofollow',
+    );
+    assert.ok(html.includes('วิกิสาธารณะ'), 'wiki title');
+    assert.ok(html.includes('หน้าที่สอง'), 'page title');
+    assert.ok(html.includes('หน้าแรกสาธารณะ'), 'the tree names the other page');
+    assert.ok(!html.includes('หน้าที่เก็บแล้ว'), 'an archived page is not in the tree');
+    assert.ok(html.includes(`href="/w/${token}/start"`), 'a link to a page of this wiki stays inside the link');
+    assert.ok(html.includes(`/w/${token}/assets/${referencedAsset}`), 'the image goes through the token');
+    assert.ok(!html.includes(`/wiki/${pub}`), 'no address back into the app, not even in the RSC payload');
+    assert.ok(!html.includes('/p/x/list'), 'no project address');
+    assert.ok(!html.includes('/api/wiki-assets/'), 'the authenticated asset route is never handed out');
+    assert.ok(!html.includes(owner.email), 'no owner');
+  });
+
+  test('the bare link opens the first page', async () => {
+    const res = await anon(`/w/${token}`);
+    assert.ok([302, 303, 307, 308].includes(res.status), String(res.status));
+    assert.match(res.headers.get('location') ?? '', new RegExp(`/w/${token}/start$`));
+  });
+
+  test('an archived page and an unknown slug are the same 404', async () => {
+    assert.equal((await anon(`/w/${token}/gone`)).status, 404);
+    assert.equal((await anon(`/w/${token}/no-such-page`)).status, 404);
+  });
+
+  test('a referenced asset is served with the asset headers; an unreferenced one is 404', async () => {
+    const got = await anon(`/w/${token}/assets/${referencedAsset}`);
+    assert.equal(got.status, 200);
+    assert.equal(got.headers.get('content-type'), 'image/png');
+    assert.match(got.headers.get('cache-control') ?? '', /no-store/);
+    assert.equal(got.headers.get('x-content-type-options'), 'nosniff');
+    assert.ok(got.headers.get('content-security-policy')?.includes('sandbox'));
+    assert.equal((await anon(`/w/${token}/assets/${strayAsset}`)).status, 404);
+    assert.equal((await anon(`/w/${token}/assets/${randomUUID()}`)).status, 404);
+    assert.equal((await anon(`/w/${token}/assets/not-a-uuid`)).status, 404);
+  });
+
+  test('a malformed or unknown token is 404', async () => {
+    assert.equal((await anon('/w/short/start')).status, 404);
+    assert.equal((await anon(`/w/${randomBytes(32).toString('base64url')}/start`)).status, 404);
+  });
+
+  test('a reader cannot unpublish; the owner can, and the old token is dead', async () => {
+    assert.equal((await call(readerJar, 'PATCH', `/api/wikis/${pub}`, { action: 'unpublish' })).status, 403);
+    const res = await call(ownerJar, 'PATCH', `/api/wikis/${pub}`, { action: 'unpublish' });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(res.body.published, false);
+    assert.equal(res.body.publicToken, null);
+    assert.equal((await anon(`/w/${token}/second`)).status, 404);
+    assert.equal((await anon(`/w/${token}/assets/${referencedAsset}`)).status, 404);
+  });
+
+  test('publishing again mints a different token', async () => {
+    const res = await call(ownerJar, 'PATCH', `/api/wikis/${pub}`, { action: 'publish' });
+    assert.equal(res.status, 200);
+    assert.notEqual(res.body.publicToken, token);
+    token = res.body.publicToken;
+    assert.equal((await anon(`/w/${token}/start`)).status, 200);
+  });
+
+  test('archiving the wiki withdraws the link', async () => {
+    assert.equal((await call(ownerJar, 'PATCH', `/api/wikis/${pub}`, { action: 'archive' })).status, 200);
+    assert.equal((await anon(`/w/${token}/start`)).status, 404);
+    assert.equal((await anon(`/w/${token}`)).status, 404);
+  });
+
+  test('an archived wiki cannot be published until it is restored', async () => {
+    const res = await call(ownerJar, 'PATCH', `/api/wikis/${pub}`, { action: 'publish' });
+    assert.equal(res.status, 403, JSON.stringify(res.body));
+    assert.equal(res.body.published, undefined);
+  });
+
+  test('the install admin can publish and unpublish; an empty wiki shows its empty state', async (t) => {
+    if (!installJar) return t.skip(SKIP_INSTALL);
+    const w = await create(ownerJar, 'วิกิของผู้ดูแล');
+    const res = await call(installJar, 'PATCH', `/api/wikis/${w.id}`, { action: 'publish' });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.match(res.body.publicToken, /^[A-Za-z0-9_-]{43}$/);
+    assert.equal((await anon(`/w/${res.body.publicToken}`)).status, 200);
+    assert.equal((await call(installJar, 'PATCH', `/api/wikis/${w.id}`, { action: 'unpublish' })).status, 200);
+  });
+});

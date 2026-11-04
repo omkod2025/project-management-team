@@ -130,7 +130,9 @@ export type WikiUpdate =
   | { action: 'describe'; description: string }
   | { action: 'archive' }
   | { action: 'restore' }
-  | { action: 'transfer'; userId: string };
+  | { action: 'transfer'; userId: string }
+  | { action: 'publish' }
+  | { action: 'unpublish' };
 
 /**
  * One change to a wiki's settings, all of which need `canManageWiki`. The
@@ -144,6 +146,8 @@ export function parseWikiUpdate(input: unknown): WikiUpdate {
     case 'archive': return { action: 'archive' };
     case 'restore': return { action: 'restore' };
     case 'transfer': return { action: 'transfer', userId: parseMemberRef(obj).userId };
+    case 'publish': return { action: 'publish' };
+    case 'unpublish': return { action: 'unpublish' };
     default:
       throw domainError('E_INVALID_DOC', 'Unknown wiki action.', { action: obj.action });
   }
