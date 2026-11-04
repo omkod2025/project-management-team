@@ -113,19 +113,19 @@ test('Mermaid blocks render in read mode, survive publishing, and round-trip thr
     await page.getByRole('button', { name: 'Edit page', exact: true }).click();
     const content = page.getByRole('textbox', { name: 'Content', exact: true });
     await content.waitFor();
-    const mermaidCode = page.locator('[data-mermaid-node-view] code').first();
-    await mermaidCode.waitFor();
-    // The editor opens with the caret moved to the end of the page. Wait for
-    // that to land, or it can arrive after the click below and send the typing
-    // into the last block instead of this one.
-    await page.waitForFunction((el) => el === document.activeElement, await content.elementHandle());
-    // Click the end of the block's last line, so the typing appends to it.
-    const box = (await mermaidCode.boundingBox())!;
-    await mermaidCode.click({ position: { x: box.width - 2, y: box.height - 4 } });
-    await page.keyboard.press('End');
+    // The editor opens with the caret at the end of the page, which is the end
+    // of the last Mermaid block. Type there. (Clicking into an earlier block
+    // raced that autofocus: about one run in three, the caret jumped back to
+    // the end after the click and the typing landed in the last block anyway.)
+    const editedBlock = page.locator('[data-mermaid-node-view]').last();
+    await editedBlock.waitFor();
+    await page.waitForFunction(() => {
+      const views = document.querySelectorAll('[data-mermaid-node-view]');
+      const caret = getSelection()?.anchorNode;
+      return !!caret && views.length > 0 && views[views.length - 1]!.contains(caret);
+    });
     await page.keyboard.type('\nA-->');
     // In the editor the author does see the parse error.
-    const editedBlock = page.locator('[data-mermaid-node-view]').first();
     await editedBlock.locator('.doc-mermaid-error').waitFor();
     for (let i = 0; i < 5; i++) await page.keyboard.press('Backspace');
     await editedBlock.locator('.doc-mermaid svg').first().waitFor();
@@ -135,8 +135,9 @@ test('Mermaid blocks render in read mode, survive publishing, and round-trip thr
 
     const saved = await fx.client.query('SELECT doc_page_content FROM pmt_doc_pages WHERE doc_page_id = $1', [page0.id]);
     const savedBody = saved.rows[0].doc_page_content.body as string;
-    const [savedValid] = mermaidSources(savedBody);
-    assert.equal(savedValid, VALID);
+    const savedSources = mermaidSources(savedBody);
+    assert.equal(savedSources[0], VALID);
+    assert.equal(savedSources[3], DIRECTIVE, 'typing and deleting the same text leaves the edited block as it was');
 
     // HTML export writes a Mermaid block as `pre.mermaid`, with no stray
     // copy button baked into a page that has no script to run it.
