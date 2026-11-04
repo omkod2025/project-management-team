@@ -20,6 +20,8 @@ RUN addgroup --system --gid 1001 nodejs \
 
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+# /wiki/tokens/guide reads this file at runtime; standalone output does not trace it.
+COPY --from=builder --chown=nextjs:nodejs /app/docs/guides ./docs/guides
 
 RUN mkdir -p /app/data/doc-assets && chown -R nextjs:nodejs /app/data
 USER nextjs
