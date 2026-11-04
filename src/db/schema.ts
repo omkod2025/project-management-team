@@ -400,3 +400,98 @@ export const defectSettings = pgTable('pmt_defect_settings', {
   columnOrder: jsonb('defect_column_order').$type<string[]>().notNull().default([]),
   updatedAt: timestamp('defect_updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+/* -------------------------------------------------------------------- wiki */
+
+export const wikiAccessKind = pgEnum('wiki_access_kind', ['read', 'write']);
+
+export const wikis = pgTable('pmt_wikis', {
+  id: uuid('wiki_id').primaryKey().defaultRandom(),
+  title: text('wiki_title').notNull(),
+  description: text('wiki_description').notNull().default(''),
+  ownerId: uuid('wiki_owner_id').notNull().references(() => users.id, { onDelete: 'restrict' }),
+  /** Null means not published. See doc-publish-rules for the pattern this follows. */
+  publicToken: text('wiki_public_token'),
+  archivedAt: timestamp('wiki_archived_at', { withTimezone: true }),
+  createdAt: timestamp('wiki_created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('wiki_updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const wikiMembers = pgTable('pmt_wiki_members', {
+  wikiId: uuid('wiki_member_wiki_id').notNull().references(() => wikis.id, { onDelete: 'cascade' }),
+  userId: uuid('wiki_member_user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  access: wikiAccessKind('wiki_member_access').notNull(),
+  grantedBy: uuid('wiki_member_granted_by').references(() => users.id, { onDelete: 'set null' }),
+  grantedAt: timestamp('wiki_member_granted_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [primaryKey({ columns: [t.wikiId, t.userId] })]);
+
+export const wikiPages = pgTable('pmt_wiki_pages', {
+  id: uuid('wiki_page_id').primaryKey().defaultRandom(),
+  wikiId: uuid('wiki_page_wiki_id').notNull().references(() => wikis.id, { onDelete: 'cascade' }),
+  parentId: uuid('wiki_page_parent_id'),
+  depth: smallint('wiki_page_depth').notNull(),
+  title: text('wiki_page_title').notNull(),
+  slug: text('wiki_page_slug').notNull(),
+  body: text('wiki_page_body').notNull().default(''),
+  /** Plain text pulled from the body in TypeScript on every save (wiki spec §4b). */
+  searchText: text('wiki_page_search_text').notNull().default(''),
+  sortOrder: doublePrecision('wiki_page_sort_order').notNull().default(0),
+  updatedBy: uuid('wiki_page_updated_by').references(() => users.id, { onDelete: 'set null' }),
+  updatedAt: timestamp('wiki_page_updated_at', { withTimezone: true, precision: 3 }).notNull().defaultNow(),
+  archivedAt: timestamp('wiki_page_archived_at', { withTimezone: true }),
+}, (t) => [
+  index('pmt_wiki_pages_wiki_idx').on(t.wikiId),
+  uniqueIndex('pmt_wiki_pages_wiki_id_slug_key').on(t.wikiId, t.slug),
+]);
+
+export const wikiRevisions = pgTable('pmt_wiki_page_revisions', {
+  id: uuid('wiki_revision_id').primaryKey().defaultRandom(),
+  pageId: uuid('wiki_revision_page_id').notNull().references(() => wikiPages.id, { onDelete: 'cascade' }),
+  editorId: uuid('wiki_revision_editor_id').references(() => users.id, { onDelete: 'set null' }),
+  /** A Wiki page has one plain-text body, unlike the Docs jsonb wrapper. */
+  content: text('wiki_revision_content').notNull(),
+  updatedAt: timestamp('wiki_revision_updated_at', { withTimezone: true, precision: 3 }).notNull().defaultNow(),
+});
+
+export const wikiAssets = pgTable('pmt_wiki_assets', {
+  id: uuid('wiki_asset_id').primaryKey().defaultRandom(),
+  wikiId: uuid('wiki_asset_wiki_id').notNull().references(() => wikis.id, { onDelete: 'cascade' }),
+  uploaderId: uuid('wiki_asset_uploader_id').references(() => users.id, { onDelete: 'set null' }),
+  filename: text('wiki_asset_filename').notNull(),
+  mime: text('wiki_asset_mime').notNull(),
+  bytes: integer('wiki_asset_bytes').notNull(),
+  createdAt: timestamp('wiki_asset_created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const wikiAssetRemovals = pgTable('pmt_wiki_asset_removals', {
+  pageId: uuid('wiki_asset_removal_page_id').notNull().references(() => wikiPages.id, { onDelete: 'cascade' }),
+  assetId: uuid('wiki_asset_removal_asset_id').notNull().references(() => wikiAssets.id, { onDelete: 'cascade' }),
+}, (t) => [primaryKey({ columns: [t.pageId, t.assetId] })]);
+
+export const wikiAssetDeletions = pgTable('pmt_wiki_asset_deletions', {
+  id: uuid('wiki_asset_deletion_id').primaryKey(),
+  wikiId: uuid('wiki_asset_deletion_wiki_id').notNull(),
+  filename: text('wiki_asset_deletion_filename').notNull(),
+  createdAt: timestamp('wiki_asset_deletion_asset_created_at', { withTimezone: true }).notNull(),
+  queuedAt: timestamp('wiki_asset_deletion_queued_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index('pmt_wiki_asset_deletions_wiki_idx').on(t.wikiId)]);
+
+export const wikiTokens = pgTable('pmt_wiki_tokens', {
+  id: uuid('wiki_token_id').primaryKey().defaultRandom(),
+  ownerId: uuid('wiki_token_owner_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  label: text('wiki_token_label').notNull(),
+  /** SHA-256 of the secret. The secret itself is never stored. */
+  hash: text('wiki_token_hash').notNull().unique(),
+  /** First 8 characters of the secret, for display only. */
+  prefix: text('wiki_token_prefix').notNull(),
+  createdAt: timestamp('wiki_token_created_at', { withTimezone: true }).notNull().defaultNow(),
+  lastUsedAt: timestamp('wiki_token_last_used_at', { withTimezone: true }),
+  expiresAt: timestamp('wiki_token_expires_at', { withTimezone: true }),
+  revokedAt: timestamp('wiki_token_revoked_at', { withTimezone: true }),
+  revokedBy: uuid('wiki_token_revoked_by').references(() => users.id, { onDelete: 'set null' }),
+}, (t) => [index('pmt_wiki_tokens_owner_idx').on(t.ownerId)]);
+
+export const wikiTokenScopes = pgTable('pmt_wiki_token_scopes', {
+  tokenId: uuid('wiki_token_scope_token_id').notNull().references(() => wikiTokens.id, { onDelete: 'cascade' }),
+  wikiId: uuid('wiki_token_scope_wiki_id').notNull().references(() => wikis.id, { onDelete: 'cascade' }),
+}, (t) => [primaryKey({ columns: [t.tokenId, t.wikiId] })]);

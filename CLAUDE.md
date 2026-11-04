@@ -21,7 +21,7 @@ Project management for software delivery. Plan and reality are recorded separate
 | [`docs/spec/10-docs.md`](docs/spec/10-docs.md) | Project documents — pages, templates, Markdown, assets |
 | [`docs/spec/11-notifications.md`](docs/spec/11-notifications.md) | The bell — being told when your name is put on a task |
 | [`db/schema.sql`](db/schema.sql) | Executable DDL — verified against PostgreSQL 18.4 |
-| [`db/tests.sql`](db/tests.sql) | Schema test suite, 13 groups, runs in a rolled-back transaction |
+| [`db/tests.sql`](db/tests.sql) | Schema test suite, 14 groups, runs in a rolled-back transaction |
 | [`tests/node-rules.test.ts`](tests/node-rules.test.ts) | 46 domain rule tests, each naming the `D-nn` it defends |
 | [`tests/e2e/api.test.ts`](tests/e2e/api.test.ts) | 29 end-to-end tests: auth, dates, capture, snapping, validation |
 | [`tests/e2e/tree.test.ts`](tests/e2e/tree.test.ts) | 26 end-to-end tests: create, move, place, archive, restore |
@@ -51,7 +51,7 @@ Credentials live in `.env` (git-ignored). With `PGHOST`/`PGUSER`/`PGPASSWORD` ex
 
 ```bash
 npm run db:build     # psql -f db/schema.sql
-npm run db:test      # psql -f db/tests.sql  — 13 groups, rolled back
+npm run db:test      # psql -f db/tests.sql  — 14 groups, rolled back
 npm run db:migrate   # apply db/migrations/*.sql once each
 npm run db:seed -- <email> <password>
 ```
@@ -67,7 +67,7 @@ npm run db:seed -- <email> <password>
 ```bash
 npm run check      # typecheck + domain tests — the pre-commit bar
 npm test           # 326 domain rule tests (nodes, admin, list, roster, notifications), no database needed
-npm run db:test    # 13 SQL groups, rolled back
+npm run db:test    # 14 SQL groups, rolled back
 npm run test:e2e   # 147 API tests — REQUIRES `npm run dev` in another terminal
 npm run test:acceptance  # 15 acceptance criteria, same requirement
 ```

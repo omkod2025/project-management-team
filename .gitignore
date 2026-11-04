@@ -23,6 +23,7 @@ dist/
 !/db/
 /db/migrations/*
 !/db/migrations/020_defects.sql
+!/db/migrations/021_wiki.sql
 
 .impeccable
 .rea-edge-profile
