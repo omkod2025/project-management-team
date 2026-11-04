@@ -78,7 +78,12 @@ export function canManageWiki(v: WikiViewer, w: WikiFacts): boolean {
 
 /* -------------------------------------------------------------- creating */
 
-const MAX_TITLE_LENGTH = 120;
+// Matches the DB's own checks (db/migrations/021_wiki.sql): `wiki_title`
+// CHECK (char_length(btrim(...)) BETWEEN 1 AND 200), `wiki_description`
+// CHECK (char_length(...) <= 1000). Kept here too so a bad value never
+// reaches the database to be rejected there instead.
+const MAX_TITLE_LENGTH = 200;
+const MAX_DESCRIPTION_LENGTH = 1000;
 
 export function parseNewWiki(input: unknown): { title: string; description: string } {
   const obj = (input ?? {}) as Record<string, unknown>;
@@ -87,7 +92,18 @@ export function parseNewWiki(input: unknown): { title: string; description: stri
   if (title.length > MAX_TITLE_LENGTH) {
     throw domainError('E_INVALID_DOC', 'That title is too long.', { title });
   }
-  const description = typeof obj.description === 'string' ? obj.description.trim() : '';
+
+  let description = '';
+  if (obj.description !== undefined && obj.description !== null) {
+    if (typeof obj.description !== 'string') {
+      throw domainError('E_INVALID_DOC', 'That is not a description.', { description: obj.description });
+    }
+    description = obj.description.trim();
+    if (description.length > MAX_DESCRIPTION_LENGTH) {
+      throw domainError('E_INVALID_DOC', 'That description is too long.', { description });
+    }
+  }
+
   return { title, description };
 }
 

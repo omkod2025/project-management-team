@@ -133,8 +133,9 @@ describe('parseNewWiki', () => {
     });
   });
 
-  test('description is optional', () => {
+  test('description is optional: absent or null becomes empty', () => {
     assert.deepEqual(parseNewWiki({ title: 'Runbook' }), { title: 'Runbook', description: '' });
+    assert.deepEqual(parseNewWiki({ title: 'Runbook', description: null }), { title: 'Runbook', description: '' });
   });
 
   test('an empty title throws E_INVALID_DOC', () => {
@@ -143,8 +144,20 @@ describe('parseNewWiki', () => {
     refuses('E_INVALID_DOC', () => parseNewWiki(null));
   });
 
-  test('a 121-character title throws', () => {
-    refuses('E_INVALID_DOC', () => parseNewWiki({ title: 'x'.repeat(121) }));
+  test('a 200-character title passes, a 201-character title throws', () => {
+    assert.equal(parseNewWiki({ title: 'x'.repeat(200) }).title.length, 200);
+    refuses('E_INVALID_DOC', () => parseNewWiki({ title: 'x'.repeat(201) }));
+  });
+
+  test('a 1000-character description passes, a 1001-character description throws', () => {
+    const result = parseNewWiki({ title: 'Runbook', description: 'x'.repeat(1000) });
+    assert.equal(result.description.length, 1000);
+    refuses('E_INVALID_DOC', () => parseNewWiki({ title: 'Runbook', description: 'x'.repeat(1001) }));
+  });
+
+  test('a non-string description throws E_INVALID_DOC', () => {
+    refuses('E_INVALID_DOC', () => parseNewWiki({ title: 'Runbook', description: 42 }));
+    refuses('E_INVALID_DOC', () => parseNewWiki({ title: 'Runbook', description: {} }));
   });
 });
 
