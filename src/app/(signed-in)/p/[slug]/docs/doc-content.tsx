@@ -3,6 +3,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import FilterableTable from './filterable-table';
 import DocImage from './doc-image';
+import MermaidDiagram from './mermaid-diagram';
 import {
   decodeRich,
   safeColor,
@@ -11,6 +12,7 @@ import {
   type RichNode,
 } from "@/lib/doc-rich-content";
 import { publishedLink } from "@/lib/doc-publish-rules";
+import { isMermaidLanguage } from "@/lib/mermaid-rules";
 
 /**
  * Where a link opens.
@@ -85,6 +87,33 @@ export default function DocContent({
           img: ({ src, alt, node: _node, ...rest }) => {
             const to = url(src);
             return to ? <DocImage {...rest} src={to} alt={alt ?? ""} /> : null;
+          },
+          pre: ({ node, children, ...rest }) => {
+            // react-markdown hands this a hast tree, not rendered React, so a
+            // fenced code block's language and literal text come from the
+            // AST rather than from `children`.
+            const hastText = (n: unknown): string => {
+              const el = n as {
+                type?: string;
+                value?: string;
+                children?: unknown[];
+              } | null;
+              if (!el) return "";
+              if (el.type === "text") return el.value ?? "";
+              return (el.children ?? []).map(hastText).join("");
+            };
+            const code = node?.children.find(
+              (c) => c.type === "element" && c.tagName === "code",
+            ) as { properties?: { className?: unknown } } | undefined;
+            const classes = Array.isArray(code?.properties?.className)
+              ? code.properties.className.map(String)
+              : [];
+            const language = classes
+              .find((c) => c.startsWith("language-"))
+              ?.slice("language-".length);
+            if (isMermaidLanguage(language))
+              return <MermaidDiagram source={hastText(code)} />;
+            return <pre {...rest}>{children}</pre>;
           },
         }}
       >
@@ -224,12 +253,16 @@ export default function DocContent({
             : "Add headings to build the table of contents."}
         </nav>
       );
-    if (n.type === "codeBlock")
+    if (n.type === "codeBlock") {
+      const source = n.content?.map((c) => c.text ?? "").join("") ?? "";
+      if (isMermaidLanguage(a.language))
+        return <MermaidDiagram key={key} source={source} />;
       return (
         <pre key={key}>
-          <code>{n.content?.map((c) => c.text ?? "").join("")}</code>
+          <code>{source}</code>
         </pre>
       );
+    }
     if (n.type === 'table' && n.content?.[0]?.content?.length && n.content[0].content.every(cell => cell.type === 'tableHeader' && Number(cell.attrs?.rowspan ?? 1) === 1))
       return <FilterableTable key={key} table={n} header={node(n.content[0], 0)} rows={n.content.slice(1).map(node)} />;
     if (n.type === "table")

@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { ChainedCommands } from '@tiptap/core';
 import {TextSelection} from '@tiptap/pm/state';
 import { docEditorExtensions } from '@/lib/doc-editor-extensions';
+import { MermaidCodeBlock } from '@/lib/doc-mermaid-extension';
 import EditorToolbar from './editor-toolbar';
 import { downloadDocFile, isDocAssetLink } from '@/lib/doc-download';
 import { decodeRich, encodeRich, RICH_PREFIX, safeEmbed } from '@/lib/doc-rich-content';
@@ -44,7 +45,7 @@ export default function RichEditor({ value, label, onChange, projectId, onProble
   const root = useRef<HTMLDivElement>(null);
   const handleCommandKey = useRef<(event: KeyboardEvent) => boolean>(() => false);
   const editor = useEditor({
-    extensions: docEditorExtensions(true), content: decodeRich(value) ?? value, contentType: decodeRich(value) ? 'json' : 'markdown', immediatelyRender: false, autofocus: autoFocus ? 'end' : false,
+    extensions: docEditorExtensions(true, { codeBlock: MermaidCodeBlock }), content: decodeRich(value) ?? value, contentType: decodeRich(value) ? 'json' : 'markdown', immediatelyRender: false, autofocus: autoFocus ? 'end' : false,
     editorProps: {
       attributes: { role: 'textbox', 'aria-label': label, 'aria-multiline': 'true', class: 'doc-prose' },
       handleKeyDown: (_view, event) => handleCommandKey.current(event),
@@ -91,6 +92,7 @@ export default function RichEditor({ value, label, onChange, projectId, onProble
     { label: 'Checklist', hint: 'Track items to complete', apply: (c) => c.toggleTaskList() },
     { label: 'Quote', hint: 'Highlight a quotation', apply: (c) => c.toggleBlockquote() },
     { label: 'Code block', hint: 'Code and technical notes', apply: (c) => c.toggleCodeBlock() },
+    { label: 'Mermaid diagram', hint: 'Paste Mermaid text to draw a diagram', apply: (c) => c.setCodeBlock({ language: 'mermaid' }) },
     { label: 'Table', hint: 'Three columns with a header', apply: (c) => c.insertTable({ rows: 3, cols: 3, withHeaderRow: true }) },
     { label: 'Divider', hint: 'Separate sections', apply: (c) => c.setHorizontalRule() },
     ...(['info','success','warning','danger'] as const).map(tone => ({ label: `${tone.charAt(0).toUpperCase()+tone.slice(1)} banner`, hint: 'Callout with background color', apply: (c: ChainedCommands) => c.insertContent({ type: 'banner', attrs: {tone}, content: [{type:'paragraph'}] }) })),
