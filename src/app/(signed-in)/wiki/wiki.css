@@ -17,6 +17,15 @@
 .wiki-book.docs-book .docs-heading h1 { letter-spacing: normal; }
 .wiki-book.docs-book .doc-archived { font-size: 13px; }
 
+/* Square corners on everything the wiki draws. The Docs sheet it wears
+   rounds its controls by 4–5px; this world has no radius (DESIGN.md § Shapes). */
+.wiki-book :is(button, input, select, textarea, summary, .doc-tree-row > a, .views a, .views span) { border-radius: 0; }
+
+/* The header keeps its height when the page below it is long. Its
+   `min-height` would otherwise let the flex column squeeze a wrapped
+   header onto the first heading on a phone. */
+.wiki-book .head { flex-shrink: 0; }
+
 /* The tree stays put while a long page scrolls past it. */
 .wiki-book .doc-sidebar { position: sticky; top: 0; align-self: stretch; }
 
@@ -37,6 +46,7 @@
 .wiki-search { margin: 14px 0; font-size: 13px; }
 .wiki-search form { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 6px; }
 .wiki-search label { display: grid; gap: 4px; }
+.wiki-search-count { margin: 8px 0 0; }
 .wiki-search-hits ol { list-style: none; margin: 8px 0 0; padding: 0; border-top: 1px solid var(--cu-line); }
 .wiki-search-hits li { padding: 8px 0; border-bottom: 1px solid var(--cu-line); overflow-wrap: anywhere; }
 .wiki-search-hits li a { font-weight: 600; }
@@ -52,8 +62,16 @@
 .wiki-transfer-body h3 { margin: 8px 0 0; font-size: 14px; }
 .wiki-transfer-body p { margin: 0; }
 .wiki-transfer-row { display: flex; flex-wrap: wrap; gap: 8px; }
-.wiki-transfer-body input[type='file'] { border: 0; padding: 0; min-height: 0; max-width: 100%; }
+.wiki-transfer-body input[type='file'] { border: 0; padding: 0; min-height: 0; max-width: 100%; color: #555e70; }
+/* The browser's own file button, redrawn as one of ours: a ruled square box. */
+.wiki-transfer-body input[type='file']::file-selector-button { font: inherit; font-size: 14px; min-height: 34px; margin-right: 10px; padding: 6px 12px; border: 1px solid var(--cu-line); border-radius: 0; background: #fff; color: #303747; cursor: pointer; }
+.wiki-transfer-body input[type='file']:hover::file-selector-button { background: var(--cu-hover, #f2f4f9); }
+.wiki-transfer-body input[type='file']:disabled::file-selector-button { opacity: .55; cursor: default; }
 .wiki-breadcrumb { max-width: 760px; margin: 0 auto 8px; }
+/* The overview reads in the same 760px column as a page and the Export bar above it. */
+.wiki-book .doc-reading-body > .doc-overview { max-width: 760px; margin-inline: auto; }
+.wiki-book .doc-subpages a { display: flex; align-items: center; gap: 8px; }
+.wiki-book .doc-subpages a .doc-action-icon { margin: 0; color: #555e70; }
 .wiki-description { white-space: pre-line; overflow-wrap: anywhere; line-height: 1.7; }
 
 /* ---- the index ---- */
@@ -72,6 +90,10 @@
 .wiki-book select,
 .wiki-book textarea { font: inherit; font-size: 14px; min-height: 36px; padding: 6px 8px; border: 1px solid var(--cu-line); border-radius: 0; background: #fff; color: #292d34; min-width: 0; max-width: 100%; }
 .wiki-book textarea { width: 100%; resize: vertical; line-height: 1.6; }
+/* Controls in a row line up with the 36px fields beside them. */
+.wiki-book .wiki-settings-section :is(form, .wiki-settings-row) > button { min-height: 36px; }
+.wiki-settings-section h3 { margin: 22px 0 0; font-size: 14px; font-weight: 600; }
+.wiki-settings-section h3 + form { margin-top: 8px; }
 .wiki-confirm { margin-top: 12px; padding: 12px 0 12px 12px; border-left: 2px solid var(--cu-ink-faint); }
 .wiki-confirm p { margin: 0 0 10px; overflow-wrap: anywhere; }
 .wiki-members select { min-height: 30px; }
@@ -94,6 +116,9 @@
 .wiki-token-wikis legend { padding: 0; font-size: 13px; font-weight: 500; }
 .wiki-token-wikis label { display: flex; align-items: center; gap: 8px; font-size: 14px; min-height: 30px; overflow-wrap: anywhere; }
 .wiki-token-wikis p { margin: 0; }
+/* The Docs sheet sizes every input to its row; a checkbox is a box, not a field. */
+.wiki-book .wiki-token-wikis input[type='checkbox'] { flex: 0 0 auto; width: 18px; height: 18px; min-height: 0; margin: 0; padding: 0; accent-color: var(--brand, #2b3a8f); cursor: pointer; }
+.wiki-token-wikis label { cursor: pointer; }
 .wiki-token-create .docs-actions { margin-top: 12px; }
 .wiki-token-secret { margin-top: 22px; padding: 18px 0; border-block: 1px solid var(--cu-line); max-width: 780px; }
 .wiki-token-secret h2 { margin: 0 0 8px; font-size: 16px; }
@@ -129,6 +154,16 @@
 
 @media (max-width: 750px) {
   .wiki-book .doc-sidebar { position: static; }
+  /* Opened on a phone, the index has search, its results and a page's
+     actions to hold; 250px clipped them to a sliver. */
+  .wiki-book .doc-sidebar.is-open { max-height: min(62dvh, 560px); }
   .wiki-search form { grid-template-columns: minmax(0, 1fr); }
+  /* Members on a phone: one ruled record each — the person on its own line,
+     access and Remove beneath — instead of an email broken letter by letter. */
   .wiki-book .docs-table.wiki-members { min-width: 0; }
+  .wiki-book .wiki-members thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .wiki-book .wiki-members tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--cu-line); }
+  .wiki-book .wiki-members :is(th, td) { display: block; width: auto; padding: 0; border: 0; }
+  .wiki-book .wiki-members tbody th { grid-column: 1 / -1; overflow-wrap: anywhere; }
+  .wiki-book .wiki-members select { width: 100%; }
 }

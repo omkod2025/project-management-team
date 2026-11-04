@@ -39,11 +39,15 @@ export default function WikiSearch({ wikiId }: { wikiId: string }) {
       <button type="submit" disabled={busy || !query.trim()}>{busy ? 'Searching…' : 'Search'}</button>
     </form>
     {error && <p role="alert" className="docs-error">{error}</p>}
-    {hits && <div className="wiki-search-hits" role="status">
-      {hits.length ? <ol>{hits.map((h) => <li key={h.pageId}>
+    {hits && <div className="wiki-search-hits">
+      {/* Only the count is announced; the list is there to be read, not recited. */}
+      <p className="docs-muted wiki-search-count" role="status">
+        {hits.length ? `${hits.length} ${hits.length === 1 ? 'page matches' : 'pages match'}.` : 'No pages match.'}
+      </p>
+      {hits.length > 0 && <ol>{hits.map((h) => <li key={h.pageId}>
         <a href={`/wiki/${wikiId}/${h.slug}`}>{h.title}</a>
         {h.snippet && <p>{h.snippet}</p>}
-      </li>)}</ol> : <p className="docs-muted">No pages match.</p>}
+      </li>)}</ol>}
     </div>}
   </section>;
 }

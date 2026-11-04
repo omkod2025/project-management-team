@@ -67,3 +67,10 @@ test('MERMAID_CONFIG is frozen and locked down', () => {
   assert.equal(MERMAID_CONFIG.startOnLoad, false);
   assert.equal(Object.isFrozen(MERMAID_CONFIG), true);
 });
+
+test('MERMAID_CONFIG draws without shadow or gradient (DESIGN.md § Elevation & Depth)', () => {
+  assert.equal(MERMAID_CONFIG.look, 'classic');
+  assert.equal(MERMAID_CONFIG.themeVariables.dropShadow, 'none');
+  assert.equal(MERMAID_CONFIG.themeVariables.useGradient, false);
+  assert.match(MERMAID_CONFIG.themeVariables.fontFamily, /Anuphan/);
+});

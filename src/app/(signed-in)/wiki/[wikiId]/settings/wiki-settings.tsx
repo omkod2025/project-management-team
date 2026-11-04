@@ -73,7 +73,8 @@ function MembersSection({ wiki, members, people, busy, run }: { wiki: Wiki; memb
         <td><button type="button" disabled={busy} onClick={() => void run(() => wikiCall(membersUrl, 'DELETE', { userId: m.userId }), 'Member removed.')}><DocIcon name="close" />Remove</button></td>
       </tr>)}</tbody>
     </table></div> : <p>Nobody else can see this wiki yet.</p>}
-    <form className="wiki-settings-row" onSubmit={(e) => {
+    <h3 id="wiki-member-add-head">Add a member</h3>
+    <form className="wiki-settings-row" aria-labelledby="wiki-member-add-head" onSubmit={(e) => {
       e.preventDefault();
       void run(() => wikiCall(membersUrl, 'PUT', { userId, access }), 'Member added.').then((ok) => { if (ok) setUserId(''); });
     }}>

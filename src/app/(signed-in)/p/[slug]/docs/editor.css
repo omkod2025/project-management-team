@@ -206,9 +206,17 @@
    box, never the page. */
 .doc-mermaid { overflow-x: auto; border-radius: 0; box-shadow: none; margin: 12px 0; }
 .doc-mermaid svg { display: block; max-width: 100%; }
+/* Mermaid names its label groups `.label`, which is also the product's
+   caps-and-tracking caption class (globals.css). Inside a diagram the labels
+   are content, usually Thai: no tracking, no caps, the diagram's own size.
+   Matched by the svg's id as well, because Mermaid measures the labels in a
+   scratch copy outside `.doc-mermaid`; measured and drawn must agree. */
+:is(.doc-mermaid, svg[id^='doc-mermaid-']) .label { font-family: inherit; font-size: inherit; font-weight: inherit; line-height: normal; letter-spacing: normal; text-transform: none; }
+svg[id^='doc-mermaid-'] :is(text, tspan) { letter-spacing: normal; text-transform: none; }
 .doc-mermaid-error { margin: 8px 0; font-size: 13px; }
-.docs-book .doc-mermaid-copy { border-radius: 0; box-shadow: none; min-height: 30px; padding: 4px 10px; font-size: 12px; margin: 8px 0; background: #fff; color: #303747; border: 1px solid var(--cu-line); cursor: pointer; }
-.docs-book .doc-mermaid-copy:hover { background: var(--cu-hover); }
+/* Unscoped so the published pages (no .docs-book) draw it too. */
+.doc-mermaid-copy, .docs-book .doc-mermaid-copy { font: inherit; border-radius: 0; box-shadow: none; min-height: 30px; padding: 4px 10px; font-size: 13px; margin: 8px 0 16px; background: #fff; color: #303747; border: 1px solid var(--cu-line, #e4e7f0); cursor: pointer; }
+.doc-mermaid-copy:hover, .docs-book .doc-mermaid-copy:hover { background: var(--cu-hover, #f2f4f9); }
 
 /* Published state (spec 10 §8b). Stated, not implied: a page that is readable
    outside the product says so every time the menu is opened. */

@@ -108,7 +108,7 @@ export default function WikiWorkspace({ wiki, pages, archivedPages, page: server
                   {page.content.body ? <DocContent value={page.content.body} /> : <p className="docs-muted">Nothing written yet.</p>}
                 </article>
                 {children.length > 0 && <nav className="doc-subpages" aria-label="Subpages"><h2>Subpages</h2>
-                  {children.map((p) => <a key={p.id} href={`${base}/${p.slug}`}>▤ {p.title}</a>)}</nav>}
+                  {children.map((p) => <a key={p.id} href={`${base}/${p.slug}`}><DocIcon name="file" />{p.title}</a>)}</nav>}
               </>}
           </> : <div className="doc-overview">
             <h1>{wiki.title}</h1>

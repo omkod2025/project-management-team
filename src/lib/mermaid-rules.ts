@@ -70,12 +70,33 @@ export function assertMermaidLimits(value: string): void {
   }
 }
 
+/**
+ * The reading face, in case the page cannot say which one it loaded. The
+ * renderer prefers the live `--font-read` value (next/font may rename the
+ * family in a production build) and falls back to this.
+ */
+export const MERMAID_FONT_FALLBACK = '"Anuphan", "Anuphan Fallback", sans-serif';
+
+/** Diagram text size. Rendering never scales a diagram below 13/16 of it, so Thai labels stay at 13px or more. */
+export const MERMAID_FONT_PX = 16;
+
+/**
+ * Locked down (`strict`, no HTML labels) and drawn in the product's own ink.
+ * `look: 'classic'` and `dropShadow: 'none'`: Mermaid's default "neo" look
+ * puts a blurred drop shadow and a gradient stroke on every node, and the
+ * world has neither (DESIGN.md § Elevation & Depth).
+ */
 export const MERMAID_CONFIG = Object.freeze({
   startOnLoad: false,
   securityLevel: 'strict',
   htmlLabels: false,
   theme: 'base',
+  look: 'classic',
   themeVariables: Object.freeze({
+    fontFamily: MERMAID_FONT_FALLBACK,
+    fontSize: `${MERMAID_FONT_PX}px`,
+    dropShadow: 'none',
+    useGradient: false,
     background: '#EDE5D2',
     primaryColor: '#EDE5D2',
     primaryTextColor: '#2A2622',
