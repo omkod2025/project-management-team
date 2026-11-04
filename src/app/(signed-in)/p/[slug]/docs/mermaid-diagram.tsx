@@ -86,7 +86,7 @@ export default function MermaidDiagram({
       {!html && <pre className="doc-mermaid-source"><code>{source}</code></pre>}
       {html && <div ref={container} className="doc-mermaid" />}
       {error && <p className="doc-mermaid-error">{error}</p>}
-      {html && !showSource && (
+      {!showSource && (
         <button type="button" className="doc-mermaid-copy" onClick={copy}>
           {copied ? 'Copied' : 'Copy Mermaid'}
         </button>
