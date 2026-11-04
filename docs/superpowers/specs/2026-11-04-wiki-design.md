@@ -210,6 +210,7 @@ The install admin gets an **All tokens** table: label, prefix, **created by** (n
 - **XSS:** §3d. The public page CSP is the same as for `/d/<token>`.
 - **Existence leaks:** a non-member, a token without scope, a revoked token on a known id, and a bad public token all get indistinguishable responses (404 for app and public routes; MCP "not found" for tools, and 401 for any bad token).
 - **Token handling:** never logged, never put in URLs, shown once, stored as a hash.
+- **Connection guide:** `docs/guides/wiki-mcp.md` (Thai), also shown in the app at `/wiki/tokens/guide`. It covers Claude Code, Claude Desktop (through `mcp-remote`) and VS Code or Cursor, the four tools, troubleshooting and safety. Requested by the owner 2026-11-04.
 
 ## 9. Open for the owner
 
