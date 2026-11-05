@@ -89,3 +89,53 @@ test('shell, shelf and bell hold the house style', async () => {
     await fx.cleanup();
   }
 });
+
+/**
+ * The List's airy rows are 40px, padded 8px 12px, which leaves 23px for the
+ * cell's content. An editor taller than that would make the row jump every
+ * time a cell opens for editing — so the row must measure the same before
+ * and during an edit, for the name and for a date.
+ */
+test('List rows hold their height while a cell is edited', async () => {
+  const fx = await setup();
+  let browser: Browser | undefined;
+  try {
+    const admin = await signIn(fx.admin.email, fx.admin.password);
+    const { rows } = await fx.client.query('SELECT project_slug FROM pmt_projects WHERE project_id=$1', [fx.projectId]);
+    browser = await chromium.launch({ channel: 'msedge', headless: true });
+    const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    await context.addCookies(cookiesFor(admin.header));
+    const page = await context.newPage();
+    await page.goto(`${BASE_URL}/p/${rows[0].project_slug}`);
+
+    await page.locator('table.run tbody tr').first().waitFor();
+    const rename = page.getByRole('button', { name: 'Rename Task', exact: true });
+    if (!(await rename.count())) {
+      await page.locator('.twist:not(.leaf)[aria-expanded="false"]').first().click();
+    }
+    const row = page.locator(`tr#row-${fx.nodes.task}`);
+    await row.waitFor();
+    const height = () => row.evaluate((tr) => tr.getBoundingClientRect().height);
+
+    const before = await height();
+    assert.ok(before >= 36 && before <= 41, `a task row is ${before}px, not an airy 36–40px row`);
+
+    await row.hover();
+    await rename.click();
+    await row.locator('input.cell-input').waitFor();
+    assert.equal(await height(), before, 'the row grew when its name opened for editing');
+    await page.keyboard.press('Escape');
+    await row.locator('input.cell-input').waitFor({ state: 'detached' });
+
+    await row.hover();
+    await row.getByRole('button', { name: 'Edit Estimate Start for Task', exact: true }).click();
+    await row.locator('td.editing').waitFor();
+    assert.equal(await height(), before, 'the row grew when a date opened for editing');
+    await page.keyboard.press('Escape');
+
+    await context.close();
+  } finally {
+    await browser?.close();
+    await fx.cleanup();
+  }
+});

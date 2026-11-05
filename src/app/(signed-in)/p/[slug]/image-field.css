@@ -1,5 +1,5 @@
 .image-links { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; overflow: auto; }
-.image-links img { width: 36px; height: 30px; object-fit: cover; vertical-align: middle; border-radius: var(--radius-xs); }
+.image-links img { width: 28px; height: 22px; object-fit: cover; vertical-align: middle; border-radius: var(--radius-xs); }
 .image-links a { flex-shrink: 0; }
 .image-editor { position: absolute; z-index: 25; width: min(350px, 85vw); padding: 16px; background: var(--color-canvas); color: var(--color-ink); border: 1px solid var(--color-hairline); border-radius: var(--radius-md); box-shadow: var(--shadow-2); white-space: normal; font-size: 14px; }
 .image-editor p { margin: 0 0 8px; }

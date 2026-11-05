@@ -161,3 +161,16 @@ test('entered and derived inks stay apart', () => {
   assert.match(rules, /--color-ink-graphite/);
   assert.match(rules, /--color-ink-blue/);
 });
+
+test('list text that can hold Thai is never below 13px', () => {
+  const blocks = ruleBlocks(read(LIST));
+  // Column names are user-defined and an errata message can quote one; only
+  // the band's fixed English captions may take the 12px eyebrow.
+  for (const selector of ['.run thead th', '.run tr.grouphead th', '.title-errata', '.pill', '.run tr.module .name-text']) {
+    const block = blocks.find((b) => b.selector === selector);
+    assert.ok(block, `list.css has no \`${selector}\` rule`);
+    const size = /font-size:\s*(\d+(?:\.\d+)?)px/.exec(block!.body);
+    assert.ok(size, `\`${selector}\` sets no font-size`);
+    assert.ok(Number(size![1]) >= 13, `\`${selector}\` is ${size![1]}px; Thai may not go below 13px`);
+  }
+});

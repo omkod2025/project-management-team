@@ -193,7 +193,7 @@
   background: var(--color-vermilion-wash);
   color: var(--color-vermilion);
   font-family: var(--list-font);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .shelf {
@@ -516,7 +516,9 @@ table.run {
 }
 
 /* The eyebrow style on paper, as the Wiki's tables draw their heads. Column
-   names are user-defined and may be Thai, so they take no tracking. */
+   names are user-defined and may be Thai, so they take 13px — Thai never goes
+   below it — and no tracking. Only the band's fixed English captions drop to
+   the 12px eyebrow. */
 .run thead th {
   position: sticky;
   z-index: 5;
@@ -526,7 +528,7 @@ table.run {
   background: var(--color-paper);
   color: var(--color-ink-muted);
   font-family: var(--list-font);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   letter-spacing: normal;
   text-transform: none;
@@ -650,7 +652,7 @@ table.run {
   color: var(--cu-ink-faint);
   border-bottom: 1px solid var(--cu-line);
   font-family: var(--list-font);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   letter-spacing: normal;
   text-transform: none;
@@ -841,6 +843,9 @@ tr[aria-selected='true'] .hole { background: var(--brand); box-shadow: none; }
 td:hover > .cell-edit, td:focus-within > .cell-edit, tr[aria-selected='true'] .cell-edit { opacity: 1; }
 @media (hover: none) { .cell-edit { opacity: 1; } }
 
+/* An open cell gives up its block padding, so an editor up to the row's full
+   39px fits without the 40px row growing under the caret. */
+.run tbody td.editing { padding-block: 0; }
 td.editing { background: var(--color-canvas); box-shadow: inset 0 0 0 2px var(--brand); border-radius: var(--radius-xs); }
 td.saving::after {
   content: '';
@@ -854,9 +859,12 @@ td.saving::after {
 td.failed { box-shadow: inset 0 0 0 2px var(--color-vermilion); }
 .run tbody td { position: relative; }
 
+/* 23px: the content height a 40px row leaves inside its 8px padding, so the
+   name — which edits in place without the cell turning `.editing` — does not
+   push the row taller either. */
 .cell-input {
   width: 100%;
-  height: 26px;
+  height: 23px;
   padding: 0;
   border: 0;
   background: transparent;
