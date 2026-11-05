@@ -1,7 +1,7 @@
 {
   "desktop.month": {
     "page": {
-      "fontFamily": "Anuphan, \"Anuphan Fallback\", system-ui, sans-serif",
+      "fontFamily": "Anuphan, system-ui, sans-serif",
       "fontSize": "14px",
       "fontWeight": "400",
       "color": "rgb(38, 50, 56)",
@@ -13,7 +13,7 @@
       "paddingLeft": "0px"
     },
     "header": {
-      "fontFamily": "Anuphan, \"Anuphan Fallback\", system-ui, sans-serif",
+      "fontFamily": "Anuphan, system-ui, sans-serif",
       "fontSize": "14px",
       "fontWeight": "400",
       "color": "rgb(38, 50, 56)",
@@ -25,7 +25,7 @@
       "paddingLeft": "18px"
     },
     "heading": {
-      "fontFamily": "Anuphan, \"Anuphan Fallback\", system-ui, sans-serif",
+      "fontFamily": "Anuphan, system-ui, sans-serif",
       "fontSize": "22px",
       "fontWeight": "500",
       "color": "rgb(38, 50, 56)",
@@ -37,7 +37,7 @@
       "paddingLeft": "0px"
     },
     "projectNavLink": {
-      "fontFamily": "Anuphan, \"Anuphan Fallback\", system-ui, sans-serif",
+      "fontFamily": "Anuphan, system-ui, sans-serif",
       "fontSize": "13px",
       "fontWeight": "400",
       "color": "rgb(38, 50, 56)",
@@ -49,7 +49,7 @@
       "paddingLeft": "11px"
     },
     "sidebar": {
-      "fontFamily": "Anuphan, \"Anuphan Fallback\", system-ui, sans-serif",
+      "fontFamily": "Anuphan, system-ui, sans-serif",
       "fontSize": "14px",
       "fontWeight": "400",
       "color": "rgb(38, 50, 56)",
@@ -61,7 +61,7 @@
       "paddingLeft": "20px"
     },
     "dayCell": {
-      "fontFamily": "Anuphan, \"Anuphan Fallback\", system-ui, sans-serif",
+      "fontFamily": "Anuphan, system-ui, sans-serif",
       "fontSize": "14px",
       "fontWeight": "400",
       "color": "rgb(156, 164, 174)",
@@ -73,7 +73,7 @@
       "paddingLeft": "0px"
     },
     "estimateBar": {
-      "fontFamily": "Anuphan, \"Anuphan Fallback\", system-ui, sans-serif",
+      "fontFamily": "Anuphan, system-ui, sans-serif",
       "fontSize": "13px",
       "fontWeight": "400",
       "color": "color(srgb 0.215686 0.344314 0.523922)",
@@ -85,7 +85,7 @@
       "paddingLeft": "6px"
     },
     "actualBar": {
-      "fontFamily": "Anuphan, \"Anuphan Fallback\", system-ui, sans-serif",
+      "fontFamily": "Anuphan, system-ui, sans-serif",
       "fontSize": "13px",
       "fontWeight": "400",
       "color": "rgb(255, 255, 255)",
@@ -99,7 +99,7 @@
   },
   "desktop.week": {
     "page": {
-      "fontFamily": "Anuphan, \"Anuphan Fallback\", system-ui, sans-serif",
+      "fontFamily": "Anuphan, system-ui, sans-serif",
       "fontSize": "14px",
       "fontWeight": "400",
       "color": "rgb(38, 50, 56)",
@@ -111,7 +111,7 @@
       "paddingLeft": "0px"
     },
     "header": {
-      "fontFamily": "Anuphan, \"Anuphan Fallback\", system-ui, sans-serif",
+      "fontFamily": "Anuphan, system-ui, sans-serif",
       "fontSize": "14px",
       "fontWeight": "400",
       "color": "rgb(38, 50, 56)",
@@ -123,7 +123,7 @@
       "paddingLeft": "18px"
     },
     "heading": {
-      "fontFamily": "Anuphan, \"Anuphan Fallback\", system-ui, sans-serif",
+      "fontFamily": "Anuphan, system-ui, sans-serif",
       "fontSize": "22px",
       "fontWeight": "500",
       "color": "rgb(38, 50, 56)",
@@ -135,7 +135,7 @@
       "paddingLeft": "0px"
     },
     "projectNavLink": {
-      "fontFamily": "Anuphan, \"Anuphan Fallback\", system-ui, sans-serif",
+      "fontFamily": "Anuphan, system-ui, sans-serif",
       "fontSize": "13px",
       "fontWeight": "400",
       "color": "rgb(38, 50, 56)",
@@ -147,7 +147,7 @@
       "paddingLeft": "11px"
     },
     "sidebar": {
-      "fontFamily": "Anuphan, \"Anuphan Fallback\", system-ui, sans-serif",
+      "fontFamily": "Anuphan, system-ui, sans-serif",
       "fontSize": "14px",
       "fontWeight": "400",
       "color": "rgb(38, 50, 56)",
@@ -159,7 +159,7 @@
       "paddingLeft": "20px"
     },
     "dayCell": {
-      "fontFamily": "Anuphan, \"Anuphan Fallback\", system-ui, sans-serif",
+      "fontFamily": "Anuphan, system-ui, sans-serif",
       "fontSize": "14px",
       "fontWeight": "400",
       "color": "rgb(38, 50, 56)",
@@ -171,7 +171,7 @@
       "paddingLeft": "0px"
     },
     "estimateBar": {
-      "fontFamily": "Anuphan, \"Anuphan Fallback\", system-ui, sans-serif",
+      "fontFamily": "Anuphan, system-ui, sans-serif",
       "fontSize": "13px",
       "fontWeight": "400",
       "color": "color(srgb 0.215686 0.344314 0.523922)",
@@ -183,7 +183,7 @@
       "paddingLeft": "6px"
     },
     "actualBar": {
-      "fontFamily": "Anuphan, \"Anuphan Fallback\", system-ui, sans-serif",
+      "fontFamily": "Anuphan, system-ui, sans-serif",
       "fontSize": "13px",
       "fontWeight": "400",
       "color": "rgb(255, 255, 255)",
@@ -197,7 +197,7 @@
   },
   "mobile.month": {
     "page": {
-      "fontFamily": "Anuphan, \"Anuphan Fallback\", system-ui, sans-serif",
+      "fontFamily": "Anuphan, system-ui, sans-serif",
       "fontSize": "14px",
       "fontWeight": "400",
       "color": "rgb(38, 50, 56)",
@@ -209,7 +209,7 @@
       "paddingLeft": "0px"
     },
     "header": {
-      "fontFamily": "Anuphan, \"Anuphan Fallback\", system-ui, sans-serif",
+      "fontFamily": "Anuphan, system-ui, sans-serif",
       "fontSize": "14px",
       "fontWeight": "400",
       "color": "rgb(38, 50, 56)",
@@ -221,7 +221,7 @@
       "paddingLeft": "12px"
     },
     "heading": {
-      "fontFamily": "Anuphan, \"Anuphan Fallback\", system-ui, sans-serif",
+      "fontFamily": "Anuphan, system-ui, sans-serif",
       "fontSize": "22px",
       "fontWeight": "500",
       "color": "rgb(38, 50, 56)",
@@ -233,7 +233,7 @@
       "paddingLeft": "0px"
     },
     "projectNavLink": {
-      "fontFamily": "Anuphan, \"Anuphan Fallback\", system-ui, sans-serif",
+      "fontFamily": "Anuphan, system-ui, sans-serif",
       "fontSize": "13px",
       "fontWeight": "400",
       "color": "rgb(38, 50, 56)",
@@ -246,7 +246,7 @@
     },
     "sidebar": null,
     "dayCell": {
-      "fontFamily": "Anuphan, \"Anuphan Fallback\", system-ui, sans-serif",
+      "fontFamily": "Anuphan, system-ui, sans-serif",
       "fontSize": "14px",
       "fontWeight": "400",
       "color": "rgb(156, 164, 174)",
@@ -258,7 +258,7 @@
       "paddingLeft": "0px"
     },
     "estimateBar": {
-      "fontFamily": "Anuphan, \"Anuphan Fallback\", system-ui, sans-serif",
+      "fontFamily": "Anuphan, system-ui, sans-serif",
       "fontSize": "13px",
       "fontWeight": "400",
       "color": "color(srgb 0.215686 0.344314 0.523922)",
@@ -270,7 +270,7 @@
       "paddingLeft": "6px"
     },
     "actualBar": {
-      "fontFamily": "Anuphan, \"Anuphan Fallback\", system-ui, sans-serif",
+      "fontFamily": "Anuphan, system-ui, sans-serif",
       "fontSize": "13px",
       "fontWeight": "400",
       "color": "rgb(255, 255, 255)",
@@ -284,7 +284,7 @@
   },
   "mobile.week": {
     "page": {
-      "fontFamily": "Anuphan, \"Anuphan Fallback\", system-ui, sans-serif",
+      "fontFamily": "Anuphan, system-ui, sans-serif",
       "fontSize": "14px",
       "fontWeight": "400",
       "color": "rgb(38, 50, 56)",
@@ -296,7 +296,7 @@
       "paddingLeft": "0px"
     },
     "header": {
-      "fontFamily": "Anuphan, \"Anuphan Fallback\", system-ui, sans-serif",
+      "fontFamily": "Anuphan, system-ui, sans-serif",
       "fontSize": "14px",
       "fontWeight": "400",
       "color": "rgb(38, 50, 56)",
@@ -308,7 +308,7 @@
       "paddingLeft": "12px"
     },
     "heading": {
-      "fontFamily": "Anuphan, \"Anuphan Fallback\", system-ui, sans-serif",
+      "fontFamily": "Anuphan, system-ui, sans-serif",
       "fontSize": "22px",
       "fontWeight": "500",
       "color": "rgb(38, 50, 56)",
@@ -320,7 +320,7 @@
       "paddingLeft": "0px"
     },
     "projectNavLink": {
-      "fontFamily": "Anuphan, \"Anuphan Fallback\", system-ui, sans-serif",
+      "fontFamily": "Anuphan, system-ui, sans-serif",
       "fontSize": "13px",
       "fontWeight": "400",
       "color": "rgb(38, 50, 56)",
@@ -333,7 +333,7 @@
     },
     "sidebar": null,
     "dayCell": {
-      "fontFamily": "Anuphan, \"Anuphan Fallback\", system-ui, sans-serif",
+      "fontFamily": "Anuphan, system-ui, sans-serif",
       "fontSize": "14px",
       "fontWeight": "400",
       "color": "rgb(38, 50, 56)",
@@ -345,7 +345,7 @@
       "paddingLeft": "0px"
     },
     "estimateBar": {
-      "fontFamily": "Anuphan, \"Anuphan Fallback\", system-ui, sans-serif",
+      "fontFamily": "Anuphan, system-ui, sans-serif",
       "fontSize": "13px",
       "fontWeight": "400",
       "color": "color(srgb 0.215686 0.344314 0.523922)",
@@ -357,7 +357,7 @@
       "paddingLeft": "6px"
     },
     "actualBar": {
-      "fontFamily": "Anuphan, \"Anuphan Fallback\", system-ui, sans-serif",
+      "fontFamily": "Anuphan, system-ui, sans-serif",
       "fontSize": "13px",
       "fontWeight": "400",
       "color": "rgb(255, 255, 255)",
