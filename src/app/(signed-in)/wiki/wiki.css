@@ -23,7 +23,7 @@
 /* The tree stays put while a long page scrolls past it. */
 .wiki-book .doc-sidebar { position: sticky; top: 0; align-self: stretch; }
 
-.wiki-flag { display: inline-flex; align-items: center; min-height: 22px; padding: 0 10px; border: 1px solid var(--color-hairline); border-radius: var(--radius-full); background: var(--color-canvas); color: var(--color-ink-muted); font-size: 12px; font-weight: 600; }
+.wiki-flag { display: inline-flex; align-items: center; min-height: 22px; padding: 0 10px; border: 1px solid var(--color-hairline); border-radius: var(--radius-badge); background: var(--color-paper); color: var(--color-ink-muted); font-size: 12px; font-weight: 600; }
 
 /* ---- the tree ---- */
 

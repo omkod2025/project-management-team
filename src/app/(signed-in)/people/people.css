@@ -342,16 +342,19 @@ table.board {
 .who-state {
   display: inline-block;
   margin-top: 3px;
-  padding: 1px 6px;
-  border-radius: var(--cu-r);
-  font-size: 10.5px;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-badge);
+  font-size: 11px;
   font-weight: 500;
 }
 .who-state.pending {
+  border-color: color-mix(in srgb, var(--color-ink-blue) 25%, var(--cu-canvas));
   background: color-mix(in srgb, var(--color-ink-blue) 8%, var(--cu-canvas));
   color: var(--color-ink-blue);
 }
 .who-state.off {
+  border-color: color-mix(in srgb, var(--color-danger) 30%, var(--cu-canvas));
   background: var(--color-danger-wash);
   color: var(--color-danger);
 }

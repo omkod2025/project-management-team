@@ -189,6 +189,7 @@ test('calendar is pinned', () => {
 });
 
 const LIST = 'src/app/(signed-in)/p/[slug]/list.css';
+const REPORT = 'src/app/(signed-in)/p/[slug]/report/report.css';
 
 test('list rows are airy', () => {
   const blocks = ruleBlocks(read(LIST));
@@ -208,9 +209,30 @@ test('option chip survives greyscale and is not a raw fill', () => {
   assert.ok(pill, 'list.css has no `.pill` rule');
   assert.doesNotMatch(pill!.body, /color:\s*#fff/i, 'the chip label is white on a raw fill');
   assert.match(pill!.body, /background:\s*color-mix\([^;]*var\(--opt-hue\)/, 'the chip fill is not mixed');
-  assert.match(pill!.body,
-    /box-shadow:\s*inset 2px 0 0 color-mix\([^;]*var\(--opt-hue\)|border-left:\s*2px solid color-mix\([^;]*var\(--opt-hue\)/,
-    'the chip has no mixed leading mark of its hue');
+  // The badge (DESIGN.md § 7): a 1px border of the hue, mixed, outlines the
+  // chip, so two options still part in greyscale.
+  assert.match(pill!.body, /border:\s*1px solid color-mix\([^;]*var\(--opt-hue\)/,
+    'the chip has no mixed 1px border of its hue');
+  assert.match(pill!.body, /border-radius:\s*var\(--radius-badge\)/, 'the chip is not the badge shape');
+});
+
+test('every badge wears the one badge shape', () => {
+  // DESIGN.md § 7 Badges: a pastel wash, a 1px darker-tint border, 6px corners.
+  const badges: Array<[string, string]> = [
+    [LIST, '.pill'],
+    [LIST, '.run tr.module .name-text'],
+    [LIST, '.slip'],
+    [PEOPLE, '.who-state'],
+    [REPORT, '.report-options .report-money'],
+    [WIKI, '.wiki-flag'],
+  ];
+  for (const [file, selector] of badges) {
+    const block = ruleBlocks(read(file)).find((b) => b.selector === selector);
+    assert.ok(block, `${file} has no \`${selector}\` rule`);
+    assert.match(block!.body, /border-radius:\s*var\(--radius-badge\)/, `${selector} is not the badge shape`);
+    assert.match(block!.body, /border:\s*1px solid/, `${selector} has no 1px border`);
+  }
+  assert.match(read('src/app/tokens.css'), /--radius-badge:\s*6px/i, 'tokens.css lacks --radius-badge: 6px');
 });
 
 test('no tab hue is drawn raw in the List', () => {

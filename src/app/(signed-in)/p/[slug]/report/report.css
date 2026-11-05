@@ -57,8 +57,9 @@
    § Colour law). The tag names the column type; the band below says why. */
 .report-options .report-money {
   margin-left: 6px;
-  padding: 1px 6px;
-  border-radius: var(--radius-xs);
+  padding: 0 6px;
+  border: 1px solid color-mix(in srgb, var(--color-danger) 30%, var(--color-canvas));
+  border-radius: var(--radius-badge);
   background: var(--color-danger-wash);
   color: var(--color-danger);
 }

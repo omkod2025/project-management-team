@@ -615,18 +615,18 @@ table.run {
 }
 .run tr.module:hover td { background: var(--cu-ground); }
 
-/* The module tag is drawn as the option chip is: the hue mixed into the
-   canvas, a 2px leading mark of the hue mixed 70% into the blue-black ink
-   (never raw: CLAUDE.md § Colour law), and a label darkened toward the ink
-   until it clears 4.5:1 on every one of the six hues. */
+/* The module tag is the badge (DESIGN.md § 7): the hue mixed 12% into the
+   canvas, a 1px border of the hue mixed 35% (never raw: CLAUDE.md § Colour
+   law), 6px corners, and a label darkened toward the ink until it clears
+   4.5:1 on every one of the six hues. */
 .run tr.module .name-text {
   display: inline-flex;
   align-items: center;
   height: 24px;
   padding: 0 9px 0 10px;
-  border-radius: var(--radius-xs);
-  background: color-mix(in srgb, var(--row-hue) 17%, var(--color-canvas));
-  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--row-hue) 70%, var(--color-ink-blue));
+  border: 1px solid color-mix(in srgb, var(--row-hue) 35%, var(--color-canvas));
+  border-radius: var(--radius-badge);
+  background: color-mix(in srgb, var(--row-hue) 12%, var(--color-canvas));
   color: color-mix(in srgb, var(--row-hue) 50%, var(--color-ink-secondary));
   font-family: var(--list-font);
   font-size: 14px;
@@ -768,13 +768,12 @@ tr[aria-selected='true'] .hole { background: var(--brand); box-shadow: none; }
 
 /* ---- the option chip ----
 
-   A square-cornered chip washed into the canvas — never a raw fill, which on
-   tab-1 lands close enough to vermilion to be misread. The hue is mixed 17%
-   into the canvas; a 2px leading mark carries the hue mixed 70% into the
-   blue-black ink — darker than the wash, never the raw hue — so the chip still
-   reads as a chip in greyscale; the label is the hue darkened halfway to the
-   ink, which clears 4.5:1 on all six hues (the gold, tab-2, is the floor at
-   5.2:1). Labels are Thai, so 13px and no tracking. */
+   The badge (DESIGN.md § 7): a pastel wash, a 1px darker-tint border, 6px
+   corners — never a raw fill, which on tab-1 lands close enough to vermilion
+   to be misread. The hue is mixed 12% into the canvas; the border carries it
+   mixed 35%, darker than the wash, so the chip still reads as a chip in
+   greyscale; the label is the hue darkened halfway to the ink, which clears
+   4.5:1 on all six hues. Labels are Thai, so 13px and no tracking. */
 
 .pill {
   display: inline-flex;
@@ -784,10 +783,10 @@ tr[aria-selected='true'] .hole { background: var(--brand); box-shadow: none; }
   max-width: 100%;
   height: 22px;
   padding: 0 8px 0 9px;
-  border-radius: var(--radius-xs);
-  background: color-mix(in srgb, var(--opt-hue) 17%, var(--color-canvas));
+  border: 1px solid color-mix(in srgb, var(--opt-hue) 35%, var(--color-canvas));
+  border-radius: var(--radius-badge);
+  background: color-mix(in srgb, var(--opt-hue) 12%, var(--color-canvas));
   color: color-mix(in srgb, var(--opt-hue) 50%, var(--color-ink-secondary));
-  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--opt-hue) 70%, var(--color-ink-blue));
   font-size: 13px;
   font-weight: 500;
   letter-spacing: normal;
@@ -827,8 +826,9 @@ tr[aria-selected='true'] .hole { background: var(--brand); box-shadow: none; }
 /* Vermilion, unchanged and still reserved. */
 .slip {
   display: inline-block;
-  padding: 2px 7px;
-  border-radius: var(--radius-xs);
+  padding: 1px 7px;
+  border: 1px solid color-mix(in srgb, var(--color-vermilion) 30%, var(--color-canvas));
+  border-radius: var(--radius-badge);
   line-height: 1.3;
   background: var(--color-vermilion-wash);
   color: var(--color-vermilion);
