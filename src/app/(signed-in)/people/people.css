@@ -356,7 +356,7 @@ table.board {
 .who-state.off {
   border-color: color-mix(in oklch, var(--color-danger) 65%, var(--cu-canvas));
   background: color-mix(in oklch, var(--color-danger) 30%, var(--cu-canvas));
-  color: color-mix(in oklch, var(--color-danger) 50%, var(--color-ink-secondary));
+  color: color-mix(in oklch, var(--color-danger) 45%, var(--color-ink-secondary));
 }
 
 .board tbody td {

@@ -103,12 +103,12 @@ test('meaning tokens are frozen', () => {
     vermilion: '#A82A17',
     'vermilion-wash': '#EED9CE',
     datum: '#1F4A3D',
-    'tab-1': '#B0503C',
-    'tab-2': '#C08A2E',
-    'tab-3': '#5B7A3A',
-    'tab-4': '#2E6E74',
-    'tab-5': '#3A5A94',
-    'tab-6': '#6B4A87',
+    'tab-1': '#F08C2E',
+    'tab-2': '#EC4899',
+    'tab-3': '#22A55A',
+    'tab-4': '#0EA5A4',
+    'tab-5': '#3B82F6',
+    'tab-6': '#8B5CF6',
   };
   for (const [name, hex] of Object.entries(meaning)) {
     const decl = `--color-${name}: ${hex.toLowerCase()};`;

@@ -627,7 +627,7 @@ table.run {
   border: 1px solid color-mix(in oklch, var(--row-hue) 65%, var(--color-canvas));
   border-radius: var(--radius-badge);
   background: color-mix(in oklch, var(--row-hue) 30%, var(--color-canvas));
-  color: color-mix(in oklch, var(--row-hue) 50%, var(--color-ink-secondary));
+  color: color-mix(in oklch, var(--row-hue) 45%, var(--color-ink-secondary));
   font-family: var(--list-font);
   font-size: 14px;
   font-weight: 600;
@@ -772,7 +772,7 @@ tr[aria-selected='true'] .hole { background: var(--brand); box-shadow: none; }
    corners — never a raw fill, which on tab-1 lands close enough to vermilion
    to be misread. The hue is mixed 30% into the canvas in OKLCH, which keeps
    it vivid; the border carries it mixed 65%, darker than the wash, so the chip
-   still reads as a chip in greyscale; the label is the hue 50% toward the ink,
+   still reads as a chip in greyscale; the label is the hue 45% toward the ink,
    which clears
    4.5:1 on all six hues. Labels are Thai, so 13px and no tracking. */
 
@@ -787,7 +787,7 @@ tr[aria-selected='true'] .hole { background: var(--brand); box-shadow: none; }
   border: 1px solid color-mix(in oklch, var(--opt-hue) 65%, var(--color-canvas));
   border-radius: var(--radius-badge);
   background: color-mix(in oklch, var(--opt-hue) 30%, var(--color-canvas));
-  color: color-mix(in oklch, var(--opt-hue) 50%, var(--color-ink-secondary));
+  color: color-mix(in oklch, var(--opt-hue) 45%, var(--color-ink-secondary));
   font-size: 13px;
   font-weight: 500;
   letter-spacing: normal;
@@ -831,11 +831,11 @@ tr[aria-selected='true'] .hole { background: var(--brand); box-shadow: none; }
   border: 1px solid color-mix(in oklch, var(--color-vermilion) 55%, var(--color-canvas));
   border-radius: var(--radius-badge);
   line-height: 1.3;
-  /* Lighter than the module tags' 30% on purpose: at 30% a tab-1 module tag and
-     the vermilion slip come out the same pink, and the slip must never be
+  /* Lighter than the module tags' 30% on purpose: at 30% a warm module tag and
+     the vermilion slip come out too alike, and the slip must never be
      mistaken for a module. */
   background: color-mix(in oklch, var(--color-vermilion) 20%, var(--color-canvas));
-  color: color-mix(in oklch, var(--color-vermilion) 50%, var(--color-ink-secondary));
+  color: color-mix(in oklch, var(--color-vermilion) 45%, var(--color-ink-secondary));
   font-family: var(--list-font);
   font-size: 12px;
   font-variant-numeric: tabular-nums;

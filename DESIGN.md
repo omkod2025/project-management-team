@@ -17,18 +17,18 @@ colors:
   danger: "#C4362F"
   danger-active: "#A52C26"
   danger-wash: "#FBECEB"
-  # Meaning tokens — frozen names and values; they say what a value is.
+  # Meaning tokens — frozen names; they say what a value is. The six tab hues were re-picked vivid on 2026-11-05 (owner).
   ink-graphite: "#2A2622"
   ink-blue: "#24384F"
   vermilion: "#A82A17"
   vermilion-wash: "#EED9CE"
   datum: "#1F4A3D"
-  tab-1: "#B0503C"
-  tab-2: "#C08A2E"
-  tab-3: "#5B7A3A"
-  tab-4: "#2E6E74"
-  tab-5: "#3A5A94"
-  tab-6: "#6B4A87"
+  tab-1: "#F08C2E"
+  tab-2: "#EC4899"
+  tab-3: "#22A55A"
+  tab-4: "#0EA5A4"
+  tab-5: "#3B82F6"
+  tab-6: "#8B5CF6"
   # The derived ink's secondary weight: an actual bar's hairline, secondary derived text.
   ink-blue-soft: "#5C7186"
 typography:
@@ -310,7 +310,7 @@ They sit in the frontmatter beside the house tokens, with frozen names and value
 | `vermilion` | `#A82A17` | **Out of closure only:** an overrun, a roll-up past its baseline, a failed write. |
 | `vermilion-wash` | `#EED9CE` | The slip or errata band behind a vermilion figure or message. |
 | `datum` | `#1F4A3D` | Today. |
-| `tab-1`…`tab-6` | see frontmatter | Module identity. |
+| `tab-1`…`tab-6` | `#F08C2E` orange, `#EC4899` pink, `#22A55A` green, `#0EA5A4` teal, `#3B82F6` blue, `#8B5CF6` violet | Module identity. Vivid by the owner's decision (2026-11-05); every one keeps the actual bar ≥74 from vermilion under A8, and none is a red. |
 
 Headings, labels and body copy that nobody entered as a value use the house ink, not graphite. Graphite and blue-black are for *values*, and they read as two inks next to each other in a row.
 
@@ -329,7 +329,7 @@ Headings, labels and body copy that nobody entered as a value use the house ink,
    - a 6px radius, 22px tall;
    - its hue mixed 30% into the canvas in OKLCH;
    - a 1px border of the hue mixed 65% into the canvas in OKLCH — darker than the wash and never the raw hue — so it still reads as a chip in greyscale;
-   - a label of the hue mixed 50% toward the house charcoal in OKLCH, which clears 4.5:1 on all six hues (the gold, tab-2, is the floor at 4.7:1);
+   - a label of the hue mixed 45% toward the house charcoal in OKLCH, which clears 4.5:1 on all six hues (the orange, tab-1, is the floor at 4.8:1);
    - 13px and no tracking, because labels are Thai.
 5. **Colour is never the sole carrier.** Estimate and actual differ by *position, height and fill* before they differ by ink. A misclosure carries a `+`/`−` sign and a figure, not only red.
 
@@ -353,7 +353,7 @@ Headings, labels and body copy that nobody entered as a value use the house ink,
 - **An airy table.** Rows are 40px, cells pad `8px 12px`, rows part on hairlines, and no rule is drawn between columns. Row text is 14–15px. Column heads are 13px on paper, because a column's name is user-written and can be Thai.
 - **The Estimate / Actual / Variance band** stays above the column heads as a grouped header. It is the only thing on the page that says which dates are the plan and which are the record.
 - **Estimate and actual are separate columns**, in the two inks.
-- **The misclosure** is a vermilion slip with a signed figure, in the badge shape: vermilion mixed 20% for the wash and 55% for the 1px border, 6px corners — deliberately lighter than the 30% module tags, so a tab-1 (brick) module tag is never mistaken for a misclosure.
+- **The misclosure** is a vermilion slip with a signed figure, in the badge shape: vermilion mixed 20% for the wash and 55% for the 1px border, 6px corners — deliberately lighter than the 30% module tags, so a warm module tag is never mistaken for a misclosure.
 - **Module identity** is the badge on the module row (the hue mixed 30%, a 1px border mixed 65%, both in OKLCH) and a 2px hairline of the mixed hue down the indent, never a row tint.
 - **No zebra striping, and no row tint by status.** Hover is the house hover ground; selection is the blue wash.
 

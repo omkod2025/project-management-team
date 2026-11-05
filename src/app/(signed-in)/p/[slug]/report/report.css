@@ -61,7 +61,7 @@
   border: 1px solid color-mix(in oklch, var(--color-danger) 65%, var(--color-canvas));
   border-radius: var(--radius-badge);
   background: color-mix(in oklch, var(--color-danger) 30%, var(--color-canvas));
-  color: color-mix(in oklch, var(--color-danger) 50%, var(--color-ink-secondary));
+  color: color-mix(in oklch, var(--color-danger) 45%, var(--color-ink-secondary));
 }
 .report-caution {
   margin: 0 0 12px;
