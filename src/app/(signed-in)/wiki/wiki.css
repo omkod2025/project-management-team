@@ -70,6 +70,11 @@
 .wiki-breadcrumb { max-width: 760px; margin: 0 auto 8px; }
 /* The overview reads in the same 760px column as a page and the Export bar above it. */
 .wiki-book .doc-reading-body > .doc-overview { max-width: 760px; margin-inline: auto; }
+/* Editing takes the whole width, 5% in from each side; reading keeps its 760px measure. */
+@media (min-width: 751px) {
+  .wiki-book .doc-reading:has(> .doc-edit-actions) > :is(.doc-edit-actions, .doc-reading-body) { padding-inline: 5%; }
+  .wiki-book .doc-reading:has(> .doc-edit-actions) > .doc-reading-body > * { max-width: none; }
+}
 .wiki-book .doc-subpages a { display: flex; align-items: center; gap: 8px; }
 .wiki-book .doc-subpages a .doc-action-icon { margin: 0; color: #555e70; }
 .wiki-description { white-space: pre-line; overflow-wrap: anywhere; line-height: 1.7; }
