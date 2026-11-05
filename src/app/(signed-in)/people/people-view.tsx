@@ -367,7 +367,7 @@ export default function PeopleView({ board, actingUserId, signOut }: Props) {
                           not interchangeable: one is waiting for the person,
                           the other was done to them. */}
                       {person.pending && <span className="who-state pending">invite not claimed</span>}
-                      {!person.active && <span className="who-state off">deactivated</span>}
+                      {!person.active && <span className="who-state errata">deactivated</span>}
                     </span>
                   </span>
                 </th>
@@ -589,7 +589,7 @@ function ResetCell({
 
 function Head({ signOut }: { signOut: React.ReactNode }) {
   return (
-    <header className="people-head">
+    <header className="people-head head">
       <div>
         <h1>People and access</h1>
         <p className="people-sub">

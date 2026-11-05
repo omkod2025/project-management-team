@@ -91,7 +91,7 @@ export default function ProfileView({ profile, signOut }: Props) {
   return (
     <main className="prof">
       <div className="prof-sheet">
-        <header className="prof-head">
+        <header className="prof-head head">
           <div>
             <h1>Your profile</h1>
             <p className="prof-sub">

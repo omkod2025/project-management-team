@@ -37,6 +37,28 @@ export const PAGES: Array<{
     primary: '.today-jump',
   },
   { name: 'all timeline', path: () => '/timeline', primary: '.today-jump' },
+  { name: 'people', path: () => '/people', primary: '.people-add' },
+  // No field is dirty on load, so the Save button starts disabled; the
+  // always-enabled link beside it is what the keyboard actually reaches.
+  { name: 'profile', path: () => '/profile', primary: '.prof-link' },
+  {
+    name: 'project settings',
+    path: async (fx) => {
+      const { rows } = await fx.client.query('SELECT project_slug FROM pmt_projects WHERE project_id=$1', [fx.projectId]);
+      return `/p/${rows[0].project_slug}/settings`;
+    },
+    // The Rename button starts disabled (its field has not been touched);
+    // this one is not.
+    primary: '.label.primary',
+  },
+  {
+    name: 'project report',
+    path: async (fx) => {
+      const { rows } = await fx.client.query('SELECT project_slug FROM pmt_projects WHERE project_id=$1', [fx.projectId]);
+      return `/p/${rows[0].project_slug}/report`;
+    },
+    primary: '.report-controls .primary',
+  },
 ];
 
 const cookiesFor = (header: string) => header.split('; ').map((pair) => {

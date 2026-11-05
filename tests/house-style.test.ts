@@ -32,6 +32,10 @@ const MIGRATED: string[] = [
   'src/app/(signed-in)/wiki/wiki.css',
   'src/app/d/[token]/published.css',
   'src/app/w/[token]/published-wiki.css',
+  'src/app/(signed-in)/people/people.css',
+  'src/app/(signed-in)/profile/profile.css',
+  'src/app/(signed-in)/p/[slug]/settings/settings.css',
+  'src/app/(signed-in)/p/[slug]/report/report.css',
 ];
 
 const root = fileURLToPath(new URL('..', import.meta.url));
@@ -243,6 +247,17 @@ test('docs deletion is danger, not vermilion', () => {
     assert.doesNotMatch(body, /--color-vermilion/, `\`${selector}\` still draws deletion in vermilion`);
   }
   assert.ok(blocks.some((b) => /--color-danger/.test(b.body)), 'docs deletion does not use --color-danger');
+});
+
+const PEOPLE = 'src/app/(signed-in)/people/people.css';
+
+test('people roles are not a hue', () => {
+  const rules = stripComments(read(PEOPLE));
+  for (const { selector, body } of ruleBlocks(rules)) {
+    if (!/role/.test(selector)) continue;
+    assert.doesNotMatch(body, /--color-tab-/, `\`${selector}\` draws a role in a module hue`);
+    assert.doesNotMatch(body, /--color-primary/, `\`${selector}\` draws a role in the house blue`);
+  }
 });
 
 test('Docs and Wiki share one skin on .docs-book', () => {
