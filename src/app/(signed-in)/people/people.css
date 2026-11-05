@@ -337,9 +337,8 @@ table.board {
 
 /* An unclaimed invitation and a deactivated account both mean "cannot sign
    in", and they are drawn differently because only one of them is a problem.
-   The deactivated state is the one out of tolerance, so it is the errata —
-   named for it, so the vermilion law (DESIGN.md § Colors) can tell the two
-   apart by reading the selector alone. */
+   A deactivated account is a state, not a misclosure or a write that failed,
+   so it takes danger red, never vermilion (CLAUDE.md § Colour law). */
 .who-state {
   display: inline-block;
   margin-top: 3px;
@@ -352,9 +351,9 @@ table.board {
   background: color-mix(in srgb, var(--color-ink-blue) 8%, var(--cu-canvas));
   color: var(--color-ink-blue);
 }
-.who-state.errata {
-  background: var(--color-vermilion-wash);
-  color: var(--color-vermilion);
+.who-state.off {
+  background: var(--color-danger-wash);
+  color: var(--color-danger);
 }
 
 .board tbody td {

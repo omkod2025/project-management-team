@@ -68,7 +68,21 @@ const cookiesFor = (header: string) => header.split('; ').map((pair) => {
   return { name: pair.slice(0, at), value: pair.slice(at + 1), url: BASE_URL };
 });
 
-async function reachPrimaryByTab(page: import('@playwright/test').Page, primary = '.sh-btn-primary, .docs-primary'): Promise<boolean> {
+const DEFAULT_PRIMARY = '.sh-btn-primary, .docs-primary';
+
+/**
+ * `goto` returns once the document loads, but a streamed route (the List's
+ * /p/[slug]) is still showing its Suspense fallback then. Tabbing or measuring
+ * at that moment lands on skeleton nodes that are about to be replaced — focus
+ * falls back to <body> and scrollWidth measures the skeleton. Wait for the
+ * page's own primary control, and for the network to settle, first.
+ */
+async function settle(page: import('@playwright/test').Page, primary = DEFAULT_PRIMARY): Promise<void> {
+  await page.locator(primary).first().waitFor({ state: 'visible' });
+  await page.waitForLoadState('networkidle');
+}
+
+async function reachPrimaryByTab(page: import('@playwright/test').Page, primary = DEFAULT_PRIMARY): Promise<boolean> {
   for (let i = 0; i < 40; i++) {
     await page.keyboard.press('Tab');
     const onPrimary = await page.evaluate((selector) => {
@@ -95,6 +109,7 @@ test('shell, shelf and bell hold the house style', async () => {
       await mobile.addCookies(cookiesFor(admin.header));
       const mobilePage = await mobile.newPage();
       await mobilePage.goto(url);
+      await settle(mobilePage, primary);
       const scrollWidth = await mobilePage.evaluate(() => document.documentElement.scrollWidth);
       assert.ok(scrollWidth <= 390, `${name}: scrollWidth ${scrollWidth} overflows 390px at mobile width`);
       await mobile.close();
@@ -105,9 +120,10 @@ test('shell, shelf and bell hold the house style', async () => {
       await desktop.addCookies(cookiesFor(admin.header));
       const desktopPage = await desktop.newPage();
       await desktopPage.goto(url);
+      await settle(desktopPage, primary);
 
       const headerBg = await desktopPage.evaluate(() => {
-        const header = document.querySelector('.sh-work-head, .head');
+        const header = document.querySelector('.sh-work-head, .head, .people-head, .prof-head');
         return header ? getComputedStyle(header).backgroundColor : null;
       });
       assert.equal(headerBg, 'rgb(255, 255, 255)', `${name}: header background is not white`);
@@ -182,7 +198,7 @@ const INSTALL_EMAIL = 'admin@cit.com';
  * throwaway `admin@cit.com` is made when none exists, or the real one is
  * used when its password is supplied; otherwise this case cannot run here.
  */
-test('the people Delete button draws in danger on hover, and the armed confirm fills with it', async () => {
+test('the people Delete button draws in danger on hover, and the armed confirm fills with it', async (t) => {
   const fx = await setup();
   let browser: Browser | undefined;
   let createdInstallId = '';
@@ -205,7 +221,7 @@ test('the people Delete button draws in danger on hover, and the armed confirm f
     } else {
       // No throwaway possible (the real account already exists on this
       // database) and no password supplied to sign in as it.
-      console.log('# people Delete hover check: existing admin@cit.com, no password — skipped');
+      t.skip('existing admin@cit.com and no E2E_INSTALL_ADMIN_PASSWORD to sign in as it');
       return;
     }
 

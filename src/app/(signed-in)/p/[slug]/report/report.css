@@ -52,15 +52,23 @@
 .report-options .field-input { margin-left: 6px; }
 .report-options .money { color: var(--color-ink-graphite); }
 
-/* The one flag this page still earns in vermilion: it names the misclosure a
-   money column reaching a client would be — out of tolerance, and nothing
-   else is (DESIGN.md § Colors rule 1). */
-.report-options .report-slip {
+/* A money column is a caution, not a misclosure: nothing is out of closure
+   and no write failed, so it takes danger red, never vermilion (CLAUDE.md
+   § Colour law). The tag names the column type; the band below says why. */
+.report-options .report-money {
   margin-left: 6px;
   padding: 1px 6px;
   border-radius: var(--radius-xs);
-  background: var(--color-vermilion-wash);
-  color: var(--color-vermilion);
+  background: var(--color-danger-wash);
+  color: var(--color-danger);
+}
+.report-caution {
+  margin: 0 0 12px;
+  padding: 9px 12px;
+  border: 1px solid color-mix(in srgb, var(--color-danger) 28%, var(--color-canvas));
+  border-radius: var(--radius-sm);
+  background: var(--color-danger-wash);
+  color: var(--color-danger);
 }
 
 .report-controls button.primary {
@@ -76,10 +84,6 @@
   transition: background-color 120ms ease, border-color 120ms ease;
 }
 .report-controls button.primary:hover { background: var(--color-primary-active); border-color: var(--color-primary-active); }
-
-/* A money column was ticked on: this is a failed-write-shaped warning in the
-   sense that it must not slip through unnoticed, so it keeps the vermilion
-   errata band `list.css` already defines. */
 
 /* ---- the document ----
 
@@ -132,6 +136,10 @@
 
 .report-table { width: 100%; border-collapse: separate; border-spacing: 0; }
 .report-table th {
+  /* Column names are user-defined and can be Thai: the row's global `.label`
+     eyebrow would set them at 12px and tracked. */
+  font-size: 13px;
+  letter-spacing: normal;
   text-align: left;
   padding: 6px 8px;
   color: var(--color-ink-muted);

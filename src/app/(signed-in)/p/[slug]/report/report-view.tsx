@@ -198,7 +198,7 @@ export default function ReportView({ projectName, slug, rows, fields, people, st
                   }
                 />
                 {f.name}
-                {f.kind === 'money' && <span className="report-slip label">money</span>}
+                {f.kind === 'money' && <span className="report-money label">money</span>}
               </label>
             ))}
             <label>
@@ -213,7 +213,7 @@ export default function ReportView({ projectName, slug, rows, fields, people, st
         </div>
 
         {includesMoney && (
-          <p className="errata">
+          <p className="report-caution">
             This report includes a money column. Check that is what you mean before sending it.
           </p>
         )}

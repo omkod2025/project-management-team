@@ -148,7 +148,7 @@ Surfaces are defined by hairlines and the faintest layered shadows, never by hea
 **Rules that bind**
 
 1. **One structural accent.** Blue is the only colour that paints an action or marks where you are. No second accent is introduced beside it.
-2. **Danger is not vermilion.** Deletion and refusals use `#C4362F`, which is a different colour with a different meaning. Vermilion is kept for misclosure and failed writes (§ 1, law 1). In CSS, a rule that uses `--color-vermilion` must have a selector naming `slip`, `failed`, `errata`, `over` or `late`; `tests/house-style.test.ts` holds every migrated stylesheet to it.
+2. **Danger is not vermilion.** Deletion and refusals use `#C4362F`, which is a different colour with a different meaning. Vermilion is kept for misclosure and failed writes (§ 1, law 1). In CSS, a rule that uses `--color-vermilion` must have every selector in its list name a misclosure or failed-write state as a class — a class ending in `slip`, `failed`, `errata` or `late` (`.slip`, `td.failed`, `.people-errata`, `.rs-late`), or the Timeline's `.brk.over` and `.over-fig` (a bare `over` would let `:hover` through); `tests/house-style.test.ts` holds every migrated stylesheet to it.
 3. **Colour is never the sole carrier.** A state readable only by its hue is a bug. Every coloured state also has a word, a weight or a shape.
 4. **Light only.** There is no dark theme. Notion's dark indigo "night" hero band is a marketing device, and this product has no use for it.
 5. **No decorative palette.** Notion's multicolour sticker palette belongs to its marketing site. Here, the six tab hues (§ 9) are the only extra colours, and they mean module identity.
@@ -319,7 +319,7 @@ Headings, labels and body copy that nobody entered as a value use the house ink,
 4. **A chosen option is stated in its own colour.** An option chip (status and selects) is a small house chip, not a pastel pill:
    - a 4px radius, 22px tall;
    - its hue mixed 17% into the canvas;
-   - a 2px leading mark of the full hue, so it still reads as a chip in greyscale;
+   - a 2px leading mark of the hue mixed 70% into the blue-black ink — darker than the wash and never the raw hue — so it still reads as a chip in greyscale;
    - a label of the hue mixed halfway toward the house charcoal, which clears 4.5:1 on all six hues;
    - 13px and no tracking, because labels are Thai.
 5. **Colour is never the sole carrier.** Estimate and actual differ by *position, height and fill* before they differ by ink. A misclosure carries a `+`/`−` sign and a figure, not only red.

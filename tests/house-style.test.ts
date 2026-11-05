@@ -58,6 +58,29 @@ function ruleBlocks(css: string): { selector: string; body: string }[] {
   return blocks;
 }
 
+/**
+ * A selector that may draw in vermilion: it must name a misclosure or a
+ * failed-write state *as a class*. Anchoring on the class token is the point —
+ * a bare /over|late/ let `:hover`, `translate` and `template` through.
+ */
+const VERMILION_STATE = /\.(?:[\w-]*-)?(?:slip|failed|errata|late)\b|\.brk\.over\b|\.over-fig\b/;
+
+/**
+ * Every vermilion rule in `css` whose selector list has a member that is not a
+ * misclosure or failed-write state. Each comma-separated selector is judged
+ * alone, so `.slip, .x:hover` cannot ride on its neighbour.
+ */
+function vermilionOffenders(css: string): string[] {
+  const offenders: string[] = [];
+  for (const { selector, body } of ruleBlocks(css)) {
+    if (!body.includes('--color-vermilion')) continue;
+    for (const one of selector.split(',').map((s) => s.trim())) {
+      if (!VERMILION_STATE.test(one)) offenders.push(one);
+    }
+  }
+  return offenders;
+}
+
 test('tokens carry the house values', () => {
   const tokens = read('src/app/tokens.css').toLowerCase();
   for (const decl of [
@@ -123,11 +146,32 @@ test('migrated files keep the house rules', () => {
     assert.doesNotMatch(rules, /steps\(2\)/, `${path}: steps(2)`);
     assert.doesNotMatch(rules, /var\(--radius-none\)/, `${path}: --radius-none`);
     assert.doesNotMatch(rules, /letter-spacing:\s*-/, `${path}: negative letter-spacing`);
-    for (const { selector, body } of ruleBlocks(rules)) {
-      if (!body.includes('--color-vermilion')) continue;
-      assert.match(selector, /slip|failed|errata|over|late/,
-        `${path}: \`${selector}\` uses vermilion but is not a misclosure or failed-write state`);
+    for (const selector of vermilionOffenders(rules)) {
+      assert.fail(`${path}: \`${selector}\` uses vermilion but is not a misclosure or failed-write state`);
     }
+  }
+});
+
+test('the vermilion guard has no hole', () => {
+  // Hover, transforms and templates are not states.
+  for (const css of [
+    '.x:hover { color: var(--color-vermilion); }',
+    '.grid-template { background: var(--color-vermilion-wash); }',
+    '.translate { color: var(--color-vermilion); }',
+    '.slip, .x:hover { color: var(--color-vermilion); }',
+    '.overflow { color: var(--color-vermilion); }',
+    '.who-state.off { color: var(--color-vermilion); }',
+  ]) {
+    assert.notDeepEqual(vermilionOffenders(css), [], `the guard let \`${css}\` through`);
+  }
+  // Every legitimate misclosure and failed-write selector still passes.
+  for (const selector of [
+    '.slip', 'td.failed', '.title-errata', '.errata', '.brk.over', '.over-fig', '.rs-late',
+    '.rs-item .bar.act.rs-late', '.rs-slip', '.rs-task-modal .rs-task-errata', '.sh-write-failed',
+    '.auth-errata--failed-write', '.people-errata', '.prof-errata',
+  ]) {
+    assert.deepEqual(vermilionOffenders(`${selector} { color: var(--color-vermilion); }`), [],
+      `the guard refuses the legitimate \`${selector}\``);
   }
 });
 
@@ -165,8 +209,21 @@ test('option chip survives greyscale and is not a raw fill', () => {
   assert.doesNotMatch(pill!.body, /color:\s*#fff/i, 'the chip label is white on a raw fill');
   assert.match(pill!.body, /background:\s*color-mix\([^;]*var\(--opt-hue\)/, 'the chip fill is not mixed');
   assert.match(pill!.body,
-    /box-shadow:\s*inset 2px 0 0[^;]*var\(--opt-hue\)|border-left:\s*2px solid[^;]*var\(--opt-hue\)/,
-    'the chip has no leading mark of its hue');
+    /box-shadow:\s*inset 2px 0 0 color-mix\([^;]*var\(--opt-hue\)|border-left:\s*2px solid color-mix\([^;]*var\(--opt-hue\)/,
+    'the chip has no mixed leading mark of its hue');
+});
+
+test('no tab hue is drawn raw in the List', () => {
+  // A hue variable may only appear inside a color-mix(): raw, tab-1 reads as vermilion.
+  const offenders: string[] = [];
+  for (const { selector, body } of ruleBlocks(read(LIST))) {
+    for (const decl of body.split(';')) {
+      // Strip every color-mix(…) (one level of nested var(…) inside it); what is left is raw.
+      const unmixed = decl.replace(/color-mix\((?:[^()]|\([^()]*\))*\)/g, '');
+      if (/var\(--(?:opt|row|mod)-hue\)|var\(--color-tab-\d\)/.test(unmixed)) offenders.push(`${selector}: ${decl.trim()}`);
+    }
+  }
+  assert.deepEqual(offenders, [], `raw hue in list.css:\n${offenders.join('\n')}`);
 });
 
 test('entered and derived inks stay apart', () => {
@@ -185,6 +242,24 @@ test('list text that can hold Thai is never below 13px', () => {
     const size = /font-size:\s*(\d+(?:\.\d+)?)px/.exec(block!.body);
     assert.ok(size, `\`${selector}\` sets no font-size`);
     assert.ok(Number(size![1]) >= 13, `\`${selector}\` is ${size![1]}px; Thai may not go below 13px`);
+  }
+});
+
+/**
+ * Two Thai-capable texts sit inside the global `.label` eyebrow (12px,
+ * tracked): the detail panel's ancestor crumb and the report's column heads.
+ * Each must restore 13px and no tracking itself.
+ */
+test('Thai inside a .label eyebrow is restored to 13px and untracked', () => {
+  for (const [path, selector] of [
+    [LIST, '.facing .crumb'],
+    ['src/app/(signed-in)/p/[slug]/report/report.css', '.report-table th'],
+  ] as const) {
+    const block = ruleBlocks(read(path)).find((b) => b.selector === selector && /font-size/.test(b.body));
+    assert.ok(block, `${path} has no \`${selector}\` rule with a font-size`);
+    const size = /font-size:\s*(\d+(?:\.\d+)?)px/.exec(block!.body);
+    assert.ok(size && Number(size[1]) >= 13, `\`${selector}\` is below 13px`);
+    assert.match(block!.body, /letter-spacing:\s*(?:normal|0)\b/, `\`${selector}\` keeps the eyebrow's tracking`);
   }
 });
 
@@ -251,6 +326,19 @@ test('docs deletion is danger, not vermilion', () => {
 });
 
 const PEOPLE = 'src/app/(signed-in)/people/people.css';
+
+test('a deactivated account and a money column are danger, not vermilion', () => {
+  const people = ruleBlocks(read(PEOPLE)).find((b) => b.selector === '.who-state.off');
+  assert.ok(people, 'people.css has no `.who-state.off` rule');
+  assert.match(people!.body, /--color-danger\b/);
+  const report = ruleBlocks(read('src/app/(signed-in)/p/[slug]/report/report.css'))
+    .filter((b) => /report-money|report-caution/.test(b.selector));
+  assert.equal(report.length, 2, 'report.css lacks `.report-money` or `.report-caution`');
+  for (const { selector, body } of report) {
+    assert.doesNotMatch(body, /--color-vermilion/, `\`${selector}\` draws a caution in vermilion`);
+    assert.match(body, /--color-danger\b/, `\`${selector}\` is not danger`);
+  }
+});
 
 test('people roles are not a hue', () => {
   const rules = stripComments(read(PEOPLE));
