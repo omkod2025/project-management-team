@@ -1,6 +1,13 @@
 /* Google Calendar's navigation and spatial layout, scoped to this view.
    Estimate/actual remain separate; hue identifies the module, never status. */
 .cal-page { --cal-ink:#263238; --cal-muted:#68737d; --cal-line:#dfe4e9; --cal-blue:#245fc4; --cu-ground:#fff; --cu-ink:#263238; --cu-ink-soft:#68737d; --cu-line:#dfe4e9; height:100dvh; display:flex; flex-direction:column; background:#f8fafd; color:var(--cal-ink); font-size:14px; }
+/* Pins: the Calendar keeps its own look while the house style changes the base
+   (globals.css) under it. These restate what it used to inherit — the old
+   body face and leading, plain figures, square controls, the indigo selection —
+   so nothing here moves. tests/e2e/calendar-look.browser.test.ts holds it. */
+.cal-page { font-family:var(--font-read), system-ui, sans-serif; line-height:1.55; font-feature-settings:normal; }
+.cal-page :where(button, input, select, textarea) { border-radius:0; }
+.cal-page ::selection { background:#EEF0FA; color:#2B3A8F; }
 .cal-page button,.cal-page input,.cal-page select { font:inherit; color:inherit; }
 .cal-page button { cursor:pointer; border:0; background:transparent; }
 .cal-page button:hover { background:#eaf0f7; }

@@ -2,15 +2,22 @@
 /* Run `node scripts/tokens.mjs` after changing the DESIGN.md frontmatter. */
 
 :root {
-  --color-page: #EDE5D2;
-  --color-page-edge: #DED2B6;
-  --color-board: #3B3A33;
-  --color-rule: #C58C7C;
-  --color-rule-major: #B0503C;
+  --color-canvas: #FFFFFF;
+  --color-paper: #F6F5F4;
+  --color-hairline: #E6E6E6;
+  --color-field-line: #DDDDDD;
+  --color-ink: #000000F2;
+  --color-ink-secondary: #31302E;
+  --color-ink-muted: #615D59;
+  --color-ink-faint: #A39E98;
+  --color-primary: #0075DE;
+  --color-primary-active: #005BAB;
+  --color-primary-wash: #E7F1FB;
+  --color-danger: #C4362F;
+  --color-danger-active: #A52C26;
+  --color-danger-wash: #FBECEB;
   --color-ink-graphite: #2A2622;
-  --color-ink-graphite-soft: #6B6357;
   --color-ink-blue: #24384F;
-  --color-ink-blue-soft: #5C7186;
   --color-vermilion: #A82A17;
   --color-vermilion-wash: #EED9CE;
   --color-datum: #1F4A3D;
@@ -20,141 +27,56 @@
   --color-tab-4: #2E6E74;
   --color-tab-5: #3A5A94;
   --color-tab-6: #6B4A87;
+  --color-page: #FFFFFF;
+  --color-page-edge: #F6F5F4;
+  --color-board: #F6F5F4;
+  --color-rule: #E6E6E6;
+  --color-rule-major: #E6E6E6;
+  --color-ink-graphite-soft: #615D59;
+  --color-ink-blue-soft: #5C7186;
 
+  --radius-xs: 4px;
+  --radius-sm: 5px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
   --radius-none: 0px;
   --radius-hole: 50%;
 
-  --space-hair: 2px;
-  --space-xs: 4px;
-  --space-sm: 8px;
-  --space-md: 12px;
-  --space-lg: 20px;
-  --space-xl: 32px;
+  --space-xxs: 4px;
+  --space-xs: 8px;
+  --space-sm: 12px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 28px;
+  --space-xxl: 32px;
   --space-row: 34px;
 
-  --type-headline-family: Bai Jamjuree, sans-serif;
-  --type-headline-size: 20px;
-  --type-headline-weight: 600;
-  --type-headline-leading: 1.35;
-  --type-headline-tracking: 0.01em;
-  --type-title-family: Bai Jamjuree, sans-serif;
-  --type-title-size: 14px;
+  --type-headline-family: var(--font-sans), var(--font-read), -apple-system, system-ui, 'Segoe UI', Helvetica, Arial, sans-serif;
+  --type-headline-size: 22px;
+  --type-headline-weight: 700;
+  --type-headline-leading: 1.25;
+  --type-headline-tracking: 0;
+  --type-title-family: var(--font-sans), var(--font-read), -apple-system, system-ui, 'Segoe UI', Helvetica, Arial, sans-serif;
+  --type-title-size: 17px;
   --type-title-weight: 600;
-  --type-title-leading: 1.4;
-  --type-title-tracking: 0.02em;
-  --type-label-family: Bai Jamjuree, sans-serif;
-  --type-label-size: 10.5px;
+  --type-title-leading: 1.35;
+  --type-title-tracking: 0;
+  --type-label-family: var(--font-sans), var(--font-read), -apple-system, system-ui, 'Segoe UI', Helvetica, Arial, sans-serif;
+  --type-label-size: 12px;
   --type-label-weight: 600;
   --type-label-leading: 1;
-  --type-label-tracking: 0.13em;
-  --type-body-family: Anuphan, sans-serif;
-  --type-body-size: 14px;
+  --type-label-tracking: 0.01em;
+  --type-body-family: var(--font-sans), var(--font-read), -apple-system, system-ui, 'Segoe UI', Helvetica, Arial, sans-serif;
+  --type-body-size: 15px;
   --type-body-weight: 400;
-  --type-body-leading: 1.55;
+  --type-body-leading: 1.5;
   --type-body-tracking: normal;
-  --type-figure-family: Martian Mono, ui-monospace, monospace;
-  --type-figure-size: 12px;
+  --type-figure-family: var(--font-sans), var(--font-read), -apple-system, system-ui, 'Segoe UI', Helvetica, Arial, sans-serif;
+  --type-figure-size: 13px;
   --type-figure-weight: 400;
   --type-figure-leading: 1;
-  --type-figure-tracking: -0.02em;
+  --type-figure-tracking: 0;
   --type-figure-feature: tnum;
-}
-
-.fb-cell {
-  background-color: var(--color-page);
-  color: var(--color-ink-graphite);
-  font-family: var(--type-body-family);
-  font-size: var(--type-body-size);
-  font-weight: var(--type-body-weight);
-  border-radius: var(--radius-none);
-  padding: 0 10px;
-  height: var(--space-row);
-}
-
-.fb-cell-computed {
-  background-color: var(--color-page);
-  color: var(--color-ink-blue);
-  font-family: var(--type-figure-family);
-  font-size: var(--type-figure-size);
-  font-weight: var(--type-figure-weight);
-  border-radius: var(--radius-none);
-  padding: 0 10px;
-  height: var(--space-row);
-}
-
-.fb-cell-editing {
-  background-color: #F6F1E4;
-  color: var(--color-ink-graphite);
-  font-family: var(--type-body-family);
-  font-size: var(--type-body-size);
-  font-weight: var(--type-body-weight);
-  border-radius: var(--radius-none);
-  padding: 0 10px;
-  height: var(--space-row);
-}
-
-.fb-column-head {
-  background-color: var(--color-page);
-  color: var(--color-ink-graphite-soft);
-  font-family: var(--type-label-family);
-  font-size: var(--type-label-size);
-  font-weight: var(--type-label-weight);
-  border-radius: var(--radius-none);
-  padding: 0 10px;
-  height: 26px;
-}
-
-.fb-tab {
-  background-color: var(--color-page-edge);
-  color: var(--color-ink-graphite);
-  font-family: var(--type-label-family);
-  font-size: var(--type-label-size);
-  font-weight: var(--type-label-weight);
-  border-radius: var(--radius-none);
-  padding: 8px 6px;
-  width: 26px;
-}
-
-.fb-tab-current {
-  background-color: var(--color-page);
-  color: var(--color-ink-graphite);
-  font-family: var(--type-label-family);
-  font-size: var(--type-label-size);
-  font-weight: var(--type-label-weight);
-  border-radius: var(--radius-none);
-  padding: 8px 6px;
-  width: 30px;
-}
-
-.fb-bar-estimate {
-  background-color: transparent;
-  color: var(--color-ink-graphite-soft);
-  font-family: var(--type-figure-family);
-  font-size: var(--type-figure-size);
-  font-weight: var(--type-figure-weight);
-  border-radius: var(--radius-none);
-  padding: 0 6px;
-  height: 9px;
-}
-
-.fb-bar-actual {
-  background-color: var(--color-ink-blue);
-  color: var(--color-page);
-  font-family: var(--type-figure-family);
-  font-size: var(--type-figure-size);
-  font-weight: var(--type-figure-weight);
-  border-radius: var(--radius-none);
-  padding: 0 6px;
-  height: 13px;
-}
-
-.fb-misclosure-slip {
-  background-color: var(--color-vermilion-wash);
-  color: var(--color-vermilion);
-  font-family: var(--type-figure-family);
-  font-size: var(--type-figure-size);
-  font-weight: var(--type-figure-weight);
-  border-radius: var(--radius-none);
-  padding: 2px 6px;
-  height: 18px;
 }

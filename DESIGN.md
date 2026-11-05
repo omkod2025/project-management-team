@@ -1,16 +1,25 @@
 ---
 name: T-Timeline
-description: A project tracker built as a surveyor's timeline — plan and reality booked side by side, and the misclosure shown in red.
+description: A project tracker in the Notion house style — warm paper, white panels, Inter and one blue — where plan and reality are booked side by side and the misclosure is shown in red.
 colors:
-  page: "#EDE5D2"
-  page-edge: "#DED2B6"
-  board: "#3B3A33"
-  rule: "#C58C7C"
-  rule-major: "#B0503C"
+  # The house (Notion) — DESIGN.md § Colors.
+  canvas: "#FFFFFF"
+  paper: "#F6F5F4"
+  hairline: "#E6E6E6"
+  field-line: "#DDDDDD"
+  ink: "#000000F2"
+  ink-secondary: "#31302E"
+  ink-muted: "#615D59"
+  ink-faint: "#A39E98"
+  primary: "#0075DE"
+  primary-active: "#005BAB"
+  primary-wash: "#E7F1FB"
+  danger: "#C4362F"
+  danger-active: "#A52C26"
+  danger-wash: "#FBECEB"
+  # Meaning tokens — frozen names and values; they say what a value is.
   ink-graphite: "#2A2622"
-  ink-graphite-soft: "#6B6357"
   ink-blue: "#24384F"
-  ink-blue-soft: "#5C7186"
   vermilion: "#A82A17"
   vermilion-wash: "#EED9CE"
   datum: "#1F4A3D"
@@ -20,113 +29,66 @@ colors:
   tab-4: "#2E6E74"
   tab-5: "#3A5A94"
   tab-6: "#6B4A87"
+  # Field-book aliases, kept so existing var()s resolve. Removed in the restyle's last task.
+  page: "#FFFFFF"
+  page-edge: "#F6F5F4"
+  board: "#F6F5F4"
+  rule: "#E6E6E6"
+  rule-major: "#E6E6E6"
+  ink-graphite-soft: "#615D59"
+  ink-blue-soft: "#5C7186"
 typography:
   headline:
-    fontFamily: "Bai Jamjuree, sans-serif"
-    fontSize: "20px"
+    fontFamily: "var(--font-sans), var(--font-read), -apple-system, system-ui, 'Segoe UI', Helvetica, Arial, sans-serif"
+    fontSize: "22px"
+    fontWeight: 700
+    lineHeight: 1.25
+    letterSpacing: "0"
+  title:
+    fontFamily: "var(--font-sans), var(--font-read), -apple-system, system-ui, 'Segoe UI', Helvetica, Arial, sans-serif"
+    fontSize: "17px"
     fontWeight: 600
     lineHeight: 1.35
-    letterSpacing: "0.01em"
-  title:
-    fontFamily: "Bai Jamjuree, sans-serif"
-    fontSize: "14px"
-    fontWeight: 600
-    lineHeight: 1.4
-    letterSpacing: "0.02em"
+    letterSpacing: "0"
   label:
-    fontFamily: "Bai Jamjuree, sans-serif"
-    fontSize: "10.5px"
+    fontFamily: "var(--font-sans), var(--font-read), -apple-system, system-ui, 'Segoe UI', Helvetica, Arial, sans-serif"
+    fontSize: "12px"
     fontWeight: 600
     lineHeight: 1
-    letterSpacing: "0.13em"
+    letterSpacing: "0.01em"
   body:
-    fontFamily: "Anuphan, sans-serif"
-    fontSize: "14px"
+    fontFamily: "var(--font-sans), var(--font-read), -apple-system, system-ui, 'Segoe UI', Helvetica, Arial, sans-serif"
+    fontSize: "15px"
     fontWeight: 400
-    lineHeight: 1.55
+    lineHeight: 1.5
     letterSpacing: "normal"
   figure:
-    fontFamily: "Martian Mono, ui-monospace, monospace"
-    fontSize: "12px"
+    fontFamily: "var(--font-sans), var(--font-read), -apple-system, system-ui, 'Segoe UI', Helvetica, Arial, sans-serif"
+    fontSize: "13px"
     fontWeight: 400
     lineHeight: 1
-    letterSpacing: "-0.02em"
+    letterSpacing: "0"
     fontFeature: "tnum"
 rounded:
+  xs: "4px"
+  sm: "5px"
+  md: "8px"
+  lg: "12px"
+  xl: "16px"
+  full: "9999px"
+  # Aliases, removed with the colour aliases.
   none: "0px"
   hole: "50%"
 spacing:
-  hair: "2px"
-  xs: "4px"
-  sm: "8px"
-  md: "12px"
-  lg: "20px"
-  xl: "32px"
+  xxs: "4px"
+  xs: "8px"
+  sm: "12px"
+  md: "16px"
+  lg: "24px"
+  xl: "28px"
+  xxl: "32px"
+  # Alias, removed with the colour aliases.
   row: "34px"
-components:
-  cell:
-    backgroundColor: "{colors.page}"
-    textColor: "{colors.ink-graphite}"
-    typography: "{typography.body}"
-    rounded: "{rounded.none}"
-    padding: "0 10px"
-    height: "{spacing.row}"
-  cell-computed:
-    backgroundColor: "{colors.page}"
-    textColor: "{colors.ink-blue}"
-    typography: "{typography.figure}"
-    rounded: "{rounded.none}"
-    padding: "0 10px"
-    height: "{spacing.row}"
-  cell-editing:
-    backgroundColor: "#F6F1E4"
-    textColor: "{colors.ink-graphite}"
-    typography: "{typography.body}"
-    rounded: "{rounded.none}"
-    padding: "0 10px"
-    height: "{spacing.row}"
-  column-head:
-    backgroundColor: "{colors.page}"
-    textColor: "{colors.ink-graphite-soft}"
-    typography: "{typography.label}"
-    rounded: "{rounded.none}"
-    padding: "0 10px"
-    height: "26px"
-  tab:
-    backgroundColor: "{colors.page-edge}"
-    textColor: "{colors.ink-graphite}"
-    typography: "{typography.label}"
-    rounded: "{rounded.none}"
-    padding: "8px 6px"
-    width: "26px"
-  tab-current:
-    backgroundColor: "{colors.page}"
-    textColor: "{colors.ink-graphite}"
-    typography: "{typography.label}"
-    rounded: "{rounded.none}"
-    padding: "8px 6px"
-    width: "30px"
-  bar-estimate:
-    backgroundColor: "transparent"
-    textColor: "{colors.ink-graphite-soft}"
-    typography: "{typography.figure}"
-    rounded: "{rounded.none}"
-    padding: "0 6px"
-    height: "9px"
-  bar-actual:
-    backgroundColor: "{colors.ink-blue}"
-    textColor: "{colors.page}"
-    typography: "{typography.figure}"
-    rounded: "{rounded.none}"
-    padding: "0 6px"
-    height: "13px"
-  misclosure-slip:
-    backgroundColor: "{colors.vermilion-wash}"
-    textColor: "{colors.vermilion}"
-    typography: "{typography.figure}"
-    rounded: "{rounded.none}"
-    padding: "2px 6px"
-    height: "18px"
 ---
 
 # Design

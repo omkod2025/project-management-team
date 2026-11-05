@@ -1,31 +1,20 @@
 import type { Metadata } from 'next';
-import { Bai_Jamjuree, Anuphan, Martian_Mono } from 'next/font/google';
+import { Inter, Anuphan } from 'next/font/google';
 import './globals.css';
 
 /*
- * Three faces, each with a job no other could do (DESIGN.md § Typography).
- * next/font downloads and self-hosts them at build time, so there is no
- * request to a font CDN at runtime.
+ * Two faces (DESIGN.md § Typography). Inter sets the Latin; it has no Thai,
+ * so the house stack falls through to Anuphan for Thai glyphs. Loaded once,
+ * here, for every screen. next/font downloads and self-hosts them at build
+ * time, so there is no request to a font CDN at runtime.
  */
 
-const struct = Bai_Jamjuree({
-  subsets: ['latin', 'thai'],
-  weight: ['400', '600', '700'],
-  variable: '--font-struct',
-  display: 'swap',
-});
+const sans = Inter({ subsets: ['latin'], variable: '--font-sans', display: 'swap' });
 
 const read = Anuphan({
   subsets: ['latin', 'thai'],
   weight: ['400', '500', '600'],
   variable: '--font-read',
-  display: 'swap',
-});
-
-const figure = Martian_Mono({
-  subsets: ['latin'],
-  weight: ['400', '500'],
-  variable: '--font-figure',
   display: 'swap',
 });
 
@@ -36,8 +25,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    // The world is paper; there is no dark theme (DESIGN.md § Colors, rule 4).
-    <html lang="en" className={`${struct.variable} ${read.variable} ${figure.variable}`}>
+    // There is no dark theme (DESIGN.md § Colors).
+    <html lang="en" className={`${sans.variable} ${read.variable}`}>
       <body>{children}</body>
     </html>
   );
