@@ -26,6 +26,12 @@ const MIGRATED: string[] = [
   'src/app/(signed-in)/p/[slug]/loading-status.module.css',
   'src/app/(signed-in)/p/[slug]/timeline/timeline.css',
   'src/app/(signed-in)/timeline/roster.css',
+  'src/app/(signed-in)/p/[slug]/docs/docs.css',
+  'src/app/(signed-in)/p/[slug]/docs/editor.css',
+  'src/app/(signed-in)/p/[slug]/docs/doc-image.module.css',
+  'src/app/(signed-in)/wiki/wiki.css',
+  'src/app/d/[token]/published.css',
+  'src/app/w/[token]/published-wiki.css',
 ];
 
 const root = fileURLToPath(new URL('..', import.meta.url));
@@ -220,4 +226,28 @@ test('the date scale never sets Thai-capable text below 13px and caps never coll
   // different lines of it so a month that starts near today is not overprinted.
   const month = blocks.find((b) => b.selector === '.tl-month');
   assert.ok(month && /align-items:\s*flex-start/.test(month.body), 'the month caption is not held to the top of its band');
+});
+
+const WIKI = 'src/app/(signed-in)/wiki/wiki.css';
+const EDITOR = 'src/app/(signed-in)/p/[slug]/docs/editor.css';
+
+test('wiki has no private palette', () => {
+  assert.doesNotMatch(read(WIKI), /--nt-/, 'wiki.css still declares or reads a --nt-* variable');
+});
+
+test('docs deletion is danger, not vermilion', () => {
+  const blocks = ruleBlocks(read(EDITOR))
+    .filter((b) => /\.doc-tree-delete|\.doc-delete-action/.test(b.selector));
+  assert.ok(blocks.length > 0, 'editor.css has no `.doc-tree-delete` or `.doc-delete-action` rule');
+  for (const { selector, body } of blocks) {
+    assert.doesNotMatch(body, /--color-vermilion/, `\`${selector}\` still draws deletion in vermilion`);
+  }
+  assert.ok(blocks.some((b) => /--color-danger/.test(b.body)), 'docs deletion does not use --color-danger');
+});
+
+test('Docs and Wiki share one skin on .docs-book', () => {
+  const book = ruleBlocks(read('src/app/(signed-in)/p/[slug]/docs/docs.css')).find((b) => b.selector === '.docs-book');
+  assert.ok(book, 'docs.css has no `.docs-book` rule');
+  assert.match(book!.body, /--brand:\s*var\(--color-primary\)/);
+  assert.match(book!.body, /--cu-ground:\s*var\(--color-paper\)/);
 });

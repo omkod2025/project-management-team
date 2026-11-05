@@ -51,12 +51,9 @@
 
   /* Temporary bridges for the field book's faces, retired in the restyle's
      last task. Thai still falls through to Anuphan (`--font-read`) for
-     structural and figure text, exactly as the body face does; `--font-wiki`
-     keeps the Wiki's `--nt-sans` stack on Inter now that the Wiki no longer
-     loads its own copy. */
+     structural and figure text, exactly as the body face does. */
   --font-struct: var(--font-sans), var(--font-read);
   --font-figure: var(--font-sans), var(--font-read);
-  --font-wiki: var(--font-sans);
 }
 
 *,
