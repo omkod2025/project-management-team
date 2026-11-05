@@ -47,12 +47,15 @@ test('Wiki screens: create, write Thai and Mermaid, read-only member, stranger 4
     const page = await ownerContext.newPage();
     const errors: string[] = []; page.on('pageerror', (err) => errors.push(err.message));
 
-    // The Wiki menu: create a wiki from the form.
+    // The Wiki menu: Create wiki at the top right opens the form in a modal.
     await page.goto(`${BASE_URL}/wiki`);
     await page.getByRole('heading', { name: 'Wiki', exact: true }).waitFor();
-    await page.getByLabel('Wiki title', { exact: true }).fill(WIKI_TITLE);
-    await page.getByLabel(/^Description/).fill('ความรู้สำหรับทีมหน้างาน');
     await page.getByRole('button', { name: 'Create wiki', exact: true }).click();
+    const newWiki = page.getByRole('dialog', { name: 'New wiki' });
+    await newWiki.waitFor();
+    await newWiki.getByLabel('Wiki title', { exact: true }).fill(WIKI_TITLE);
+    await newWiki.getByLabel(/^Description/).fill('ความรู้สำหรับทีมหน้างาน');
+    await newWiki.getByRole('button', { name: 'Create wiki', exact: true }).click();
     await page.waitForURL(/\/wiki\/[0-9a-f-]{36}$/);
     wikiId = /\/wiki\/([0-9a-f-]{36})/.exec(page.url())![1]!;
     await page.getByText('No pages yet.').first().waitFor();

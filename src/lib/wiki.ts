@@ -5,11 +5,11 @@ import { users, wikiMembers, wikiPages, wikiRevisions, wikis } from '@/db/schema
 import { DomainError, domainError } from '@/lib/errors';
 import { extendRevision, nextPageDepth, parsePageContent, type DocPage } from '@/lib/doc-rules';
 import {
-  deleteQueuedWikiAssets, finalizeRemovedWikiAssets, lockWikiAssetReferences, stageRemovedWikiAssets,
+  deleteQueuedWikiAssets, finalizeRemovedWikiAssets, lockWikiAssetReferences, queueAllWikiAssets, stageRemovedWikiAssets,
   stageUploadedWikiAssets, validateAddedWikiAssets, type WikiAssetTransaction,
 } from '@/lib/wiki-asset-cleanup';
 import {
-  assertNotOwner, canManageWiki, canSeeWiki, canWriteWiki, generatedPageSlug, isInstallAdmin, isUuid,
+  assertNotOwner, canDeleteWiki, canManageWiki, canSeeWiki, canWriteWiki, generatedPageSlug, isInstallAdmin, isUuid,
   likePattern, pageSearchText, publicWikiToken, parseMemberGrant, parseMemberRef, parseNewWiki, parseNewWikiPage, parsePageMove,
   parsePageTitle, parseWikiUpdate, searchSnippet, searchTerms, wikiRole,
   type WikiAccess, type WikiFacts, type WikiRole, type WikiViewer,
@@ -95,7 +95,7 @@ async function loadWikiRow(wikiId: string, userId: string) {
 export async function requireWiki(
   userId: string,
   wikiId: string,
-  need: 'read' | 'write' | 'manage',
+  need: 'read' | 'write' | 'manage' | 'delete',
 ): Promise<{ wiki: WikiRow; role: WikiRole; canWrite: boolean }> {
   if (!isUuid(wikiId)) throw notFound();
   const [v, row] = await Promise.all([wikiViewer(userId), loadWikiRow(wikiId, userId)]);
@@ -107,6 +107,9 @@ export async function requireWiki(
   }
   if (need === 'manage' && !canManageWiki(v, facts)) {
     throw domainError('E_FORBIDDEN', 'Only the owner can change this wiki’s settings.');
+  }
+  if (need === 'delete' && !canDeleteWiki(v, facts)) {
+    throw domainError('E_FORBIDDEN', 'Only the install admin can delete a wiki.');
   }
   return { wiki: row.wiki, role: wikiRole(v, facts)!, canWrite: canWriteWiki(v, facts) };
 }
@@ -226,6 +229,24 @@ export async function updateWiki(userId: string, wikiId: string, input: unknown)
       break;
   }
   return summaryAfterChange(userId, wiki.id);
+}
+
+/**
+ * Delete a wiki for good (D-82): install admin only. One transaction, with the
+ * wiki row locked, queues its files and deletes the row; the cascade takes the
+ * pages, their history, members, assets, the public link and every token's
+ * scope on it. The files are unlinked after the commit, and any that could not
+ * be stay queued and are counted in the answer.
+ */
+export async function deleteWiki(userId: string, wikiId: string): Promise<{ deleted: true; assetCleanupPending: number }> {
+  const { wiki } = await requireWiki(userId, wikiId, 'delete');
+  await db.transaction(async (tx) => {
+    const [locked] = await tx.select({ id: wikis.id }).from(wikis).where(eq(wikis.id, wiki.id)).for('update');
+    if (!locked) throw notFound();
+    await queueAllWikiAssets(tx, wiki.id);
+    await tx.delete(wikis).where(eq(wikis.id, wiki.id));
+  });
+  return { deleted: true, assetCleanupPending: await deleteQueuedWikiAssets(wiki.id) };
 }
 
 /**

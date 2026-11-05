@@ -78,13 +78,24 @@ export function canManageWiki(v: WikiViewer, w: WikiFacts): boolean {
 }
 
 /**
+ * Deleting a wiki — pages, history, files, members, link and token scopes, for
+ * good — is the install admin's alone (D-82). The owner can archive, which
+ * anyone with the right can undo; deletion cannot be undone, so it is not a
+ * right that comes with ownership.
+ */
+export function canDeleteWiki(v: WikiViewer, w: WikiFacts): boolean {
+  return wikiRole(v, w) === 'install';
+}
+
+/**
  * What the screens may draw for a role a wiki already granted, so a page
  * never offers a control its routes would refuse. The same answers as
- * `canWriteWiki` / `canManageWiki`, read from the role `wikiRole` returned.
+ * `canWriteWiki` / `canManageWiki` / `canDeleteWiki`, read from the role
+ * `wikiRole` returned.
  */
-export function wikiAbilities(role: WikiRole, archived: boolean): { canWrite: boolean; canManage: boolean } {
+export function wikiAbilities(role: WikiRole, archived: boolean): { canWrite: boolean; canManage: boolean; canDelete: boolean } {
   const canManage = role === 'install' || role === 'owner';
-  return { canWrite: !archived && (canManage || role === 'write'), canManage };
+  return { canWrite: !archived && (canManage || role === 'write'), canManage, canDelete: role === 'install' };
 }
 
 /* -------------------------------------------------------------- creating */

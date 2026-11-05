@@ -92,10 +92,13 @@ Rules live in the pure module `src/lib/wiki-rules.ts` (`tests/wiki-rules.test.ts
 | Grant, change or remove members | ● | ● | | | |
 | Publish or withdraw the public link | ● | ● | | | |
 | Archive the wiki, transfer ownership | ● | ● | | | |
+| Delete the wiki, for good | ● | | | | |
 
 **D-74. One function decides visibility, and everything is computed from it.** A wiki is visible to a user when they are active and are the install admin, its owner, or a member — and, for a member, it is not archived (archived wikis are seen only by the owner and the install admin). This is `canSeeWiki` / `canWriteWiki` / `canManageWiki` in `wiki-rules.ts`, with one equivalent SQL predicate in the adapter. Menus, search, token scoping and MCP all derive from it.
 
 **D-75. Every refusal to a stranger is the same bare 404.** A non-member, an unknown id, a malformed id, a page or asset in a wiki the caller cannot see — all indistinguishable (`05-permissions.md` §2). Only someone who can already see a wiki learns that they lack a right on it (403).
+
+**D-82. Deleting a wiki is the install admin's alone, and it takes everything.** `DELETE /api/wikis/<id>`; `canDeleteWiki` in `wiki-rules.ts` is true for the install admin and nobody else — not the owner, who can archive, which can be undone. A member who can see the wiki is refused with 403, a stranger with the usual 404. One transaction locks the wiki row, queues every one of its files in `pmt_wiki_asset_deletions` (which has no foreign key, so it outlives the cascade) and deletes the row; the cascade takes the pages, their revisions, members, assets, the public link and every token's scope on the wiki. Tokens themselves survive, scoped to what is left. Files are unlinked after the commit. The settings screen draws the action for the install admin only, in a modal that stays disabled until the wiki title is typed back.
 
 The install admin is `PROTECTED_EMAIL` (`admin@cit.com`), the only global role; project admins get nothing extra here. Any active user may create a wiki and becomes its owner. When ownership is transferred, the previous owner becomes a write member. When an owner's account is deleted, ownership moves to the install admin in the same transaction; deactivating an account does not move it.
 

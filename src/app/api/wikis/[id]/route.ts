@@ -1,6 +1,6 @@
 import { handle } from '@/lib/api';
 import { domainError } from '@/lib/errors';
-import { getWiki, updateWiki } from '@/lib/wiki';
+import { deleteWiki, getWiki, updateWiki } from '@/lib/wiki';
 
 type Context = { params: Promise<{ id: string }> };
 
@@ -18,4 +18,10 @@ export async function PATCH(req: Request, { params }: Context) {
     catch { throw domainError('E_INVALID_DOC', 'Send the change as JSON.'); }
     return updateWiki(userId, id, body);
   });
+}
+
+/** Deletes the wiki and everything in it, for good (D-82) — install admin only. */
+export async function DELETE(_req: Request, { params }: Context) {
+  const { id } = await params;
+  return handle(`DELETE /api/wikis/${id}`, (userId) => deleteWiki(userId, id));
 }

@@ -1012,3 +1012,73 @@ describe('access tokens', () => {
     assert.ok((await index.text()).includes('href="/wiki/tokens"'));
   });
 });
+
+/* ------------------------------------------------- deleting a wiki (D-82) */
+
+describe('deleting a wiki', () => {
+  let doomedWiki = '';
+
+  before(async () => { doomedWiki = await wikiWithMembers('วิกิที่จะถูกลบ'); });
+
+  test('the owner, a writer and a reader get 403; a stranger and an unknown id get 404', async () => {
+    for (const jar of [ownerJar, writerJar, readerJar]) {
+      const res = await call(jar, 'DELETE', `/api/wikis/${doomedWiki}`);
+      assert.equal(res.status, 403, JSON.stringify(res.body));
+    }
+    assert.equal((await call(strangerJar, 'DELETE', `/api/wikis/${doomedWiki}`)).status, 404);
+    assert.equal((await call(ownerJar, 'DELETE', `/api/wikis/${randomUUID()}`)).status, 404);
+    assert.equal((await call(ownerJar, 'DELETE', '/api/wikis/not-a-uuid')).status, 404);
+    assert.equal((await call(ownerJar, 'GET', `/api/wikis/${doomedWiki}`)).status, 200, 'a refused delete leaves the wiki');
+  });
+
+  test('the install admin deletes it with its pages, history, members, files, link and token scopes', async (t) => {
+    if (!installJar) return t.skip(SKIP_INSTALL);
+    const parent = await newPage(writerJar, doomedWiki, { title: 'หน้าแม่' });
+    const child = await newPage(writerJar, doomedWiki, { title: 'หน้าลูก', parentId: parent.id });
+    await newPage(writerJar, doomedWiki, { title: 'หน้าหลาน', parentId: child.id });
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
+    const form = new FormData();
+    form.append('file', new File([png], 'รูป.png', { type: 'image/png' }));
+    const up = await fetch(`${BASE_URL}/api/wikis/${doomedWiki}/assets`, { method: 'POST', headers: { cookie: writerJar.header }, body: form });
+    assert.equal(up.status, 200);
+    const assetUrl = String(((await up.json()) as { url: string }).url);
+    assert.equal((await save(writerJar, parent, `![x](${assetUrl})`)).status, 200);
+    const published = await call(ownerJar, 'PATCH', `/api/wikis/${doomedWiki}`, { action: 'publish' });
+    const publicToken = published.body.publicToken as string;
+    const token = await call(writerJar, 'POST', '/api/wiki-tokens', { label: 'ก่อนลบ', wikiIds: [doomedWiki] });
+    assert.equal(token.status, 200, JSON.stringify(token.body));
+
+    const res = await call(installJar, 'DELETE', `/api/wikis/${doomedWiki}`);
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.deepEqual(res.body, { deleted: true, assetCleanupPending: 0 });
+
+    assert.equal((await call(ownerJar, 'GET', `/api/wikis/${doomedWiki}`)).status, 404);
+    assert.equal((await call(installJar, 'GET', `/api/wikis/${doomedWiki}`)).status, 404);
+    assert.ok(!(await call(writerJar, 'GET', '/api/wikis')).body.some((w: { id: string }) => w.id === doomedWiki));
+    assert.equal((await fetch(`${BASE_URL}${assetUrl}`, { headers: { cookie: writerJar.header } })).status, 404);
+    assert.equal((await fetch(`${BASE_URL}/w/${publicToken}`)).status, 404);
+    const { rows } = await fx.client.query(
+      `SELECT (SELECT count(*) FROM pmt_wikis WHERE wiki_id = $1)::int AS wikis,
+              (SELECT count(*) FROM pmt_wiki_pages WHERE wiki_page_wiki_id = $1)::int AS pages,
+              (SELECT count(*) FROM pmt_wiki_page_revisions r JOIN pmt_wiki_pages p ON p.wiki_page_id = r.wiki_revision_page_id
+                WHERE p.wiki_page_wiki_id = $1)::int AS revisions,
+              (SELECT count(*) FROM pmt_wiki_members WHERE wiki_member_wiki_id = $1)::int AS members,
+              (SELECT count(*) FROM pmt_wiki_assets WHERE wiki_asset_wiki_id = $1)::int AS assets,
+              (SELECT count(*) FROM pmt_wiki_asset_deletions WHERE wiki_asset_deletion_wiki_id = $1)::int AS queued,
+              (SELECT count(*) FROM pmt_wiki_token_scopes WHERE wiki_token_scope_wiki_id = $1)::int AS scopes,
+              (SELECT count(*) FROM pmt_wiki_tokens WHERE wiki_token_id = $2)::int AS tokens`,
+      [doomedWiki, token.body.token.id]);
+    assert.deepEqual(rows[0], { wikis: 0, pages: 0, revisions: 0, members: 0, assets: 0, queued: 0, scopes: 0, tokens: 1 },
+      'the token itself survives, scoped to nothing');
+    assert.equal((await call(installJar, 'DELETE', `/api/wikis/${doomedWiki}`)).status, 404, 'deleting twice is 404');
+  });
+
+  test('the settings page draws Delete for the install admin only', async (t) => {
+    const w = await create(ownerJar, 'วิกิที่แสดงปุ่มลบ');
+    const asOwner = await fetch(`${BASE_URL}/wiki/${w.id}/settings`, { headers: { cookie: ownerJar.header } });
+    assert.ok(!(await asOwner.text()).includes('Delete wiki'), 'the owner is not offered Delete');
+    if (!installJar) return t.skip(SKIP_INSTALL);
+    const asInstall = await fetch(`${BASE_URL}/wiki/${w.id}/settings`, { headers: { cookie: installJar.header } });
+    assert.ok((await asInstall.text()).includes('Delete wiki'), 'the install admin is');
+  });
+});

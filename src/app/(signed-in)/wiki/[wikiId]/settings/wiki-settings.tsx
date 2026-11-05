@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import DocIcon from '../../../p/[slug]/docs/doc-icon';
 import { problem, wikiCall } from '../../wiki-api';
+import DeleteWikiSection from './delete-wiki';
 
 type Wiki = { id: string; title: string; description: string; archived: boolean; ownerId: string | null; ownerName: string | null; publicToken: string | null };
 type Member = { userId: string; name: string; email: string; access: 'read' | 'write' };
@@ -204,11 +205,12 @@ function AllowTokenSection({ wiki, tokens, busy, run }: { wiki: Wiki; tokens: My
 
 /**
  * Rename and describe, members, transfer, the public link and archive are the
- * owner's or the install admin's; "Allow my token" is every writer's. Each
- * viewer is drawn only the sections they can use.
+ * owner's or the install admin's; delete is the install admin's alone (D-82);
+ * "Allow my token" is every writer's. Each viewer is drawn only the sections
+ * they can use.
  */
-export default function WikiSettings({ wiki, canManage, members, people, tokens }: {
-  wiki: Wiki; canManage: boolean; members: Member[]; people: Person[]; tokens: MyToken[] | null;
+export default function WikiSettings({ wiki, canManage, canDelete, members, people, tokens }: {
+  wiki: Wiki; canManage: boolean; canDelete: boolean; members: Member[]; people: Person[]; tokens: MyToken[] | null;
 }) {
   const { busy, notice, error, run } = useRunner();
   return <div className="wiki-settings">
@@ -223,5 +225,6 @@ export default function WikiSettings({ wiki, canManage, members, people, tokens 
     </>}
     {tokens && <AllowTokenSection key={tokens.map((t) => `${t.id}:${t.allowed}`).join()} wiki={wiki} tokens={tokens} busy={busy} run={run} />}
     {canManage && <ArchiveSection wiki={wiki} busy={busy} run={run} />}
+    {canDelete && <DeleteWikiSection wiki={wiki} />}
   </div>;
 }

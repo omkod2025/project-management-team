@@ -1,7 +1,7 @@
 import { listWikis, type WikiSummary } from '@/lib/wiki';
 import Bell from '../bell';
 import { requireReader } from './load-workspace';
-import NewWikiForm from './new-wiki-form';
+import NewWikiDialog from './new-wiki-dialog';
 import '../p/[slug]/list.css';
 import '../p/[slug]/docs/docs.css';
 import './wiki.css';
@@ -29,8 +29,9 @@ function WikiTable({ wikis, caption }: { wikis: WikiSummary[]; caption: string }
 
 /**
  * The Wiki menu (คลังความรู้): every wiki this person can see, and a new
- * one. Archived wikis reach only their owner and the install admin, and
- * stand apart under Archived (spec §5c).
+ * one — Create wiki at the heading's top right opens its form in a modal.
+ * Archived wikis reach only their owner and the install admin, and stand
+ * apart under Archived (spec §5c).
  */
 export default async function WikiIndex() {
   const userId = await requireReader();
@@ -52,11 +53,11 @@ export default async function WikiIndex() {
     <div className="docs-content">
       <div className="docs-heading">
         <div><h1>Wiki</h1><p lang="th">คลังความรู้ — knowledge that belongs to no single project.</p></div>
+        <NewWikiDialog />
       </div>
-      <NewWikiForm />
       <h2 className="wiki-section-head">Your wikis</h2>
       {live.length ? <WikiTable wikis={live} caption="Wikis you can read" /> : <div className="docs-empty">
-        <h2>No wikis yet</h2><p>Create one above. You decide who else can read or write it.</p>
+        <h2>No wikis yet</h2><p>Start one with Create wiki. You decide who else can read or write it.</p>
       </div>}
       {archived.length > 0 && <section aria-labelledby="wiki-archived-head">
         <h2 id="wiki-archived-head" className="wiki-section-head">Archived</h2>

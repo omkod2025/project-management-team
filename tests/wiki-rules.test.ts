@@ -10,7 +10,7 @@ import test, { describe } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  isInstallAdmin, wikiRole, canSeeWiki, canWriteWiki, canManageWiki, wikiAbilities,
+  isInstallAdmin, wikiRole, canSeeWiki, canWriteWiki, canManageWiki, canDeleteWiki, wikiAbilities,
   parseNewWiki, parseMemberGrant, parseMemberRef, parseWikiUpdate, assertNotOwner, isUuid,
   TOKEN_PREFIX, MAX_ACTIVE_TOKENS, newTokenSecret, hashTokenSecret, bearerSecret,
   effectiveTokenWikis, parseTokenInput, tokenStatus, shouldTouchLastUsed, parseTokenIds,
@@ -128,8 +128,31 @@ describe('§5a — the role and visibility matrix', () => {
   });
 });
 
+describe('D-82 — deleting a wiki', () => {
+  const live: WikiFacts = { ownerId: OWNER_ID, archived: false, memberAccess: null };
+
+  test('the install admin deletes any wiki, live or archived, owned by anyone', () => {
+    const v = viewer(INSTALL_ID, PROTECTED_EMAIL);
+    assert.equal(canDeleteWiki(v, live), true);
+    assert.equal(canDeleteWiki(v, { ...live, archived: true }), true);
+    assert.equal(canDeleteWiki(v, { ...live, ownerId: INSTALL_ID }), true);
+  });
+
+  test('the owner, a writer and a reader may not — managing a wiki is not deleting it', () => {
+    assert.equal(canDeleteWiki(viewer(OWNER_ID, 'owner@cit.com'), live), false);
+    assert.equal(canDeleteWiki(viewer(OWNER_ID, 'owner@cit.com'), { ...live, archived: true }), false);
+    assert.equal(canDeleteWiki(viewer(WRITE_MEMBER_ID, 'writer@cit.com'), { ...live, memberAccess: 'write' }), false);
+    assert.equal(canDeleteWiki(viewer(READ_MEMBER_ID, 'reader@cit.com'), { ...live, memberAccess: 'read' }), false);
+  });
+
+  test('a stranger and an inactive install admin may not', () => {
+    assert.equal(canDeleteWiki(viewer(STRANGER_ID, 'stranger@cit.com'), live), false);
+    assert.equal(canDeleteWiki(viewer(INSTALL_ID, PROTECTED_EMAIL, false), live), false);
+  });
+});
+
 describe('wikiAbilities — what the screens draw', () => {
-  test('agrees with canWriteWiki and canManageWiki for every role, live and archived', () => {
+  test('agrees with canWriteWiki, canManageWiki and canDeleteWiki for every role, live and archived', () => {
     const cases: Array<[WikiViewer, WikiFacts['memberAccess']]> = [
       [viewer(INSTALL_ID, PROTECTED_EMAIL), null],
       [viewer(OWNER_ID, 'owner@cit.com'), null],
@@ -141,7 +164,7 @@ describe('wikiAbilities — what the screens draw', () => {
         const facts: WikiFacts = { ownerId: OWNER_ID, archived, memberAccess };
         const role = wikiRole(v, facts)!;
         assert.deepEqual(wikiAbilities(role, archived), {
-          canWrite: canWriteWiki(v, facts), canManage: canManageWiki(v, facts),
+          canWrite: canWriteWiki(v, facts), canManage: canManageWiki(v, facts), canDelete: canDeleteWiki(v, facts),
         }, `${role}, archived=${archived}`);
       }
     }

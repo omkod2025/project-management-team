@@ -93,6 +93,20 @@ export async function finalizeRemovedWikiAssets(tx: WikiAssetTransaction, wikiId
   await tx.delete(wikiAssetRemovals).where(eq(wikiAssetRemovals.pageId, pageId));
 }
 
+/**
+ * Every file of a wiki that is about to be deleted (D-82), queued in the
+ * deleting transaction. The queue has no foreign key to the wiki, so it
+ * outlives the cascade and `deleteQueuedWikiAssets` unlinks the files after
+ * the commit.
+ */
+export async function queueAllWikiAssets(tx: WikiAssetTransaction, wikiId: string) {
+  const assets = await tx.select().from(wikiAssets).where(eq(wikiAssets.wikiId, wikiId));
+  if (!assets.length) return;
+  await tx.insert(wikiAssetDeletions)
+    .values(assets.map((a) => ({ id: a.id, wikiId, filename: a.filename, createdAt: a.createdAt })))
+    .onConflictDoNothing();
+}
+
 /** Run only after Done commits. Failures retry on the next Done editing. */
 export async function deleteQueuedWikiAssets(wikiId: string): Promise<number> {
   try { return await processQueuedWikiAssets(wikiId); }

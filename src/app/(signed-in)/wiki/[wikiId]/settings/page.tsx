@@ -13,13 +13,14 @@ import '../../wiki.css';
  * A wiki's settings. The owner and the install admin manage it (spec §5a);
  * a writer reaches only "Allow my token" (§6a), and is drawn nothing else.
  * Someone who can only read is sent back to the wiki — there is nothing here
- * they could use. A stranger gets the same 404 as the wiki itself.
+ * they could use. A stranger gets the same 404 as the wiki itself. Delete is
+ * drawn for the install admin alone (D-82).
  */
 export default async function WikiSettingsPage({ params }: { params: Promise<{ wikiId: string }> }) {
   const { wikiId } = await params;
   const userId = await requireReader();
   const wiki = await orNotFound(() => getWiki(userId, wikiId));
-  const { canManage, canWrite } = wikiAbilities(wiki.role, wiki.archived);
+  const { canManage, canWrite, canDelete } = wikiAbilities(wiki.role, wiki.archived);
   if (!canManage && !canWrite) redirect(`/wiki/${wiki.id}`);
   const [members, people, tokens] = await Promise.all([
     canManage ? orNotFound(() => listMembers(userId, wiki.id)) : [],
@@ -45,6 +46,7 @@ export default async function WikiSettingsPage({ params }: { params: Promise<{ w
       <WikiSettings
         wiki={{ id: wiki.id, title: wiki.title, description: wiki.description, archived: wiki.archived, ownerId: wiki.ownerId, ownerName: wiki.ownerName, publicToken: wiki.publicToken ?? null }}
         canManage={canManage}
+        canDelete={canDelete}
         members={members}
         people={people}
         tokens={canWrite ? myLiveTokens : null}
