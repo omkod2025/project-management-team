@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { chromium, type Browser } from '@playwright/test';
 import { setup, signIn, BASE_URL, type Fixture } from '../helpers/harness.ts';
+import { hashPassword } from '../../src/lib/password.ts';
 
 /**
  * Browser checks for the Notion house style (DESIGN.md), across the pages the
@@ -164,6 +166,79 @@ test('the Docs tree delete button draws in danger', async () => {
     await context.close();
   } finally {
     await browser?.close();
+    await fx.cleanup();
+  }
+});
+
+const INSTALL_EMAIL = 'admin@cit.com';
+
+/**
+ * The access board reveals a row's Delete button in a quiet grey on row
+ * hover (`.board tbody tr:hover .acct-del`), one class heavier than the
+ * button's own `:hover` rule — which used to let the row rule keep winning
+ * and leave the button grey while it was actually being hovered, with only
+ * its background taking the danger wash. Only a browser computes which rule
+ * wins. Gated the same way the install-admin cases in wiki.test.ts are: a
+ * throwaway `admin@cit.com` is made when none exists, or the real one is
+ * used when its password is supplied; otherwise this case cannot run here.
+ */
+test('the people Delete button draws in danger on hover, and the armed confirm fills with it', async () => {
+  const fx = await setup();
+  let browser: Browser | undefined;
+  let createdInstallId = '';
+  try {
+    const { rows } = await fx.client.query(
+      'SELECT user_id FROM pmt_users WHERE lower(user_email) = $1', [INSTALL_EMAIL],
+    );
+    let install: { header: string };
+    if (rows.length === 0) {
+      const password = randomBytes(18).toString('base64url');
+      createdInstallId = randomUUID();
+      await fx.client.query(
+        `INSERT INTO pmt_users (user_id, user_email, user_full_name, user_password_hash)
+         VALUES ($1, $2, 'E2E install', $3)`,
+        [createdInstallId, INSTALL_EMAIL, await hashPassword(password)],
+      );
+      install = await signIn(INSTALL_EMAIL, password);
+    } else if (process.env.E2E_INSTALL_ADMIN_PASSWORD) {
+      install = await signIn(INSTALL_EMAIL, process.env.E2E_INSTALL_ADMIN_PASSWORD);
+    } else {
+      // No throwaway possible (the real account already exists on this
+      // database) and no password supplied to sign in as it.
+      console.log('# people Delete hover check: existing admin@cit.com, no password — skipped');
+      return;
+    }
+
+    browser = await chromium.launch({ channel: 'msedge', headless: true });
+    const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    await context.addCookies(cookiesFor(install.header));
+    const page = await context.newPage();
+    await page.goto(`${BASE_URL}/people`);
+
+    const row = page.getByRole('row').filter({ hasText: fx.admin.email });
+    await row.waitFor();
+    const del = row.getByRole('button', { name: /^Delete .*account$/ });
+    await del.waitFor();
+    await row.hover();
+    await del.hover();
+    await page.waitForTimeout(200); // the 120ms colour transition
+    const ink = await del.evaluate((el) => getComputedStyle(el).color);
+    const border = await del.evaluate((el) => getComputedStyle(el).borderColor);
+    assert.equal(ink, 'rgb(196, 54, 47)', 'the Delete button does not draw --color-danger ink on hover');
+    assert.equal(border, 'rgb(196, 54, 47)', 'the Delete button does not draw a --color-danger border on hover');
+
+    await del.click();
+    const yes = row.getByRole('button', { name: 'Delete for good', exact: true });
+    await yes.waitFor();
+    const yesBg = await yes.evaluate((el) => getComputedStyle(el).backgroundColor);
+    assert.equal(yesBg, 'rgb(196, 54, 47)', 'the armed confirm does not fill with --color-danger');
+    // Disarmed rather than confirmed: this test deletes nobody.
+    await row.getByRole('button', { name: 'Cancel', exact: true }).click();
+
+    await context.close();
+  } finally {
+    await browser?.close();
+    if (createdInstallId) await fx.client.query('DELETE FROM pmt_users WHERE user_id=$1', [createdInstallId]);
     await fx.cleanup();
   }
 });

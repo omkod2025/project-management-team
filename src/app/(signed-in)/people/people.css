@@ -494,11 +494,18 @@ table.board {
    which has no approach. Danger red, never vermilion: deletion is not a
    misclosure (DESIGN.md § Colors). */
 .board tbody tr:hover .acct-del { color: var(--cu-ink-soft); border-color: var(--cu-line); }
+/* The row-hover reveal above is (0,3,2) — one class heavier than a plain
+   `.acct-del:hover` (0,2,0) — so hovering the row keeps outranking the
+   button's own hover unless the button's rule is stated at least as
+   specifically under the same row context. Restated here so danger always
+   wins once the pointer or the keyboard actually reaches the button. */
 .acct-del:hover,
-.acct-del:focus-visible {
-  border-color: color-mix(in srgb, var(--color-danger) 45%, var(--cu-canvas));
+.acct-del:focus-visible,
+.board tbody tr:hover .acct-del:hover,
+.board tbody tr:hover .acct-del:focus-visible {
+  border-color: var(--color-danger);
   background: var(--color-danger-wash);
-  color: var(--color-danger-active);
+  color: var(--color-danger);
 }
 
 .acct-armed { display: inline-flex; gap: 6px; }
