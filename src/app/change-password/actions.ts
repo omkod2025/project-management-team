@@ -17,9 +17,9 @@ import { DomainError } from '@/lib/errors';
  * minted from no longer exists, so neither should the session.
  */
 export async function changePassword(
-  _state: { error: string } | null,
+  _state: { error: string; kind?: 'failed-write' } | null,
   form: FormData,
-): Promise<{ error: string } | null> {
+): Promise<{ error: string; kind?: 'failed-write' } | null> {
   const userId = await currentUserId();
   if (!userId) return { error: 'Sign in first.' };
 
@@ -32,9 +32,11 @@ export async function changePassword(
   try {
     await changeOwnPassword(userId, current, next);
   } catch (err) {
+    // A DomainError (wrong current password, a rule the new one broke) is an
+    // ordinary refusal; anything else means the write itself did not land.
     if (err instanceof DomainError) return { error: err.message };
     console.error('changePassword', err);
-    return { error: 'That did not save.' };
+    return { error: 'That did not save.', kind: 'failed-write' };
   }
 
   // Throws the redirect, so nothing after it runs.

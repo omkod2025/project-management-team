@@ -97,14 +97,26 @@ export function PasswordField(
  * happened. A hint that recomputes while somebody types — "seven more
  * characters", "six more characters" — is `status`, or a screen reader narrates
  * every keystroke.
+ *
+ * Colour follows `kind`, not just the fact that something is being said.
+ * `'refusal'` — a wrong credential, a mismatch, a rule the input broke — is
+ * the house red: the visitor did something the form can name and fix.
+ * `'failed-write'` is the one case vermilion is for: the request reached the
+ * server and the write itself did not land (DESIGN.md, Colors rule 1). Most
+ * callers never see the difference — they already know which one happened.
  */
 export function Errata(
-  { id, live = 'assertive', children }:
-  { id?: string; live?: 'assertive' | 'polite'; children: React.ReactNode },
+  { id, live = 'assertive', kind = 'refusal', children }:
+  {
+    id?: string;
+    live?: 'assertive' | 'polite';
+    kind?: 'refusal' | 'failed-write';
+    children: React.ReactNode;
+  },
 ) {
   return (
     <p
-      className="auth-errata"
+      className={`auth-errata auth-errata--${kind}`}
       id={id}
       role={live === 'assertive' ? 'alert' : 'status'}
       aria-live={live}

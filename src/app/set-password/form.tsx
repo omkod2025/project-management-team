@@ -7,6 +7,10 @@ export default function SetPasswordForm({ token, minLength }: { token: string; m
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState<string | null>(null);
+  // Only a write that actually failed to land sets this — a mismatch caught
+  // before anything is sent, or a token the server refuses (4xx), is an
+  // ordinary refusal and never raises it.
+  const [writeFailed, setWriteFailed] = useState(false);
   const [busy, setBusy] = useState(false);
   // Nothing is judged until the visitor has finished with the field. Checking
   // on every keystroke narrates "eight more characters, seven more…" to a
@@ -24,6 +28,7 @@ export default function SetPasswordForm({ token, minLength }: { token: string; m
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setTouched(true);
+    setWriteFailed(false);
     if (password !== confirm) return setError('The two entries do not match.');
     setBusy(true);
     setError(null);
@@ -35,11 +40,15 @@ export default function SetPasswordForm({ token, minLength }: { token: string; m
       });
       if (!res.ok) {
         const err = (await res.json()) as { message?: string };
+        // A 4xx is the server naming a refusal (an already-claimed or
+        // expired token); a 5xx is the write itself failing.
+        setWriteFailed(res.status >= 500);
         setError(err.message ?? 'That did not save.');
         return;
       }
       window.location.href = '/sign-in?set=1';
     } catch {
+      setWriteFailed(true);
       setError('No connection. Nothing was saved.');
     } finally {
       setBusy(false);
@@ -74,7 +83,9 @@ export default function SetPasswordForm({ token, minLength }: { token: string; m
       </p>
 
       {complaint && (
-        <Errata id={noteId} live={error ? 'assertive' : 'polite'}>{complaint}</Errata>
+        <Errata id={noteId} live={error ? 'assertive' : 'polite'} kind={writeFailed ? 'failed-write' : 'refusal'}>
+          {complaint}
+        </Errata>
       )}
 
       <button type="submit" className="auth-submit" disabled={busy} aria-busy={busy}>

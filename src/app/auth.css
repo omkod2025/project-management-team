@@ -190,23 +190,32 @@
    admin creates the account — so the note beneath the form carries that fact
    instead of a button that would have to apologise for itself. */
 
-/* A save that did not land is a failed write: that, and only that, keeps the
-   vermilion errata (DESIGN.md, Colors rule 1). The same band carries an
-   ordinary rejection message (wrong credentials, a mismatch) because it is
-   the one place on these pages a refusal is announced; the colour is spent
-   here and nowhere else that is not misclosure, overrun or a dead link. */
+/* One band, two meanings. Layout only here — colour lives in the two
+   modifiers below, so neither can be reached without naming which one it is. */
 .auth-errata {
   display: flex;
   gap: 8px;
   margin-top: var(--space-md);
   padding: 9px 11px;
   border-radius: var(--radius-sm);
-  background: var(--color-vermilion-wash);
-  color: var(--color-vermilion);
   font-size: 13px;
   line-height: 1.5;
 }
 .auth-errata svg { flex: 0 0 15px; margin-top: 1px; }
+
+/* An ordinary refusal: a wrong credential, a mismatch, a rule the input
+   broke. The visitor caused this and can fix it — it is not a misclosure. */
+.auth-errata--refusal {
+  background: var(--color-danger-wash);
+  color: var(--color-danger);
+}
+
+/* A save that did not land is a failed write: that, and only that, keeps the
+   vermilion errata (DESIGN.md, Colors rule 1). */
+.auth-errata--failed-write {
+  background: var(--color-vermilion-wash);
+  color: var(--color-vermilion);
+}
 
 /* An expired, wrong or already-claimed link is a state, not a misclosure —
    Stone carries it, not the alarm colour. */

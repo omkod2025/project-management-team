@@ -282,3 +282,14 @@ test('auth has no indigo field', () => {
   assert.match(card!.body, /border-radius:\s*var\(--radius-xl\)/, 'the card is not the house xl radius');
   assert.match(card!.body, /box-shadow:[^;]*var\(--shadow-2\)/, 'the card does not carry the house shadow-2');
 });
+
+test('auth refusals are danger; vermilion is only the unsaved-write band', () => {
+  const blocks = ruleBlocks(read(AUTH));
+  const refusal = blocks.find((b) => b.selector === '.auth-errata--refusal');
+  assert.ok(refusal, 'auth.css has no `.auth-errata--refusal` rule');
+  assert.match(refusal!.body, /--color-danger\b/, 'the refusal band is not the house red');
+  assert.doesNotMatch(refusal!.body, /--color-vermilion/, 'a wrong-credential or mismatch refusal still draws in vermilion');
+  const failedWrite = blocks.find((b) => b.selector === '.auth-errata--failed-write');
+  assert.ok(failedWrite, 'auth.css has no `.auth-errata--failed-write` rule');
+  assert.match(failedWrite!.body, /--color-vermilion\b/, 'the failed-write band no longer carries the misclosure colour');
+});

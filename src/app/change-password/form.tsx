@@ -39,7 +39,7 @@ export default function ChangePasswordForm(
         At least {minLength} characters, and not the one you are replacing.
       </p>
 
-      {state?.error && <Errata id={errorId}>{state.error}</Errata>}
+      {state?.error && <Errata id={errorId} kind={state.kind ?? 'refusal'}>{state.error}</Errata>}
 
       <button type="submit" className="auth-submit" disabled={pending} aria-busy={pending}>
         {pending ? 'Saving' : 'Change password'}
