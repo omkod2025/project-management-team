@@ -251,8 +251,8 @@ Shadows are many near-transparent layers, so a surface feels gently lifted off t
 
 **Badges.** One shape for every small label that names a value or a state (decided by the owner 2026-11-05, from a reference of pastel chips such as "Dashboard" and "Mobile App"):
 - a 6px radius (`--radius-badge`), about 22–24px tall, padded `0 8px`;
-- a pastel wash: the badge's colour mixed about 12% into the canvas;
-- a 1px border of the same colour mixed about 30–35% into the canvas, darker than the wash, so the badge still reads as a shape in greyscale;
+- a bright pastel wash: the badge's colour mixed 20% into the canvas **in OKLCH** (`color-mix(in oklch, …)`), which keeps the chroma where an sRGB mix greys it out;
+- a 1px border of the same colour mixed 55% into the canvas in OKLCH, darker than the wash, so the badge still reads as a shape in greyscale;
 - a label in the colour darkened toward the ink until it clears 4.5:1 on its own wash;
 - 13px and no tracking wherever the label can be Thai (11–12px only for fixed English words).
 
@@ -327,9 +327,9 @@ Headings, labels and body copy that nobody entered as a value use the house ink,
    - They are never a row tint, a status, a role or a decoration.
 4. **A chosen option is stated in its own colour.** An option chip (status and selects) is the house badge (§ 7):
    - a 6px radius, 22px tall;
-   - its hue mixed 12% into the canvas;
-   - a 1px border of the hue mixed 35% into the canvas — darker than the wash and never the raw hue — so it still reads as a chip in greyscale;
-   - a label of the hue mixed halfway toward the house charcoal, which clears 4.5:1 on all six hues;
+   - its hue mixed 20% into the canvas in OKLCH;
+   - a 1px border of the hue mixed 55% into the canvas in OKLCH — darker than the wash and never the raw hue — so it still reads as a chip in greyscale;
+   - a label of the hue mixed 55% toward the house charcoal in OKLCH, which clears 4.5:1 on all six hues (the gold, tab-2, is the floor at 4.8:1);
    - 13px and no tracking, because labels are Thai.
 5. **Colour is never the sole carrier.** Estimate and actual differ by *position, height and fill* before they differ by ink. A misclosure carries a `+`/`−` sign and a figure, not only red.
 
@@ -353,8 +353,8 @@ Headings, labels and body copy that nobody entered as a value use the house ink,
 - **An airy table.** Rows are 40px, cells pad `8px 12px`, rows part on hairlines, and no rule is drawn between columns. Row text is 14–15px. Column heads are 13px on paper, because a column's name is user-written and can be Thai.
 - **The Estimate / Actual / Variance band** stays above the column heads as a grouped header. It is the only thing on the page that says which dates are the plan and which are the record.
 - **Estimate and actual are separate columns**, in the two inks.
-- **The misclosure** is a vermilion slip with a signed figure, in the badge shape: the vermilion wash, a 1px vermilion border mixed 30%, 6px corners.
-- **Module identity** is the badge on the module row (the hue mixed 12%, a 1px border mixed 35%) and a 2px hairline of the mixed hue down the indent, never a row tint.
+- **The misclosure** is a vermilion slip with a signed figure, in the badge shape: vermilion mixed 20% for the wash, 55% for the 1px border, 6px corners.
+- **Module identity** is the badge on the module row (the hue mixed 20%, a 1px border mixed 55%, both in OKLCH) and a 2px hairline of the mixed hue down the indent, never a row tint.
 - **No zebra striping, and no row tint by status.** Hover is the house hover ground; selection is the blue wash.
 
 ### 9.6 Do's and Don'ts
@@ -376,7 +376,7 @@ The restyle to the house style finished on 2026-11-05. Every surface below reads
 - **Tokens.** The frontmatter is the house set plus the meaning tokens. The field book's tokens (`page`, `page-edge`, `board`, `rule`, `rule-major`, `ink-graphite-soft`, the `none` and `hole` radii, the `row` space) and its faces (Martian Mono, Bai Jamjuree, and the `--font-struct` and `--font-figure` bridges) are retired. `tests/house-style.test.ts` fails if any of them comes back.
 - **Fonts.** Inter (`--font-sans`) and Anuphan (`--font-read`) are loaded once, in the root layout.
 - **Shell and shelf.** A white header bar on paper. The primary action is a blue pill.
-- **List.** The airy table of § 9.5: 40px rows, badge chips (hue mixed 12%, a 1px border mixed 35%, 6px corners), 13px column heads.
+- **List.** The airy table of § 9.5: 40px rows, badge chips (hue mixed 20% and a 1px border mixed 55%, in OKLCH, 6px corners), 13px column heads.
 - **Timeline and All Timeline.** House chrome around the bars of § 9.4: the estimate 9px and hatched above, the actual 11px and solid below, radius ≤ 3px, today in datum, non-working days on paper.
 - **The task modal** (opened from All Timeline and from the Calendar) is a house dialog: a 16px radius, the level-2 shadow and a primary pill.
 - **Docs, Wiki and the published links** (`/d/`, `/w/`) share one skin on `.book.docs-book`, which binds the sheet's local names to the house tokens. Deleting a page draws in danger.
