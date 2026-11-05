@@ -421,7 +421,7 @@
    overrun edge. */
 
 .tl.rs .bar.est {
-  border-color: color-mix(in srgb, var(--bar-hue) 62%, var(--color-ink-graphite-soft));
+  border-color: color-mix(in srgb, var(--bar-hue) 62%, var(--color-ink-muted));
   background-color: color-mix(in srgb, var(--bar-hue) 36%, var(--color-canvas));
 }
 /* The record bar's ceiling is not a matter of taste. `--color-tab-1` is a brick
@@ -434,7 +434,7 @@
   border-color: color-mix(in srgb, var(--bar-hue) 58%, var(--color-ink-blue));
 }
 .tl.rs .mile {
-  border-color: color-mix(in srgb, var(--bar-hue) 62%, var(--color-ink-graphite-soft));
+  border-color: color-mix(in srgb, var(--bar-hue) 62%, var(--color-ink-muted));
   background: color-mix(in srgb, var(--bar-hue) 36%, var(--color-canvas));
 }
 .tl.rs .mile.act {

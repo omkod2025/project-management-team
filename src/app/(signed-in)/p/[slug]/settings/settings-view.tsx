@@ -76,9 +76,9 @@ export default function SettingsView({ settings: initial, slug, kind = 'task' }:
           <Bell />
           <div className="views label">
             <a href={`/p/${slug}${kind === 'defect' ? '/defects' : ''}`}>List</a>
-            <span style={{ color: 'var(--color-rule)' }}>·</span>
+            <span style={{ color: 'var(--color-hairline)' }}>·</span>
             <a href={`/p/${slug}/timeline`}>Timeline</a>
-            <span style={{ color: 'var(--color-rule)' }}>·</span>
+            <span style={{ color: 'var(--color-hairline)' }}>·</span>
             <span aria-current="page">{kind === 'defect' ? 'Defect settings' : 'Settings'}</span>
             <a href={`/p/${slug}/docs`}>Docs</a>
           </div>

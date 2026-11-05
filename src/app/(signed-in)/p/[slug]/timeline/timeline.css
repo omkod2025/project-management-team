@@ -197,7 +197,7 @@
 
 .tl-namerow,
 .tl-row {
-  height: var(--space-row);
+  height: 34px;
   border-bottom: 1px solid color-mix(in srgb, var(--color-hairline) 60%, var(--color-canvas));
   position: relative;
 }
@@ -226,7 +226,7 @@
    not a filled block — this column indexes the field, it does not out-shout
    it. The spine is mixed toward the page like every other hue mark. */
 .tl-namerow.module {
-  font-family: var(--font-struct), sans-serif;
+  font-family: var(--type-title-family);
   font-weight: 600;
   padding-left: 14px;
   background: color-mix(in srgb, var(--row-hue) 9%, var(--color-canvas));
@@ -322,7 +322,7 @@
 .bar.est {
   top: 5px;
   height: 9px;
-  border: 1px solid color-mix(in srgb, var(--bar-hue) 50%, var(--color-ink-graphite-soft));
+  border: 1px solid color-mix(in srgb, var(--bar-hue) 50%, var(--color-ink-muted));
   background-color: color-mix(in srgb, var(--bar-hue) 26%, var(--color-canvas));
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='6'%3E%3Cpath d='M-1,1 l2,-2 M0,6 l6,-6 M5,7 l2,-2' stroke='%232A2622' stroke-width='1' opacity='.34'/%3E%3C/svg%3E");
 }
@@ -352,7 +352,7 @@
 /* the original position, held while dragging so the size of the change shows */
 .ghost {
   position: absolute;
-  border: 1px dashed var(--color-ink-graphite-soft);
+  border: 1px dashed var(--color-ink-muted);
   border-radius: 3px;
   z-index: 1;
   pointer-events: none;
@@ -380,7 +380,7 @@
   top: 8px;
   width: 9px; height: 9px;
   transform: rotate(45deg);
-  border: 1px solid color-mix(in srgb, var(--bar-hue) 50%, var(--color-ink-graphite-soft));
+  border: 1px solid color-mix(in srgb, var(--bar-hue) 50%, var(--color-ink-muted));
   border-radius: 1px;
   z-index: 2;
 }
@@ -400,7 +400,7 @@
   z-index: 2;
 }
 .brk.base { top: 8px; border: 1px solid var(--color-ink-graphite); border-bottom: 0; }
-.brk.roll { top: 24px; border: 1px solid var(--color-ink-graphite-soft); border-top: 0; }
+.brk.roll { top: 24px; border: 1px solid var(--color-ink-muted); border-top: 0; }
 /* only the overhang is vermilion, never the whole bracket */
 .brk.over { top: 24px; border: 1px solid var(--color-vermilion); border-top: 0; z-index: 3; }
 

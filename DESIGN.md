@@ -29,13 +29,7 @@ colors:
   tab-4: "#2E6E74"
   tab-5: "#3A5A94"
   tab-6: "#6B4A87"
-  # Field-book aliases, kept so existing var()s resolve. Removed in the restyle's last task.
-  page: "#FFFFFF"
-  page-edge: "#F6F5F4"
-  board: "#F6F5F4"
-  rule: "#E6E6E6"
-  rule-major: "#E6E6E6"
-  ink-graphite-soft: "#615D59"
+  # The derived ink's secondary weight: an actual bar's hairline, secondary derived text.
   ink-blue-soft: "#5C7186"
 typography:
   headline:
@@ -76,9 +70,6 @@ rounded:
   lg: "12px"
   xl: "16px"
   full: "9999px"
-  # Aliases, removed with the colour aliases.
-  none: "0px"
-  hole: "50%"
 spacing:
   xxs: "4px"
   xs: "8px"
@@ -87,17 +78,15 @@ spacing:
   lg: "24px"
   xl: "28px"
   xxl: "32px"
-  # Alias, removed with the colour aliases.
-  row: "34px"
 ---
 
 # Design
 
-> **Reading this file.** The body describes two layers. **The house style** (§ 1–8) is the Notion language, and every surface follows it. **The Timeline** (§ 9) keeps the surveyor's field book, because it is the one surface whose job is to show plan against reality.
+> **Reading this file.** **The house style** (§ 1–8) is the Notion language, and every surface follows it. **The meaning laws** (§ 9) say how plan against reality, the two inks and module identity are drawn inside that style, in the Timeline, the roster and the List. **The Calendar** (§ 11) is the one scoped exception.
 >
-> The YAML frontmatter above still holds the field-book tokens, and `scripts/tokens.mjs` still generates `src/app/tokens.css` from them. It was left as it is on purpose: this merge changed the document, not the app. The house-style values are in the tables below, and they are already implemented as the `--nt-*` variables at the end of `src/app/(signed-in)/wiki/wiki.css`. Moving the frontmatter over to them is a separate, code-changing step.
+> The YAML frontmatter above **is** the house token set. `scripts/tokens.mjs` generates `src/app/tokens.css` from it, and every stylesheet reads those variables. To change a token, change the frontmatter and run `node scripts/tokens.mjs`; never edit `tokens.css` by hand. The generator reads only two levels of `key: value` with scalar leaves and quoted strings, so keep the frontmatter inside that subset. The two shadow levels live in `src/app/globals.css` (`--shadow-1`, `--shadow-2`), because the generator has no shadow group.
 >
-> **Merged 2026-11-05, at the owner's request**, from `notion/DESIGN.md`. The Notion language had been adopted for the Wiki on the same day; it is now the house style. Before this, the field book was the design of the whole product.
+> **The history.** The Notion language was adopted for the Wiki on 2026-11-05 and, at the owner's request the same day, became the house style for the whole product. Before that, the product wore a surveyor's field book: cream paper, square corners, Martian Mono figures, Bai Jamjuree captions. The field book's *meanings* survived the change (§ 1, § 9); its look did not. The original Notion analysis, from which § 1–8 were merged, is kept in git history (`git log --diff-filter=D --stat` finds the commit that removed it), not in the tree.
 
 ## 1. Overview
 
@@ -116,7 +105,7 @@ Surfaces are defined by hairlines and the faintest layered shadows, never by hea
 
 **What carries over from the field book, everywhere.** These are product laws, not a look, so they survive the change of style:
 
-1. **Vermilion (`#A82A17`) means out of closure and nothing else.** It is not a brand colour, not a primary button, not a hover state and not an error colour. A screen with nothing out of tolerance shows no vermilion.
+1. **Vermilion (`#A82A17`) means out of closure and nothing else.** A misclosure is out of closure. So is a write that did not land: a failed save is an errata, and it is vermilion (owner's decision, 2026-11-05). It is not a brand colour, not a primary button, not a hover state, not deletion and not a validation hint. A screen with nothing out of tolerance and no failed write shows no vermilion.
 2. **Plan and reality are never drawn as one thing.** Where a surface shows an estimate and an actual, they stay visibly separate. § 9 is the full treatment.
 3. **The six tab hues say *whose* work it is, never how it is going.** They are module identity and are never repurposed as status, role or decoration.
 4. **The Thai rules in § 3 hold on every surface.**
@@ -154,19 +143,19 @@ Surfaces are defined by hairlines and the faintest layered shadows, never by hea
 
 | Role | Value | Use |
 |---|---|---|
-| Danger | `#C4362F` | Irreversible acts only: deleting something. The wash is `#FBECEB`, and the pressed state is `#A52C26`. |
+| Danger | `#C4362F` | Deleting something, and a refusal or validation message (a wrong password, a mismatch). The wash is `#FBECEB`, and the pressed state is `#A52C26`. |
 
 **Rules that bind**
 
 1. **One structural accent.** Blue is the only colour that paints an action or marks where you are. No second accent is introduced beside it.
-2. **Danger is not vermilion.** Deletion uses `#C4362F`, which is a different colour with a different meaning. Vermilion is kept for misclosure (§ 1, law 1).
+2. **Danger is not vermilion.** Deletion and refusals use `#C4362F`, which is a different colour with a different meaning. Vermilion is kept for misclosure and failed writes (§ 1, law 1). In CSS, a rule that uses `--color-vermilion` must have a selector naming `slip`, `failed`, `errata`, `over` or `late`; `tests/house-style.test.ts` holds every migrated stylesheet to it.
 3. **Colour is never the sole carrier.** A state readable only by its hue is a bug. Every coloured state also has a word, a weight or a shape.
 4. **Light only.** There is no dark theme. Notion's dark indigo "night" hero band is a marketing device, and this product has no use for it.
 5. **No decorative palette.** Notion's multicolour sticker palette belongs to its marketing site. Here, the six tab hues (§ 9) are the only extra colours, and they mean module identity.
 
 ## 3. Typography
 
-**Face.** Inter (`--font-wiki`) for Latin, then Anuphan (`--font-read`) for Thai, then `-apple-system, system-ui, 'Segoe UI', Helvetica, Arial`. Code uses `ui-monospace, SFMono-Regular, Menlo, Consolas`. OpenType `lnum` and `locl` are on. The Timeline keeps its own faces (§ 9).
+**Face.** Inter (`--font-sans`) for Latin, then Anuphan (`--font-read`) for Thai, then `-apple-system, system-ui, 'Segoe UI', Helvetica, Arial`. Both are loaded once, by `next/font` in the root layout (`src/app/layout.tsx`). Code uses `ui-monospace, SFMono-Regular, Menlo, Consolas` (`--font-mono`). OpenType `lnum` and `locl` are on. **Figures** (dates, durations, variance) are Inter with `font-variant-numeric: tabular-nums`, so they column-align without a monospace face.
 
 **Weights.** Body is 400, buttons are 500, and titles are 600–700. `font-synthesis-weight: none`. Anuphan is loaded up to 600, so a 700 heading takes Inter's real bold for Latin and Anuphan's 600 for Thai, never a smeared synthetic bold.
 
@@ -182,7 +171,7 @@ Surfaces are defined by hairlines and the faintest layered shadows, never by hea
 | Body | 15px | 400 | 1.5 | 0 | Default interface copy, dense rows. |
 | Button | 14–16px | 500 | 1.5 | 0 | Button labels. |
 | Caption | 13–14px | 400 | 1.43 | 0 | Metadata, footnotes. |
-| Eyebrow | 12px | 600 | 1.33 | +0.125px | Table header captions, small English labels. |
+| Eyebrow | 12px | 600 | 1.33 | +0.125px | Fixed English captions: the List's band, the Timeline's scale, small labels. Sentence case, never uppercase. A column head holds a user-written name, so it is 13px with no tracking. |
 
 **Thai discipline.** These rules override Notion wherever the two meet.
 
@@ -276,7 +265,7 @@ Shadows are many near-transparent layers, so a surface feels gently lifted off t
 **Don't**
 
 - Don't introduce a second accent colour, or paint an action in a tab hue.
-- Don't use vermilion for errors, deletion, brand or hover.
+- Don't use vermilion for validation errors, refusals, deletion, brand or hover. A failed write is the one error it names.
 - Don't drop heavy, single-layer shadows or use glassmorphism.
 - Don't put pill radii on fields.
 - Don't track, uppercase or set below 13px anything that can hold Thai.
@@ -284,11 +273,9 @@ Shadows are many near-transparent layers, so a surface feels gently lifted off t
 
 ---
 
-## 9. The Timeline — the field book, kept
+## 9. The meaning laws in the chart and the List
 
-The Timeline keeps the design it was built with. It is the surface where plan and reality are booked side by side, and every rule below exists to keep those two legible against each other. Restyling it to the house style would cost exactly that. The frontmatter tokens (`page`, `ink-*`, `vermilion`, `datum`, `tab-1`…`tab-6`) are its tokens.
-
-Around the Timeline (the header bar, the view switcher, menus, dialogs, and the project chrome), the house style applies. Inside the chart, this section applies.
+The product exists to show plan against reality. The house style decides how a screen looks; this section decides what may never be lost while it looks that way. It applies wherever an estimate meets an actual: the Timeline (`timeline/timeline.css`), All Timeline, the roster (`timeline/roster.css`, which imports the Timeline's bars), and the List (`list.css`). Around them, the header bar, toolbars, filters, menus and dialogs are plain house style.
 
 ### 9.1 The idea: the surveyor's T-Timeline
 
@@ -298,101 +285,106 @@ The product took the name on 2026-09-07. A levelling field book is the one every
 - At the end of the run they arrive at a point whose height is already known. The difference between what they computed and what is true is the **misclosure**.
 - The misclosure is written in red. It is never erased, and the run is never quietly adjusted to hide it.
 
-That is the Timeline. `estimate` is the booked plan, `actual` is the observed measurement, and the difference between them is a misclosure. The chart exists to show it, not absorb it. A parent's baseline against its children's roll-up is the same check one level up.
+`estimate` is the booked plan, `actual` is the observed measurement, and the difference between them is a misclosure. The chart exists to show it, not absorb it. A parent's baseline against its children's roll-up is the same check one level up. The field book's look is retired; this idea is not.
 
-**Staging: the carried object.** The selected node stays fixed and identical while the surrounding tool changes. Moving from List to Timeline does not navigate away from the task; it changes the instrument pointed at it. Selection, scroll anchor and expansion state survive the switch.
+**Staging: the carried object.** The selected node stays fixed and identical while the surrounding tool changes. Moving from List to Timeline does not navigate away from the task; it changes the instrument pointed at it. Selection, scroll anchor and expansion state survive the switch. Selection is a place, not a verdict, so it is drawn in the house blue wash with a 2px blue leading edge.
 
-### 9.2 Colours inside the chart
+### 9.2 The meaning tokens
 
-| Role | Token | Value | Use |
-|---|---|---|---|
-| Page | `page` | `#EDE5D2` | The chart's ground. |
-| Page edge | `page-edge` | `#DED2B6` | Non-working-day bands. |
-| Rule | `rule` | `#C58C7C` | Gridlines between rows and days. |
-| Major rule | `rule-major` | `#B0503C` | Week and month boundaries, the scale's closing rule. |
-| Graphite | `ink-graphite` | `#2A2622` | Values a person entered, including the baseline bracket. |
-| Graphite soft | `ink-graphite-soft` | `#6B6357` | Estimate bar outlines, scale captions, the roll-up bracket. |
-| Blue-black | `ink-blue` | `#24384F` | Values the system captured or derived: the actual bar. |
-| Blue-black soft | `ink-blue-soft` | `#5C7186` | The actual bar's hairline and secondary derived text. |
-| Vermilion | `vermilion` | `#A82A17` | **Misclosure only.** Overrun beyond the estimate, or a roll-up past its baseline. |
-| Vermilion wash | `vermilion-wash` | `#EED9CE` | The errata slip behind a misclosure figure. |
-| Datum | `datum` | `#1F4A3D` | Today's line. |
-| Tab 1–6 | `tab-1`…`tab-6` | see frontmatter | Module identity on the bars. |
+They sit in the frontmatter beside the house tokens, with frozen names and values.
 
-**Rules that bind inside the chart**
+| Token | Value | Meaning |
+|---|---|---|
+| `ink-graphite` | `#2A2622` | A value a person entered: an entered date in a cell, the baseline bracket. |
+| `ink-blue` | `#24384F` | A value the system captured or derived: the actual bar, a derived cell. |
+| `ink-blue-soft` | `#5C7186` | The derived ink's secondary weight: the actual bar's hairline, secondary derived text. |
+| `vermilion` | `#A82A17` | **Out of closure only:** an overrun, a roll-up past its baseline, a failed write. |
+| `vermilion-wash` | `#EED9CE` | The slip or errata band behind a vermilion figure or message. |
+| `datum` | `#1F4A3D` | Today. |
+| `tab-1`…`tab-6` | see frontmatter | Module identity. |
 
-1. **Vermilion is never decoration.** If red appears where nothing is out of tolerance, the chart is lying.
-2. **Two inks carry meaning.** Graphite means a person put it there. Blue-black means the system derived or captured it. A user overriding an automatic actual turns it from blue-black to graphite, so the colour change *is* the audit trail.
+Headings, labels and body copy that nobody entered as a value use the house ink, not graphite. Graphite and blue-black are for *values*, and they read as two inks next to each other in a row.
+
+### 9.3 The laws, as drawn
+
+1. **Vermilion is never decoration.** If red appears where nothing is out of tolerance and no write failed, the screen is lying.
+   - In the chart: only the overhang of a roll-up bracket past its baseline (`.brk.over`), the signed overrun figure (`.over-fig`), and on the roster the 3px trailing edge of an actual that ran past its plan (`.rs-late`).
+   - In the List: the misclosure slip (`.slip`), a cell whose save failed (`td.failed`), and the errata bands (`.errata`, `.title-errata`).
+   - In the task modal, profile, `/people` and the auth pages: only the band that says a save did not land. Wrong credentials, mismatches and validation hints are danger red.
+   - Overload on the roster (a person holding four things at once) is **not** vermilion. It is a fact about a schedule, not a measurement that failed a check.
+2. **Two inks carry the audit trail.** Graphite means a person put it there; blue-black means the system derived or captured it. A user overriding an automatic actual turns it from blue-black to graphite, so the colour change *is* the audit trail. In the List, `.entered` and `.computed` hold the two, and the band's Estimate and Actual captions take the same two inks.
 3. **Tab hues say *whose*, never *how it is going*.**
-   - A module's hue appears as the leading 3px of both bars, and mixed into the bars' fills.
-   - It is always mixed into the page or the ink, never used raw. A raw `tab-1` lands close enough to vermilion to be misread.
-   - `tests/e2e/acceptance.test.ts` A8 computes that distance, and fails if the mix is removed.
+   - They are always mixed into the canvas or the ink, never laid down raw. A raw `tab-1` lands close enough to vermilion to be misread; `tests/e2e/acceptance.test.ts` A8 computes that distance and fails if the mix is removed.
+   - They are never a row tint, a status, a role or a decoration.
+4. **A chosen option is stated in its own colour.** An option chip (status and selects) is a small house chip, not a pastel pill:
+   - a 4px radius, 22px tall;
+   - its hue mixed 17% into the canvas;
+   - a 2px leading mark of the full hue, so it still reads as a chip in greyscale;
+   - a label of the hue mixed halfway toward the house charcoal, which clears 4.5:1 on all six hues;
+   - 13px and no tracking, because labels are Thai.
+5. **Colour is never the sole carrier.** Estimate and actual differ by *position, height and fill* before they differ by ink. A misclosure carries a `+`/`−` sign and a figure, not only red.
 
-   (Amended 2026-09-07, at the user's request, to let hue into the field at all. The amendment kept hue mixed and corners square.)
+### 9.4 Bars and marks in the chart
 
-   **3b. A chosen option is stated in its own colour.** Where an option chip is drawn inside the chart, it is a square-cornered chip:
-   - its hue mixed 17% into the page;
-   - a 2px bar of the full hue on its leading edge;
-   - a label darkened toward graphite until it clears 4.5:1.
+- **The estimate bar** sits above, 9px tall: a 1px border of the module hue mixed toward Stone, a fill of the hue at 26% in the canvas, and a 45° pencil hatch over it. Pencil, not ink.
+- **The actual bar** sits below, 11px tall: solid, the module hue mixed 60% into `ink-blue` so it stays ink rather than a bright block, with a hairline of the hue mixed toward `ink-blue-soft`.
+- **A8 reads these two rules** (`.bar.est`, `.bar.act`) as the first of their kind in `timeline.css`. Nothing may precede them with an override.
+- **Radius.** Bars round at 3px at most (guarded). A full pill at 9px tall eats the leading edge, and the leading edge is where a run starts.
+- **The leading 3px** of each bar is the module hue mixed 45% into `ink-blue`, deeper than either fill.
+- **A milestone** (an end with no start, D-12) is a 9px diamond: hollow for a plan, filled for a record.
+- **Non-working days** are a paper (`#F6F5F4`) band behind every bar, running the full height. Bars cross it rather than breaking, because the product stores calendar dates and computes working days as a lens.
+- **Today** is a 1px `datum` rule, capped in the scale in datum ink. Not blue: blue means action.
+- **The baseline mark.** A parent's hand-entered baseline is a graphite bracket above its row. Its children's roll-up extent is a lighter Stone bracket below. Where the roll-up overhangs the baseline, that overhang alone is vermilion, with the signed figure beside it.
+- **Dragging a bar** tracks the pointer 1:1 with no transition, then snaps to its day on release. A dashed ghost holds the original position while dragging.
+- **Rows** are 34px in the chart, and module rows 44px. A module row's name cell takes a 9% wash of its hue and a 3px spine. The scale's month captions are the eyebrow (12px/600, sentence case), and day numbers are 11px tabular Inter.
+- **Motion** is the house's: 120ms ease on controls. There is no `steps(2)`.
 
-   It is not a pastel pill.
-4. **Light only.**
-5. **Colour is never the sole carrier.** Estimate and actual differ by *position and height* before they differ by ink. Misclosure carries a `+`/`−` sign and a figure, not only red.
+### 9.5 The List
 
-### 9.3 Type inside the chart
+- **An airy table.** Rows are 40px, cells pad `8px 12px`, rows part on hairlines, and no rule is drawn between columns. Row text is 14–15px. Column heads are 13px on paper, because a column's name is user-written and can be Thai.
+- **The Estimate / Actual / Variance band** stays above the column heads as a grouped header. It is the only thing on the page that says which dates are the plan and which are the record.
+- **Estimate and actual are separate columns**, in the two inks.
+- **The misclosure** is a vermilion slip with a signed figure: a 4px radius on the vermilion wash, never a pastel pill.
+- **Module identity** is the chip on the module row and a 2px hairline of the mixed hue down the indent, never a row tint.
+- **No zebra striping, and no row tint by status.** Hover is the house hover ground; selection is the blue wash.
 
-- **Martian Mono** is for figures: dates, durations, misclosure values. It is tabular (`tnum`), so numbers align by construction.
-- **Bai Jamjuree** is for the date scale's captions. It is set in English caps at label size with `0.13em` tracking, and never applied to Thai.
-- **Anuphan** is for task names on rows.
-- The Thai rules (§ 3) hold.
-
-### 9.4 Shapes and marks
-
-- **The chart is square.** Bars, slips, brackets and bands have no radius. A ruled book has no rounded corners.
-- **The estimate bar.** It sits above the actual bar in the same row, with a 2px gap between them.
-  - 9px tall.
-  - A 1px `ink-graphite-soft` outline.
-  - A 45° hatch fill at 12%: pencil, not ink.
-- **The actual bar.** It sits below the estimate bar.
-  - 13px tall.
-  - A solid `ink-blue` fill, mixed with the module hue as rule 3 describes.
-- **The leading 3px** of each bar is the module's tab hue, mixed.
-- **Non-working days.** A `page-edge` vertical band runs the full height of the run behind all bars. Bars cross it visibly rather than breaking, because the product stores calendar dates and computes working days as a lens.
-- **Today.** A 1px `datum` vertical rule, with the date in a small-caps label at its head.
-- **The baseline mark.**
-  - A parent's hand-entered baseline is a graphite bracket drawn above its row: two vertical ticks joined by a hairline.
-  - Its children's roll-up extent is a second, lighter bracket.
-  - Where the roll-up bracket overhangs the baseline, that overhang alone is vermilion.
-- **The misclosure slip.** A `vermilion-wash` slip carrying a signed figure in vermilion Martian Mono, such as `+4d` or `−2d`. It is inset like an errata slip pasted into a book, and never fills edge to edge.
-- **Depth is ply, not blur.** Inside the chart, a selected row takes a 1px graphite box rather than a lift, and nothing casts a shadow.
-
-### 9.5 Motion and behaviour
-
-- **Dragging a bar** tracks the pointer at 1:1 with no smoothing, then steps to its snapped day on release.
-- **Other state changes in the chart** are a two-frame step at 90ms (`steps(2)`). Nothing eases and nothing fades. `prefers-reduced-motion` applies the end state at once.
-- **The Timeline never reflows to vertical.** On a narrow screen it scrolls, with the date scale pinned.
-- **The chrome holds the viewport, and only the run scrolls**, so the scale, the project name and the view tabs stay on their edges at row 174.
-
-### 9.6 Do's and Don'ts inside the chart
+### 9.6 Do's and Don'ts
 
 - Do keep graphite for human entry and blue-black for machine derivation.
-- Do set every figure in tabular Martian Mono.
+- Do set every figure in tabular Inter.
 - Do keep estimate above actual, and draw them as different shapes, not only different inks.
-- Don't use vermilion for anything not out of tolerance. Breaking this rule destroys the product's meaning.
-- Don't round a bar, a slip or a band.
+- Don't use vermilion for anything that is not out of closure or a failed write. Breaking this rule destroys the product's meaning.
+- Don't round a bar past 3px, or turn a slip or a chip into a pastel pill.
 - Don't use a raw tab hue, or let one tint a row's ground.
-- Don't redraw the chart in the house style's blue: blue is action, and nothing in the chart is a button.
+- Don't draw a bar in the house blue: blue is action, and a bar is a measurement.
 
 ---
 
-## 10. Migration status
+## 10. Status after the migration
 
-This merge changed the document only. As of 2026-11-05, these surfaces still wear an earlier look in code, and are expected to move to the house style when they are next touched:
+The restyle to the house style finished on 2026-11-05. Every surface below reads the generated tokens, and none carries a private palette.
 
-- **List view.** It wears the field book and the ClickUp-style sheet (`list.css`, the `--cu-*` palette). Its chips, misclosure column and ink law are plan-against-reality marks, and they keep their meaning (§ 1 laws). The rest of its chrome moves to the house style.
-- **Docs.** It wears the Docs sheet (`docs.css`, `editor.css`). It moves by the same variable rebinding the Wiki uses.
-- **`/people`.** It wears the List sheet, with roles shown by weight and italics, never hue.
-- **Auth pages** (`/sign-in`, `/set-password`, `/change-password`). They wear a split card with an indigo field (`auth.css`), and indigo `#2B3A8F` is the old product base (`--brand` in `globals.css`). Under the house style, the base blue is `#0075DE`.
-- **The public `/w/` link.** It wears the Docs sheet.
+- **Tokens.** The frontmatter is the house set plus the meaning tokens. The field book's tokens (`page`, `page-edge`, `board`, `rule`, `rule-major`, `ink-graphite-soft`, the `none` and `hole` radii, the `row` space) and its faces (Martian Mono, Bai Jamjuree, and the `--font-struct` and `--font-figure` bridges) are retired. `tests/house-style.test.ts` fails if any of them comes back.
+- **Fonts.** Inter (`--font-sans`) and Anuphan (`--font-read`) are loaded once, in the root layout.
+- **Shell and shelf.** A white header bar on paper. The primary action is a blue pill.
+- **List.** The airy table of § 9.5: 40px rows, chips mixed 17% with a 2px leading mark, 13px column heads.
+- **Timeline and All Timeline.** House chrome around the bars of § 9.4: the estimate 9px and hatched above, the actual 11px and solid below, radius ≤ 3px, today in datum, non-working days on paper.
+- **The task modal** (opened from All Timeline and from the Calendar) is a house dialog: a 16px radius, the level-2 shadow and a primary pill.
+- **Docs, Wiki and the published links** (`/d/`, `/w/`) share one skin on `.book.docs-book`, which binds the sheet's local names to the house tokens. Deleting a page draws in danger.
+- **`/people`, profile, project settings, report, the bell and the invite link** are house panels, tables, fields and buttons. Roles on `/people` are weight and italics, never a hue. Deletion is danger.
+- **Auth pages** (`/sign-in`, `/set-password`, `/change-password`) are a centred white panel on paper with a 16px radius and the level-2 shadow. Refusals are danger; a write that did not land is the vermilion errata.
+- **Figures** are Inter with `tabular-nums` everywhere. **Labels** are the eyebrow, never uppercase.
 
-The Wiki is already in the house style: `.wiki-book` in `src/app/(signed-in)/wiki/wiki.css`, loaded with Inter in `src/app/(signed-in)/wiki/layout.tsx`.
+**What guards it.** `tests/house-style.test.ts` (static, in `npm run check`); `tests/e2e/house-style.browser.test.ts` (no sideways scroll at 390px, a white header and a visible focus ring at 1440px, deletion in danger); acceptance A8 (the bar distinction and the hue distance); and `npm run test:calendar-look` (§ 11).
+
+---
+
+## 11. Calendar — a scoped exception
+
+The Calendar view (`src/app/(signed-in)/p/[slug]/calendar/`) keeps its Google-Calendar look: its own header with the calendar logo, the mini-month sidebar, round day buttons, and the day, week and month grid in its own blue (`#245FC4`) on `#F8FAFD`. **This is the owner's decision, made on 2026-11-05**, when the rest of the product moved to the house style. People read a calendar by the conventions of the one they already use, and this view trades consistency for that recognition.
+
+- **What is fixed.** `calendar.css` and the Calendar's markup do not change. The stylesheet may only gain *pins* inside `.cal-page`: rules that restate what it used to inherit from the old base (its face, leading, square controls and selection colour), so that changes to `globals.css` do not reach it.
+- **What still applies.** The meaning laws hold here too. Estimate and actual stay separate (a dashed outline against a solid fill), a module's hue identifies the module and never its status, and the Thai rules hold.
+- **What follows the house style.** The pieces the Calendar shares with the rest of the product: the notification bell, and the task modal it opens.
+- **What guards it.** `tests/e2e/calendar-look.browser.test.ts` (`npm run test:calendar-look`) compares the Calendar's computed look against a pinned fixture. Never regenerate that fixture to make a change pass: a difference means the exception has drifted.
+- **What it is exempt from.** The house-style guard's retired-token check skips `calendar.css`.

@@ -23,7 +23,8 @@
   border: 1px solid var(--cu-line, var(--color-field-line));
   border-radius: var(--cu-r, var(--radius-xs));
   color: var(--cu-ink, var(--color-ink));
-  font-family: var(--font-figure), ui-monospace, monospace;
+  font-family: var(--type-figure-family);
+  font-variant-numeric: tabular-nums;
   font-size: 11.5px;
   word-break: break-all;
 }

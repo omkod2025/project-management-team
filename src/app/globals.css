@@ -48,12 +48,6 @@
      the root layout. Inter has no Thai, so the `--type-*-family` stacks fall
      through to Anuphan for Thai glyphs. Code takes the system mono. */
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-
-  /* Temporary bridges for the field book's faces, retired in the restyle's
-     last task. Thai still falls through to Anuphan (`--font-read`) for
-     structural and figure text, exactly as the body face does. */
-  --font-struct: var(--font-sans), var(--font-read);
-  --font-figure: var(--font-sans), var(--font-read);
 }
 
 *,
@@ -83,7 +77,11 @@ body {
 }
 
 /* The eyebrow: small and semibold, never capitalised. Its slight tracking is
-   for Latin chrome; `:lang(th)` above takes it back to normal for Thai. */
+   for fixed English chrome only. `:lang(th)` above does not rescue it: it
+   matches only elements that carry `lang="th"`, and few do (the root is
+   `lang="en"`). So a `.label` that can hold user-written text — a column
+   name, a field label — must set `letter-spacing: normal` in its own rule,
+   as the List's heads do. */
 .label {
   font-family: var(--type-label-family);
   font-size: var(--type-label-size);
@@ -101,7 +99,7 @@ body {
 
 /* The page is the container: filled to its edges, never a centred column. */
 .page {
-  background: var(--color-page);
+  background: var(--color-canvas);
   min-height: 100vh;
   max-width: 1440px;
   margin: 0 auto;

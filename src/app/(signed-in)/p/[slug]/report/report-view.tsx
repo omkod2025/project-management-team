@@ -148,9 +148,9 @@ export default function ReportView({ projectName, slug, rows, fields, people, st
           <Bell />
           <div className="views label">
             <a href={`/p/${slug}`}>List</a>
-            <span style={{ color: 'var(--color-rule)' }}>·</span>
+            <span style={{ color: 'var(--color-hairline)' }}>·</span>
             <a href={`/p/${slug}/timeline`}>Timeline</a>
-            <span style={{ color: 'var(--color-rule)' }}>·</span>
+            <span style={{ color: 'var(--color-hairline)' }}>·</span>
             <span aria-current="page">Report</span>
             <a href={`/p/${slug}/docs`}>Docs</a>
           </div>

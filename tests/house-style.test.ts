@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 /**
@@ -292,4 +292,48 @@ test('auth refusals are danger; vermilion is only the unsaved-write band', () =>
   const failedWrite = blocks.find((b) => b.selector === '.auth-errata--failed-write');
   assert.ok(failedWrite, 'auth.css has no `.auth-errata--failed-write` rule');
   assert.match(failedWrite!.body, /--color-vermilion\b/, 'the failed-write band no longer carries the misclosure colour');
+});
+
+/** Every file under `dir`, recursively, as repo-relative paths. */
+function walk(dir: string): string[] {
+  return readdirSync(root + dir, { recursive: true, withFileTypes: true })
+    .filter((e) => e.isFile())
+    .map((e) => `${e.parentPath.slice(root.length).replaceAll('\\', '/')}/${e.name}`);
+}
+
+/**
+ * The field book's tokens were kept as aliases while the restyle moved
+ * surface by surface; the last task retired them. A use left behind would
+ * resolve to nothing and silently fall back to the browser default. The
+ * Calendar's own sheet is exempt: it pins its old look inside `.cal-page`.
+ */
+test('no retired token survives', () => {
+  const retired = [
+    '--color-page)', '--color-page-edge', '--color-board', '--color-rule)', '--color-rule-major',
+    '--color-ink-graphite-soft', '--radius-none', '--radius-hole', '--space-row',
+    '--font-struct', '--font-figure',
+  ];
+  const offenders: string[] = [];
+  for (const path of walk('src/app')) {
+    if (path.endsWith('/calendar.css') || path === 'src/app/tokens.css' || !/\.(css|tsx?)$/.test(path)) continue;
+    const text = read(path);
+    for (const token of retired) if (text.includes(token)) offenders.push(`${path}: ${token}`);
+  }
+  assert.deepEqual(offenders, [], `retired tokens still in use:\n${offenders.join('\n')}`);
+
+  const tokens = read('src/app/tokens.css');
+  for (const token of retired) {
+    const name = token.replace(/\)$/, '');
+    assert.doesNotMatch(tokens, new RegExp(`${name}:`), `tokens.css still defines ${name}`);
+  }
+});
+
+test('nothing points at the retired Notion analysis folder', () => {
+  // Built, not written, so this file does not match itself.
+  const folder = ['notion', ''].join('/');
+  const offenders = [
+    'CLAUDE.md', 'DESIGN.md', 'PRODUCT.md',
+    ...walk('src'), ...walk('tests'), ...walk('docs/spec'), ...walk('docs/guides'),
+  ].filter((path) => read(path).includes(folder));
+  assert.deepEqual(offenders, [], `files still pointing at ${folder}:\n${offenders.join('\n')}`);
 });

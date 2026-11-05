@@ -27,12 +27,6 @@
   --color-tab-4: #2E6E74;
   --color-tab-5: #3A5A94;
   --color-tab-6: #6B4A87;
-  --color-page: #FFFFFF;
-  --color-page-edge: #F6F5F4;
-  --color-board: #F6F5F4;
-  --color-rule: #E6E6E6;
-  --color-rule-major: #E6E6E6;
-  --color-ink-graphite-soft: #615D59;
   --color-ink-blue-soft: #5C7186;
 
   --radius-xs: 4px;
@@ -41,8 +35,6 @@
   --radius-lg: 12px;
   --radius-xl: 16px;
   --radius-full: 9999px;
-  --radius-none: 0px;
-  --radius-hole: 50%;
 
   --space-xxs: 4px;
   --space-xs: 8px;
@@ -51,7 +43,6 @@
   --space-lg: 24px;
   --space-xl: 28px;
   --space-xxl: 32px;
-  --space-row: 34px;
 
   --type-headline-family: var(--font-sans), var(--font-read), -apple-system, system-ui, 'Segoe UI', Helvetica, Arial, sans-serif;
   --type-headline-size: 22px;
