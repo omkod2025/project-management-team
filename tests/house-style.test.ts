@@ -36,6 +36,7 @@ const MIGRATED: string[] = [
   'src/app/(signed-in)/profile/profile.css',
   'src/app/(signed-in)/p/[slug]/settings/settings.css',
   'src/app/(signed-in)/p/[slug]/report/report.css',
+  'src/app/auth.css',
 ];
 
 const root = fileURLToPath(new URL('..', import.meta.url));
@@ -265,4 +266,19 @@ test('Docs and Wiki share one skin on .docs-book', () => {
   assert.ok(book, 'docs.css has no `.book.docs-book` rule');
   assert.match(book!.body, /--brand:\s*var\(--color-primary\)/);
   assert.match(book!.body, /--cu-ground:\s*var\(--color-paper\)/);
+});
+
+const AUTH = 'src/app/auth.css';
+
+test('auth has no indigo field', () => {
+  const css = read(AUTH);
+  const rules = stripComments(css);
+  assert.doesNotMatch(rules, /#2B3A8F/i, 'auth.css still carries the indigo field colour');
+  const page = ruleBlocks(rules).find((b) => b.selector === '.auth');
+  assert.ok(page, 'auth.css has no `.auth` page-root rule');
+  assert.doesNotMatch(page!.body, /--brand-deep/, 'the page root still backs onto the indigo brand colour');
+  const card = ruleBlocks(rules).find((b) => b.selector === '.auth-card');
+  assert.ok(card, 'auth.css has no `.auth-card` rule');
+  assert.match(card!.body, /border-radius:\s*var\(--radius-xl\)/, 'the card is not the house xl radius');
+  assert.match(card!.body, /box-shadow:[^;]*var\(--shadow-2\)/, 'the card does not carry the house shadow-2');
 });
