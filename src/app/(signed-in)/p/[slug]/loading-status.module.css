@@ -4,7 +4,7 @@
   justify-content: center;
   gap: 10px;
   padding: 16px;
-  color: #525866;
+  color: var(--color-ink-muted);
   font-size: 14px;
 }
 .spinner {
@@ -12,8 +12,8 @@
   width: 18px;
   height: 18px;
   flex-shrink: 0;
-  border: 2px solid #e4e7f0;
-  border-top-color: #525866;
+  border: 2px solid var(--color-hairline);
+  border-top-color: var(--color-ink-muted);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }

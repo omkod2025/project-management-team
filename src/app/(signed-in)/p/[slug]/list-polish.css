@@ -1,56 +1,44 @@
-/* Calendar-aligned List chrome, requested 2026-10-15. Local refinement of
-   the existing List: date semantics, module hues and the editable grid stay.
-   Scoped so loading states match without restyling Timeline or Settings. */
+/* The List's page chrome in the house style (DESIGN.md): a white head over
+   paper, the table laid on that paper as a white panel with a 12px radius and
+   a hairline edge — the way the Wiki draws its tables. Scoped to the List and
+   Defect pages so the Timeline and Settings keep their own chrome until their
+   own restyle. Date semantics, module hues and the editable grid are untouched;
+   the colour vocabulary itself is bound to the house tokens in list.css. */
 .list-surface {
-  --cu-canvas: #f8fafd;
-  --cu-line: #dfe4e9;
-  --cu-line-soft: #edf0f4;
-  --cu-ink: #263238;
-  --cu-ink-soft: #68737d;
-  --cu-ink-faint: #68737d;
-  --cu-hover: #eaf0f7;
-  --cu-chip: #dee8fa;
-  --cu-r: 8px;
-  --cu-r-lg: 12px;
-  --list-accent: #245fc4;
-  background: var(--cu-canvas);
+  --list-accent: var(--brand);
+  background: var(--color-paper);
   caret-color: var(--list-accent);
-  scrollbar-color: #b8c3d2 var(--cu-canvas);
+  scrollbar-color: var(--color-field-line) var(--color-paper);
 }
-.list-surface ::selection { color: #204d94; background: #dee8fa; }
+.list-surface ::selection { color: var(--color-primary-active); background: var(--color-primary-wash); }
 .list-surface :focus-visible { outline: 2px solid var(--list-accent); outline-offset: 2px; }
-.list-surface .rail { background: var(--cu-canvas); padding-top: 80px; }
-.list-surface .head { min-height: 80px; padding: 14px 20px; gap: 14px; flex-shrink: 0; }
-.list-surface .head h1 { font-size: 22px; font-weight: 500; letter-spacing: normal; overflow-wrap: anywhere; }
+.list-surface .rail { background: var(--color-paper); padding-top: 80px; }
+.list-surface .sheet { background: var(--color-paper); }
+.list-surface .head { min-height: 80px; padding: 14px 20px; gap: 14px; flex-shrink: 0; background: var(--color-canvas); }
+.list-surface .head h1 { font-size: 22px; font-weight: 700; line-height: 1.25; letter-spacing: normal; overflow-wrap: anywhere; }
 .list-surface .title-holder { flex: 1; }
 .list-surface .head .bell { margin-left: auto; flex-shrink: 0; }
-.list-surface .shelf { height: 34px; border-color: transparent; background: transparent; font-size: 13px; border-radius: 18px; }
-.list-surface .views { gap: 5px; flex-shrink: 0; }
+.list-surface .shelf { height: 32px; border-color: transparent; background: transparent; font-size: 14px; border-radius: var(--radius-sm); }
+.list-surface .shelf:hover { background: var(--color-paper); }
+.list-surface .views { gap: 4px; flex-shrink: 0; }
 .list-surface .views a,
-.list-surface .views span { height: 34px; padding: 0 11px; border-radius: 18px; }
-.list-surface .views [aria-current='page'] { background: #dee8fa; color: #204d94; box-shadow: none; }
+.list-surface .views span { height: 32px; padding: 0 12px; border-radius: var(--radius-sm); font-size: 14px; }
+.list-surface .views a:hover { background: var(--color-paper); }
+.list-surface .views [aria-current='page'] { background: var(--color-primary-wash); color: var(--color-primary-active); box-shadow: none; }
 .list-surface .list-kind-tabs { gap: 4px; padding: 16px 20px 0; border: 0; }
-.list-surface .list-kind-tabs a { padding: 8px 18px; border: 0; border-radius: 20px; font-size: 13px; letter-spacing: normal; text-transform: none; }
-.list-surface .list-kind-tabs a:hover { background: var(--cu-hover); }
-.list-surface .list-kind-tabs a[aria-current='page'] { color: #204d94; background: #dee8fa; }
-.list-surface .toolbar { gap: 10px; padding: 14px 20px; border: 0; flex-wrap: wrap; flex-shrink: 0; }
-.list-surface .search { height: 36px; background: #edf1f7; border-color: transparent; border-radius: 8px; color: var(--cu-ink); }
-.list-surface .search::placeholder { color: var(--cu-ink-soft); opacity: 1; }
-.list-surface .search:focus { outline: 2px solid var(--list-accent); outline-offset: 2px; }
-.list-surface .sortby-open,
-.list-surface .toolbar-add { min-height: 34px; border-radius: 18px; padding: 0 14px; font-size: 13px; border-color: #c5ccd5; color: var(--cu-ink); }
-.list-surface .toolbar-add { background: #dee8fa; border-color: transparent; color: #204d94; font-weight: 500; }
-.list-surface .toolbar-add:hover { background: #ceddf7; }
-.list-surface .sortby-panel { border-radius: 12px; background: #fff; padding: 14px; }
-.list-surface .pagebody { position: relative; margin: 0 18px 12px; background: #fff; border: 1px solid var(--cu-line); border-radius: 16px; overflow: hidden; }
-.list-surface .scroller { background: #fff; }
-.list-surface .run thead th { background: #f8fafd; }
-.list-surface .run tbody tr[aria-selected='true'] td { background: #edf3fc; }
+.list-surface .list-kind-tabs a { padding: 6px 14px; border: 0; border-radius: var(--radius-full); font-size: 14px; font-weight: 500; letter-spacing: normal; text-transform: none; }
+.list-surface .list-kind-tabs a:hover { background: color-mix(in srgb, var(--color-ink) 5%, transparent); }
+.list-surface .list-kind-tabs a[aria-current='page'] { color: var(--color-ink); background: var(--color-canvas); box-shadow: var(--shadow-1); }
+.list-surface .toolbar { gap: 10px; padding: 12px 20px; border: 0; flex-wrap: wrap; flex-shrink: 0; font-size: 13px; }
+.list-surface .search { height: 32px; background: var(--color-canvas); border: 1px solid var(--color-field-line); border-radius: var(--radius-sm); color: var(--color-ink); font-size: 14px; }
+.list-surface .search::placeholder { color: var(--color-ink-faint); opacity: 1; }
+.list-surface .search:focus { border-color: var(--list-accent); outline: 2px solid var(--brand-glow); outline-offset: 0; }
+.list-surface .pagebody { position: relative; margin: 0 20px 12px; background: var(--color-canvas); border: 1px solid var(--color-hairline); border-radius: var(--radius-lg); overflow: hidden; }
+.list-surface .scroller { background: var(--color-canvas); }
 .list-surface .keys { padding: 0 20px 12px; border: 0; background: transparent; flex-wrap: wrap; }
-.list-surface .rowact { width: 28px; height: 28px; border-radius: 6px; }
-.list-surface .overleaf { border-radius: 16px; }
-.list-surface .overleaf-actions button { min-height: 36px; border-radius: 18px; padding: 0 16px; }
-.list-surface .undo { margin: 0 18px 12px; border-radius: 8px; }
+/* 24px, so a row's actions sit inside the 40px row and its 8px padding. */
+.list-surface .rowact { width: 24px; height: 24px; border-radius: var(--radius-xs); }
+.list-surface .undo { margin: 0 20px 12px; border-radius: var(--radius-md); }
 @media (max-width: 1100px) {
   .list-surface .head { flex-wrap: wrap; gap: 10px; }
   .list-surface .views { order: 5; width: 100%; margin-left: 0; flex-wrap: wrap; }
@@ -58,16 +46,16 @@
 }
 @media (max-width: 600px) {
   .list-surface .rail { display: none; }
-  .list-surface .head { padding: 12px; }
+  .list-surface .head { padding: 12px 16px; }
   .list-surface .head h1 { font-size: 18px; }
-  .list-surface .head > .shelf:last-child { font-size: 12px; padding: 0 6px; }
+  .list-surface .head > .shelf:last-child { font-size: 13px; padding: 0 6px; }
   .list-surface .views { gap: 2px; }
   .list-surface .views a, .list-surface .views span { padding: 0 10px; }
-  .list-surface .list-kind-tabs { padding: 12px 12px 0; }
-  .list-surface .toolbar { padding: 12px; gap: 8px; }
+  .list-surface .list-kind-tabs { padding: 12px 16px 0; }
+  .list-surface .toolbar { padding: 12px 16px; gap: 8px; }
   .list-surface .search { flex: 1; min-width: 140px; width: auto; }
   .list-surface .count-of { white-space: nowrap; }
-  .list-surface .pagebody { margin: 0 8px 8px; border-radius: 12px; }
+  .list-surface .pagebody { margin: 0 8px 8px; border-radius: var(--radius-md); }
   /* The sticky name column must leave its actions inside a phone viewport.
      Column widths originate as inline values in both grid colgroups. */
   .list-surface .run col:first-child { width: 340px !important; }

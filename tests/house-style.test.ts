@@ -19,6 +19,11 @@ const MIGRATED: string[] = [
   'src/app/(signed-in)/shelf.css',
   'src/app/(signed-in)/bell.css',
   'src/app/(signed-in)/invite-link.css',
+  'src/app/(signed-in)/p/[slug]/list.css',
+  'src/app/(signed-in)/p/[slug]/list-polish.css',
+  'src/app/(signed-in)/p/[slug]/file-field.css',
+  'src/app/(signed-in)/p/[slug]/image-field.css',
+  'src/app/(signed-in)/p/[slug]/loading-status.module.css',
 ];
 
 const root = fileURLToPath(new URL('..', import.meta.url));
@@ -124,4 +129,35 @@ test('calendar is pinned', () => {
   const css = read('src/app/(signed-in)/p/[slug]/calendar/calendar.css');
   const page = ruleBlocks(css).filter((b) => b.selector === '.cal-page');
   assert.ok(page.some((b) => /font-family\s*:/.test(b.body)), '.cal-page declares no font-family');
+});
+
+const LIST = 'src/app/(signed-in)/p/[slug]/list.css';
+
+test('list rows are airy', () => {
+  const blocks = ruleBlocks(read(LIST));
+  const body = blocks.find((b) => b.selector === '.run tbody td');
+  assert.ok(body, 'list.css has no `.run tbody td` rule');
+  const height = /(?:^|[;\s])(?:min-)?height:\s*(\d+(?:\.\d+)?)px/.exec(body!.body);
+  assert.ok(height, '`.run tbody td` sets no row height');
+  const px = Number(height![1]);
+  assert.ok(px >= 36 && px <= 40, `body rows are ${px}px, not 36–40px`);
+  const size = /font-size:\s*(\d+(?:\.\d+)?)px/.exec(body!.body);
+  assert.ok(size, '`.run tbody td` sets no row text size');
+  assert.ok(['14', '15'].includes(size![1]!), `row text is ${size![1]}px, not 14px or 15px`);
+});
+
+test('option chip survives greyscale and is not a raw fill', () => {
+  const pill = ruleBlocks(read(LIST)).find((b) => b.selector === '.pill');
+  assert.ok(pill, 'list.css has no `.pill` rule');
+  assert.doesNotMatch(pill!.body, /color:\s*#fff/i, 'the chip label is white on a raw fill');
+  assert.match(pill!.body, /background:\s*color-mix\([^;]*var\(--opt-hue\)/, 'the chip fill is not mixed');
+  assert.match(pill!.body,
+    /box-shadow:\s*inset 2px 0 0[^;]*var\(--opt-hue\)|border-left:\s*2px solid[^;]*var\(--opt-hue\)/,
+    'the chip has no leading mark of its hue');
+});
+
+test('entered and derived inks stay apart', () => {
+  const rules = stripComments(read(LIST));
+  assert.match(rules, /--color-ink-graphite/);
+  assert.match(rules, /--color-ink-blue/);
 });

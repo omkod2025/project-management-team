@@ -11,8 +11,21 @@ import { setup, signIn, BASE_URL, type Fixture } from '../helpers/harness.ts';
  * primary action — run against every migrated screen without this file
  * needing to know which task added which page.
  */
-export const PAGES: Array<{ name: string; path: (fx: Fixture) => string }> = [
+export const PAGES: Array<{
+  name: string;
+  path: (fx: Fixture) => string | Promise<string>;
+  /** The page's primary action, when it is not the house's shared class. */
+  primary?: string;
+}> = [
   { name: 'shelf', path: () => '/' },
+  {
+    name: 'list',
+    path: async (fx) => {
+      const { rows } = await fx.client.query('SELECT project_slug FROM pmt_projects WHERE project_id=$1', [fx.projectId]);
+      return `/p/${rows[0].project_slug}`;
+    },
+    primary: '.toolbar-add',
+  },
 ];
 
 const cookiesFor = (header: string) => header.split('; ').map((pair) => {
@@ -20,13 +33,13 @@ const cookiesFor = (header: string) => header.split('; ').map((pair) => {
   return { name: pair.slice(0, at), value: pair.slice(at + 1), url: BASE_URL };
 });
 
-async function reachPrimaryByTab(page: import('@playwright/test').Page): Promise<boolean> {
-  for (let i = 0; i < 20; i++) {
+async function reachPrimaryByTab(page: import('@playwright/test').Page, primary = '.sh-btn-primary, .docs-primary'): Promise<boolean> {
+  for (let i = 0; i < 40; i++) {
     await page.keyboard.press('Tab');
-    const onPrimary = await page.evaluate(() => {
+    const onPrimary = await page.evaluate((selector) => {
       const el = document.activeElement;
-      return !!el && (el.matches('.sh-btn-primary') || el.matches('.docs-primary'));
-    });
+      return !!el && el.matches(selector);
+    }, primary);
     if (onPrimary) return true;
   }
   return false;
@@ -39,8 +52,8 @@ test('shell, shelf and bell hold the house style', async () => {
     const admin = await signIn(fx.admin.email, fx.admin.password);
     browser = await chromium.launch({ channel: 'msedge', headless: true });
 
-    for (const { name, path } of PAGES) {
-      const url = `${BASE_URL}${path(fx)}`;
+    for (const { name, path, primary } of PAGES) {
+      const url = `${BASE_URL}${await path(fx)}`;
 
       // Mobile: nothing forces the page wider than the viewport.
       const mobile = await browser.newContext({ viewport: { width: 390, height: 844 } });
@@ -64,7 +77,7 @@ test('shell, shelf and bell hold the house style', async () => {
       });
       assert.equal(headerBg, 'rgb(255, 255, 255)', `${name}: header background is not white`);
 
-      const reached = await reachPrimaryByTab(desktopPage);
+      const reached = await reachPrimaryByTab(desktopPage, primary);
       assert.ok(reached, `${name}: Tab never reached the primary button`);
       const outlineStyle = await desktopPage.evaluate(() => getComputedStyle(document.activeElement!).outlineStyle);
       assert.equal(outlineStyle, 'solid', `${name}: the focused primary button has no visible focus ring`);
