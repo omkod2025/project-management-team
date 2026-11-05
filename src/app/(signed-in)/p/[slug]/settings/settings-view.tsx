@@ -4,6 +4,7 @@ import { workApi, type WorkKind } from '@/lib/work-kind';
 import { useEffect, useState } from 'react';
 import type { Settings } from '@/lib/admin';
 import { FIELD_KINDS, STAGES } from '@/lib/admin-rules';
+import { nextOptionColor, optionStyle } from '@/lib/option-colors';
 import InviteLink, { inviteUrl } from '../../../invite-link';
 import '../list.css';
 import './settings.css';
@@ -243,7 +244,7 @@ function Field({ s, f, send }: { s: Settings; f: Settings['fields'][number]; sen
         <div className="options">
           {f.options.map((o) => (
             <div className={`settings-row option${o.archived ? ' is-archived' : ''}`} key={o.id}>
-              <span className="swatch" style={{ ['--opt-hue' as string]: `var(--color-tab-${o.colorIndex})` }} />
+              <span className="swatch" style={optionStyle(o.colorIndex)} />
               <input
                 className="field-input"
                 defaultValue={o.label}
@@ -281,7 +282,7 @@ function Field({ s, f, send }: { s: Settings; f: Settings['fields'][number]; sen
               if (!label.trim()) return;
               void send(`/api/fields/${f.id}/options`, 'POST', {
                 label,
-                colorIndex: (f.options.length % 6) + 1,
+                colorIndex: nextOptionColor(f.options.length),
               });
               setLabel('');
             }}

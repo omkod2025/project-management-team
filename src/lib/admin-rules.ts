@@ -9,6 +9,7 @@
  */
 
 import { domainError } from './errors.ts';
+import { OPTION_COLOURS } from './option-colors.ts';
 import type { FieldKind } from './node-rules.ts';
 
 export type Role = 'admin' | 'member' | 'viewer';
@@ -30,21 +31,31 @@ export const DEFAULT_DESCRIPTION_FIELD_NAME = 'Description';
 export type DefaultOption = { label: string; stage: Stage | null; colorIndex: number };
 
 /**
- * The Status column's options (D-35).
+ * The Status column's options (D-35) — the eight every new project starts
+ * with, by the owner's decision (2026-11-05). Existing projects keep their own.
  *
- * Only ONPROCESS carries `inProgress` and only COMPLETED carries `done`; those
- * two stages are the whole of D-13. CANCEL and HOLD carry no stage at all,
- * under D-34b: both mean the work stopped without finishing, and recording an
- * end date for either would corrupt every estimate-accuracy figure computed
- * from that node. HOLD is deliberately not `notStarted` — work that is paused
- * was started, and marking it unstarted would throw away its actual start.
+ * WAIT_TEST carries `done`: development is finished once it waits for test,
+ * so that is when the actual end is captured, and COMPLETED never overwrites
+ * it (D-13). ONPROCESS, RE_PROCESS and RETEST carry `inProgress`; on a reopened
+ * task D-13 only fills an empty actual start and keeps the end it already has.
+ * CANCELLED and HOLD carry no stage at all, under D-34b: both mean the work
+ * stopped without finishing, and recording an end date for either would
+ * corrupt every estimate-accuracy figure computed from that node. HOLD is
+ * deliberately not `notStarted` — work that is paused was started, and marking
+ * it unstarted would throw away its actual start.
+ *
+ * Colours are option-palette slots (DESIGN.md § 9.2), one each: COMPLETED is
+ * green and CANCELLED dark grey, beside HOLD's grey.
  */
 export const DEFAULT_STATUS_OPTIONS: DefaultOption[] = [
   { label: 'BACKLOG', stage: 'notStarted', colorIndex: 1 },
   { label: 'ONPROCESS', stage: 'inProgress', colorIndex: 2 },
-  { label: 'COMPLETED', stage: 'done', colorIndex: 3 },
-  { label: 'CANCEL', stage: null, colorIndex: 4 },
+  { label: 'WAIT_TEST', stage: 'done', colorIndex: 3 },
+  { label: 'COMPLETED', stage: 'done', colorIndex: 4 },
+  { label: 'CANCELLED', stage: null, colorIndex: 6 },
   { label: 'HOLD', stage: null, colorIndex: 5 },
+  { label: 'RE_PROCESS', stage: 'inProgress', colorIndex: 7 },
+  { label: 'RETEST', stage: 'inProgress', colorIndex: 8 },
 ];
 
 /**
@@ -216,11 +227,11 @@ export function assertOptionLabel(label: unknown): string {
   return trimmed;
 }
 
-/** The tab wheel in DESIGN.md has six hues; anything else is not a colour we own. */
+/** The option palette in DESIGN.md has eight colours; anything else is not a colour we own. */
 export function assertColorIndex(index: unknown): number {
   const n = Number(index ?? 1);
-  if (!Number.isInteger(n) || n < 1 || n > 6) {
-    throw domainError('E_UNKNOWN_FIELD', 'A colour must be one of the six tab hues.', { index });
+  if (!Number.isInteger(n) || n < 1 || n > OPTION_COLOURS) {
+    throw domainError('E_UNKNOWN_FIELD', `A colour must be one of the ${OPTION_COLOURS} option colours.`, { index });
   }
   return n;
 }

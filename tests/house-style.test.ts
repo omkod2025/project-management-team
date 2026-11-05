@@ -103,7 +103,7 @@ test('meaning tokens are frozen', () => {
     vermilion: '#A82A17',
     'vermilion-wash': '#EED9CE',
     datum: '#1F4A3D',
-    'tab-1': '#F08C2E',
+    'tab-1': '#F59E0B',
     'tab-2': '#EC4899',
     'tab-3': '#22A55A',
     'tab-4': '#0EA5A4',
@@ -204,15 +204,68 @@ test('list rows are airy', () => {
   assert.ok(['14', '15'].includes(size![1]!), `row text is ${size![1]}px, not 14px or 15px`);
 });
 
-test('option chip survives greyscale and is not a raw fill', () => {
+/** WCAG relative luminance and OKLab, for checking the option palette as drawn. */
+const hexRgb = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
+const linear = (v: number) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+const luminance = (h: string) => {
+  const [r, g, b] = hexRgb(h).map(linear) as [number, number, number];
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+const contrast = (a: string, b: string) => {
+  const [x, y] = [luminance(a), luminance(b)];
+  return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+};
+const oklab = (h: string) => {
+  const [r, g, b] = hexRgb(h).map(linear) as [number, number, number];
+  const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
+  const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
+  const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+  return [
+    0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s,
+    1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s,
+    0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s,
+  ];
+};
+const tokenHex = (name: string) => {
+  const m = new RegExp(`--color-${name}:\\s*(#[0-9a-f]{6})\\b`, 'i').exec(read('src/app/tokens.css'));
+  assert.ok(m, `tokens.css lacks --color-${name}`);
+  return m![1]!;
+};
+
+test('the option palette is eight solid fills, each legible in its own ink', () => {
+  // DESIGN.md § 9.2 (owner, 2026-11-05): status and select options take their
+  // own palette, apart from the module hues — red, yellow, sky, green, grey,
+  // dark grey, orange, pink — drawn solid, so a status never looks like the
+  // light module tag beside it.
+  for (let i = 1; i <= 8; i++) {
+    const fill = tokenHex(`option-${i}`);
+    const ink = tokenHex(`option-${i}-ink`);
+    const ratio = contrast(fill, ink);
+    assert.ok(ratio >= 4.5, `option-${i} label is ${ratio.toFixed(2)}:1 on its fill; 13px Thai needs 4.5:1`);
+  }
+});
+
+test('no option colour can be mistaken for vermilion', () => {
+  // A status may be red; vermilion still means out of closure and nothing
+  // else (CLAUDE.md § Colour law). Every option fill keeps an OKLab distance
+  // of at least 0.10 from it — the red is a bright pure red, not brick.
+  const v = oklab(tokenHex('vermilion'));
+  for (let i = 1; i <= 8; i++) {
+    const o = oklab(tokenHex(`option-${i}`));
+    const d = Math.hypot(o[0]! - v[0]!, o[1]! - v[1]!, o[2]! - v[2]!);
+    assert.ok(d >= 0.1, `option-${i} is ${d.toFixed(3)} from vermilion in OKLab; it must be 0.10 or more`);
+  }
+});
+
+test('option chip is a solid fill of its option colour, in that colour\'s ink', () => {
   const pill = ruleBlocks(read(LIST)).find((b) => b.selector === '.pill');
   assert.ok(pill, 'list.css has no `.pill` rule');
-  assert.doesNotMatch(pill!.body, /color:\s*#fff/i, 'the chip label is white on a raw fill');
-  assert.match(pill!.body, /background:\s*color-mix\([^;]*var\(--opt-hue\)/, 'the chip fill is not mixed');
-  // The badge (DESIGN.md § 7): a 1px border of the hue, mixed, outlines the
-  // chip, so two options still part in greyscale.
-  assert.match(pill!.body, /border:\s*1px solid color-mix\([^;]*var\(--opt-hue\)/,
-    'the chip has no mixed 1px border of its hue');
+  assert.match(pill!.body, /(?:^|\s)background:\s*var\(--opt-hue\)/, 'the chip is not filled with its option colour');
+  assert.match(pill!.body, /(?:^|\s)color:\s*var\(--opt-ink\)/, 'the chip label is not its option ink');
+  // The badge (DESIGN.md § 7): a 1px border a shade darker than the fill, so
+  // two options still part in greyscale.
+  assert.match(pill!.body, /border:\s*1px solid oklch\(from var\(--opt-hue\) calc\(l - 0?\.\d+\) c h\)/,
+    'the chip has no 1px border a shade darker than its fill');
   assert.match(pill!.body, /border-radius:\s*var\(--radius-badge\)/, 'the chip is not the badge shape');
 });
 
@@ -236,16 +289,47 @@ test('every badge wears the one badge shape', () => {
 });
 
 test('no tab hue is drawn raw in the List', () => {
-  // A hue variable may only appear inside a color-mix(): raw, tab-1 reads as vermilion.
+  // `--opt-hue` is not a tab hue: it carries the option palette, whose fills
+  // are drawn solid on purpose (and are checked against vermilion above).
+  // A module hue may only appear inside a color-mix(), or re-lit at a fixed
+  // lightness by `oklch(from var(--hue) 0.92 …)`: raw, tab-1 reads as vermilion.
+  // A relative colour that keeps the hue's own `l` is still raw, so only a
+  // literal lightness counts.
   const offenders: string[] = [];
   for (const { selector, body } of ruleBlocks(read(LIST))) {
     for (const decl of body.split(';')) {
-      // Strip every color-mix(…) (one level of nested var(…) inside it); what is left is raw.
-      const unmixed = decl.replace(/color-mix\((?:[^()]|\([^()]*\))*\)/g, '');
-      if (/var\(--(?:opt|row|mod)-hue\)|var\(--color-tab-\d\)/.test(unmixed)) offenders.push(`${selector}: ${decl.trim()}`);
+      // Strip every color-mix(…) and re-lit oklch(from …) (one level of nesting); what is left is raw.
+      const unmixed = decl
+        .replace(/color-mix\((?:[^()]|\([^()]*\))*\)/g, '')
+        .replace(/oklch\(from var\(--[\w-]+\)\s+0?\.\d+\s(?:[^()]|\([^()]*\))*\)/g, '');
+      if (/var\(--(?:row|mod)-hue\)|var\(--color-tab-\d\)/.test(unmixed)) offenders.push(`${selector}: ${decl.trim()}`);
     }
   }
   assert.deepEqual(offenders, [], `raw hue in list.css:\n${offenders.join('\n')}`);
+});
+
+test('the module tag is vivid: a light wash that holds its chroma, a deep label', () => {
+  // DESIGN.md § 7 (owner, 2026-11-05): a linear mix into white keeps only its
+  // own share of the hue's chroma, so a 30% wash came out grey-pastel and the
+  // label, mixed toward charcoal, grey-brown. The tag is re-lit instead, and
+  // stays light so it never reads as a dark option chip.
+  const blocks = ruleBlocks(read(LIST));
+  for (const [selector, hue] of [['.run tr.module .name-text', 'row-hue']] as const) {
+    const block = blocks.find((b) => b.selector === selector);
+    assert.ok(block, `list.css has no \`${selector}\` rule`);
+    const relit = (prop: string) => {
+      const m = new RegExp(`(?:^|\\s)${prop}:[^;]*oklch\\(from var\\(--${hue}\\)\\s+(0?\\.\\d+)\\s+calc\\(c \\* (0?\\.\\d+)\\)\\s+h\\)`).exec(block!.body);
+      assert.ok(m, `\`${selector}\` ${prop} is not re-lit from --${hue}`);
+      return { l: Number(m![1]), c: Number(m![2]) };
+    };
+    const wash = relit('background');
+    const border = relit('border');
+    const label = relit('color');
+    assert.ok(wash.l >= 0.9, `${selector} wash lightness ${wash.l} is too dark for a badge`);
+    assert.ok(wash.c >= 0.5, `${selector} wash keeps ${wash.c} of the chroma; it greys out below 0.5`);
+    assert.ok(border.l < wash.l, `${selector} border is not darker than its wash`);
+    assert.ok(label.l <= 0.45, `${selector} label lightness ${label.l} cannot clear 4.5:1 on its wash`);
+  }
 });
 
 test('entered and derived inks stay apart', () => {

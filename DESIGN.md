@@ -23,7 +23,7 @@ colors:
   vermilion: "#A82A17"
   vermilion-wash: "#EED9CE"
   datum: "#1F4A3D"
-  tab-1: "#F08C2E"
+  tab-1: "#F59E0B"
   tab-2: "#EC4899"
   tab-3: "#22A55A"
   tab-4: "#0EA5A4"
@@ -31,6 +31,24 @@ colors:
   tab-6: "#8B5CF6"
   # The derived ink's secondary weight: an actual bar's hairline, secondary derived text.
   ink-blue-soft: "#5C7186"
+  # The option palette — status and select chips, apart from the module hues (owner, 2026-11-05).
+  # Each fill is solid; its ink clears 4.5:1 on it. Red is a pure red, kept 0.10+ from vermilion in OKLab.
+  option-1: "#EA011A"
+  option-1-ink: "#FFFFFF"
+  option-2: "#F9D105"
+  option-2-ink: "#472D00"
+  option-3: "#057DA9"
+  option-3-ink: "#FFFFFF"
+  option-4: "#00882F"
+  option-4-ink: "#FFFFFF"
+  option-5: "#70757C"
+  option-5-ink: "#FFFFFF"
+  option-6: "#393E43"
+  option-6-ink: "#FFFFFF"
+  option-7: "#F97605"
+  option-7-ink: "#4B1F08"
+  option-8: "#D82784"
+  option-8-ink: "#FFFFFF"
 typography:
   headline:
     fontFamily: "var(--font-sans), var(--font-read), -apple-system, system-ui, 'Segoe UI', Helvetica, Arial, sans-serif"
@@ -152,7 +170,7 @@ Surfaces are defined by hairlines and the faintest layered shadows, never by hea
 2. **Danger is not vermilion.** Deletion and refusals use `#C4362F`, which is a different colour with a different meaning. Vermilion is kept for misclosure and failed writes (§ 1, law 1). In CSS, a rule that uses `--color-vermilion` must have every selector in its list name a misclosure or failed-write state as a class — a class ending in `slip`, `failed`, `errata` or `late` (`.slip`, `td.failed`, `.people-errata`, `.rs-late`), or the Timeline's `.brk.over` and `.over-fig` (a bare `over` would let `:hover` through); `tests/house-style.test.ts` holds every migrated stylesheet to it.
 3. **Colour is never the sole carrier.** A state readable only by its hue is a bug. Every coloured state also has a word, a weight or a shape.
 4. **Light only.** There is no dark theme. Notion's dark indigo "night" hero band is a marketing device, and this product has no use for it.
-5. **No decorative palette.** Notion's multicolour sticker palette belongs to its marketing site. Here, the six tab hues (§ 9) are the only extra colours, and they mean module identity.
+5. **No decorative palette.** Notion's multicolour sticker palette belongs to its marketing site. Here there are two extra palettes and each means one thing: the six tab hues (§ 9) are module identity, and the eight option colours (§ 9.2) are the value a status or select field holds.
 
 ## 3. Typography
 
@@ -249,14 +267,16 @@ Shadows are many near-transparent layers, so a surface feels gently lifted off t
 
 **Navigation tree.** Rows have a 5px radius and Charcoal text. The current row is the blue wash with blue text.
 
-**Badges.** One shape for every small label that names a value or a state (decided by the owner 2026-11-05, from a reference of pastel chips such as "Dashboard" and "Mobile App"):
+**Badges.** One shape for every small label that names a value or a state (decided by the owner 2026-11-05, from a reference of pastel chips such as "Dashboard" and "Mobile App"; made vivid the same day):
 - a 6px radius (`--radius-badge`), about 22–24px tall, padded `0 8px`;
-- a bright pastel wash: the badge's colour mixed 30% into the canvas **in OKLCH** (`color-mix(in oklch, …)`), which keeps the chroma where an sRGB mix greys it out;
-- a 1px border of the same colour mixed 65% into the canvas in OKLCH, darker than the wash, so the badge still reads as a shape in greyscale;
-- a label in the colour darkened toward the ink until it clears 4.5:1 on its own wash;
+- every colour in the badge is its hue **re-lit in OKLCH** at a fixed lightness, keeping most of its chroma: `oklch(from <hue> L calc(c * k) h)`. A mix into white (`color-mix`) keeps only its own share of the chroma, so a 30% wash came out grey-pastel and a label mixed toward charcoal came out grey-brown;
+- a bright wash at L 0.92, chroma × 0.62;
+- a 1px border at L 0.76, chroma × 0.95, darker than the wash, so the badge still reads as a shape in greyscale;
+- a label at L 0.43, chroma × 0.85: the hue itself, deep, clearing 5.9:1 on its own wash on all six tab hues;
+- **one exception, by weight not shape: the option chip is drawn solid** (owner, 2026-11-05) — a fill of its own option colour (§ 9.2, not a module hue), that colour's ink, and a 1px border a shade darker than the fill (`calc(l - 0.08)`). Module tags stay light. A status and a module therefore never look alike: one is a solid block, the other a bright tint;
 - 13px and no tracking wherever the label can be Thai (11–12px only for fixed English words).
 
-The colour comes from what the badge means, never from decoration: an option's or a module's tab hue (always mixed, never raw), danger for a caution or a deactivated account, the derived blue-black for a pending invitation, vermilion only for a misclosure slip. **Flags** such as "Archived" are the neutral badge: paper wash, hairline border, Stone 12px/600 text. A flag is a word, not a colour.
+The colour comes from what the badge means, never from decoration: a module's tab hue (always mixed or re-lit, never raw), an option's own option colour (§ 9.2), danger for a caution or a deactivated account, the derived blue-black for a pending invitation, vermilion only for a misclosure slip. **Flags** such as "Archived" are the neutral badge: paper wash, hairline border, Stone 12px/600 text. A flag is a word, not a colour.
 
 **Empty state.** A paper or white panel with a 16px radius, 32px padding, a short heading and one line saying what to do next. It has no illustration.
 
@@ -310,7 +330,8 @@ They sit in the frontmatter beside the house tokens, with frozen names and value
 | `vermilion` | `#A82A17` | **Out of closure only:** an overrun, a roll-up past its baseline, a failed write. |
 | `vermilion-wash` | `#EED9CE` | The slip or errata band behind a vermilion figure or message. |
 | `datum` | `#1F4A3D` | Today. |
-| `tab-1`…`tab-6` | `#F08C2E` orange, `#EC4899` pink, `#22A55A` green, `#0EA5A4` teal, `#3B82F6` blue, `#8B5CF6` violet | Module identity. Vivid by the owner's decision (2026-11-05); every one keeps the actual bar ≥74 from vermilion under A8, and none is a red. |
+| `tab-1`…`tab-6` | `#F59E0B` amber (moved from orange toward amber on 2026-11-05, further from vermilion), `#EC4899` pink, `#22A55A` green, `#0EA5A4` teal, `#3B82F6` blue, `#8B5CF6` violet | Module identity. Vivid by the owner's decision (2026-11-05); every one keeps the actual bar ≥74 from vermilion under A8, and none is a red. |
+| `option-1`…`option-8` | `#EA011A` red, `#F9D105` yellow, `#057DA9` sky, `#00882F` green, `#70757C` grey, `#393E43` dark grey, `#F97605` orange, `#D82784` pink — each with an `option-n-ink` (white; deep brown on the two bright fills, `#472D00` on yellow and `#4B1F08` on orange) | The value a status or select option holds, drawn as a solid chip (owner, 2026-11-05). A new option takes the next colour in this order, so a field's first option is red. **A status has one colour in every project, by its label:** BACKLOG red (1), ONPROCESS yellow (2), WAIT_TEST sky (3), COMPLETED green (4), HOLD grey (5), CANCELLED and CANCEL dark grey (6), RE_PROCESS orange (7), RETEST pink (8). A new project starts with these eight statuses (`DEFAULT_STATUS_OPTIONS`); projects made while the wheel had six colours were repainted to match by `db/migrations/023_status_colours.sql` and `024_status_colours_by_label.sql` — colour only, in the designated status field (task and defect), with no option added, renamed or re-staged. Other select fields keep the colour they were dealt. The red is a pure red, not brick: every option fill stays 0.10 or more from vermilion in OKLab, checked by `tests/house-style.test.ts`. These are never module identity, and the tab hues are never an option. |
 
 Headings, labels and body copy that nobody entered as a value use the house ink, not graphite. Graphite and blue-black are for *values*, and they read as two inks next to each other in a row.
 
@@ -327,9 +348,9 @@ Headings, labels and body copy that nobody entered as a value use the house ink,
    - They are never a row tint, a status, a role or a decoration.
 4. **A chosen option is stated in its own colour.** An option chip (status and selects) is the house badge (§ 7):
    - a 6px radius, 22px tall;
-   - its hue mixed 30% into the canvas in OKLCH;
-   - a 1px border of the hue mixed 65% into the canvas in OKLCH — darker than the wash and never the raw hue — so it still reads as a chip in greyscale;
-   - a label of the hue mixed 45% toward the house charcoal in OKLCH, which clears 4.5:1 on all six hues (the orange, tab-1, is the floor at 4.8:1);
+   - drawn solid, apart from the light module tag: a fill of its option colour (`option-1`…`option-8`) as it is — the option palette is picked to be drawn raw, the module hues are not;
+   - a 1px border of the fill a shade darker (`oklch(from <fill> calc(l - 0.08) c h)`), so it still reads as a chip in greyscale;
+   - a label in that colour's ink (`option-n-ink`): white on every fill but yellow and orange, which are drawn bright and take a deep brown; each clears 4.5:1, and `tests/house-style.test.ts` computes it;
    - 13px and no tracking, because labels are Thai.
 5. **Colour is never the sole carrier.** Estimate and actual differ by *position, height and fill* before they differ by ink. A misclosure carries a `+`/`−` sign and a figure, not only red.
 
@@ -353,8 +374,8 @@ Headings, labels and body copy that nobody entered as a value use the house ink,
 - **An airy table.** Rows are 40px, cells pad `8px 12px`, rows part on hairlines, and no rule is drawn between columns. Row text is 14–15px. Column heads are 13px on paper, because a column's name is user-written and can be Thai.
 - **The Estimate / Actual / Variance band** stays above the column heads as a grouped header. It is the only thing on the page that says which dates are the plan and which are the record.
 - **Estimate and actual are separate columns**, in the two inks.
-- **The misclosure** is a vermilion slip with a signed figure, in the badge shape: vermilion mixed 20% for the wash and 55% for the 1px border, 6px corners — deliberately lighter than the 30% module tags, so a warm module tag is never mistaken for a misclosure.
-- **Module identity** is the badge on the module row (the hue mixed 30%, a 1px border mixed 65%, both in OKLCH) and a 2px hairline of the mixed hue down the indent, never a row tint.
+- **The misclosure** is a vermilion slip with a signed figure, in the badge shape: a quiet wash (vermilion re-lit to L 0.94, chroma × 0.3), and a 1px border and a 600-weight figure in vermilion itself, 6px corners. It parts from the bright module tags by its ink, not its wash: a tag's border is its hue re-lit light, so a warm module tag is never mistaken for a misclosure, nor louder than one.
+- **Module identity** is the badge on the module row (the hue re-lit as every badge is, § 7) and a 2px hairline of the mixed hue down the indent, never a row tint.
 - **No zebra striping, and no row tint by status.** Hover is the house hover ground; selection is the blue wash.
 
 ### 9.6 Do's and Don'ts
@@ -376,7 +397,7 @@ The restyle to the house style finished on 2026-11-05. Every surface below reads
 - **Tokens.** The frontmatter is the house set plus the meaning tokens. The field book's tokens (`page`, `page-edge`, `board`, `rule`, `rule-major`, `ink-graphite-soft`, the `none` and `hole` radii, the `row` space) and its faces (Martian Mono, Bai Jamjuree, and the `--font-struct` and `--font-figure` bridges) are retired. `tests/house-style.test.ts` fails if any of them comes back.
 - **Fonts.** Inter (`--font-sans`) and Anuphan (`--font-read`) are loaded once, in the root layout.
 - **Shell and shelf.** A white header bar on paper. The primary action is a blue pill.
-- **List.** The airy table of § 9.5: 40px rows, badge chips (hue mixed 30% and a 1px border mixed 65%, in OKLCH, 6px corners), 13px column heads.
+- **List.** The airy table of § 9.5: 40px rows, module tags drawn light (the hue re-lit in OKLCH: wash L 0.92, border L 0.76, label L 0.43) and option chips drawn solid in the option palette (§ 9.2) with each colour's ink, 6px corners, 13px column heads.
 - **Timeline and All Timeline.** House chrome around the bars of § 9.4: the estimate 9px and hatched above, the actual 11px and solid below, radius ≤ 3px, today in datum, non-working days on paper.
 - **The task modal** (opened from All Timeline and from the Calendar) is a house dialog: a 16px radius, the level-2 shadow and a primary pill.
 - **Docs, Wiki and the published links** (`/d/`, `/w/`) share one skin on `.book.docs-book`, which binds the sheet's local names to the house tokens. Deleting a page draws in danger.

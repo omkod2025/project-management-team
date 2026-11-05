@@ -45,14 +45,28 @@ test('the default Status column satisfies the one rule designation demands', () 
   assert.doesNotThrow(() => assertKeepsADoneStage(true, DEFAULT_STATUS_OPTIONS.map((o) => o.stage)));
 });
 
-test('only ONPROCESS and COMPLETED carry a stage, which is the whole of D-13', () => {
+test('a new project starts with the eight statuses, in the owner\'s order', () => {
+  // Owner, 2026-11-05: the list one live project already ran on, for every
+  // new project. Existing projects keep their own lists.
+  assert.deepEqual(DEFAULT_STATUS_OPTIONS.map((o) => o.label), [
+    'BACKLOG', 'ONPROCESS', 'WAIT_TEST', 'COMPLETED', 'CANCELLED', 'HOLD', 'RE_PROCESS', 'RETEST',
+  ]);
+});
+
+test('each default status carries the stage that drives D-13', () => {
   assert.deepEqual(Object.fromEntries(DEFAULT_STATUS_OPTIONS.map((o) => [o.label, o.stage])), {
     BACKLOG: 'notStarted',
     ONPROCESS: 'inProgress',
+    // Development is finished once it waits for test, so the actual end is
+    // captured here; COMPLETED never overwrites it (D-13).
+    WAIT_TEST: 'done',
     COMPLETED: 'done',
     // D-34b: stopped without finishing, so no automatic end date is captured.
-    CANCEL: null,
+    CANCELLED: null,
     HOLD: null,
+    // Work resumed; D-13 fills only an empty actual start and keeps the end.
+    RE_PROCESS: 'inProgress',
+    RETEST: 'inProgress',
   });
 });
 
@@ -69,6 +83,16 @@ test('within a column the labels are distinct and so are their colours', () => {
     assert.equal(new Set(options.map((o) => o.label)).size, options.length);
     assert.equal(new Set(options.map((o) => o.colorIndex)).size, options.length);
   }
+});
+
+test('a new project\'s status reads by colour: COMPLETED green, CANCELLED dark grey', () => {
+  // The option palette (DESIGN.md § 9.2): 1 red, 2 yellow, 3 sky, 4 green,
+  // 5 grey, 6 dark grey, 7 orange, 8 pink. Owner, 2026-11-05: COMPLETED is
+  // green, and CANCELLED — ended, not done — is dark grey beside HOLD's grey.
+  const colour = Object.fromEntries(DEFAULT_STATUS_OPTIONS.map((o) => [o.label, o.colorIndex]));
+  assert.deepEqual(colour, {
+    BACKLOG: 1, ONPROCESS: 2, WAIT_TEST: 3, COMPLETED: 4, CANCELLED: 6, HOLD: 5, RE_PROCESS: 7, RETEST: 8,
+  });
 });
 
 test('no two default columns share a name', () => {

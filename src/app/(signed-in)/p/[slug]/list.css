@@ -615,19 +615,21 @@ table.run {
 }
 .run tr.module:hover td { background: var(--cu-ground); }
 
-/* The module tag is the badge (DESIGN.md § 7): the hue mixed 30% into the
-   canvas in OKLCH (which keeps it vivid), a 1px border mixed 65% (never raw: CLAUDE.md § Colour
-   law), 6px corners, and a label darkened toward the ink until it clears
-   4.5:1 on every one of the six hues. */
+/* The module tag is the badge (DESIGN.md § 7), drawn light — the opposite
+   of the solid option chip below, so a module and a status never look alike.
+   Wash, border and label are the hue re-lit in OKLCH at a fixed lightness,
+   keeping most of its chroma (a mix into white keeps only its own share and
+   greys out): wash L 0.92, border L 0.76, label L 0.43, which clears 5.9:1
+   on all six hues. Never the raw hue (CLAUDE.md § Colour law). */
 .run tr.module .name-text {
   display: inline-flex;
   align-items: center;
   height: 24px;
   padding: 0 9px 0 10px;
-  border: 1px solid color-mix(in oklch, var(--row-hue) 65%, var(--color-canvas));
+  border: 1px solid oklch(from var(--row-hue) 0.76 calc(c * 0.95) h);
   border-radius: var(--radius-badge);
-  background: color-mix(in oklch, var(--row-hue) 30%, var(--color-canvas));
-  color: color-mix(in oklch, var(--row-hue) 45%, var(--color-ink-secondary));
+  background: oklch(from var(--row-hue) 0.92 calc(c * 0.62) h);
+  color: oklch(from var(--row-hue) 0.43 calc(c * 0.85) h);
   font-family: var(--list-font);
   font-size: 14px;
   font-weight: 600;
@@ -762,19 +764,21 @@ tr[aria-selected='true'] .hole { background: var(--brand); box-shadow: none; }
 .empty    { color: var(--cu-ink-faint); }
 
 .opt { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
-.swatch { width: 10px; height: 10px; flex: 0 0 10px; border-radius: 50%; background: color-mix(in srgb, var(--opt-hue) 80%, var(--color-canvas)); }
+.swatch { width: 10px; height: 10px; flex: 0 0 10px; border-radius: 50%; background: var(--opt-hue); }
 .opt-archived { text-decoration: line-through; }
 .arch { color: var(--cu-ink-faint); font-size: 10px; letter-spacing: 0.08em; }
 
 /* ---- the option chip ----
 
-   The badge (DESIGN.md § 7): a pastel wash, a 1px darker-tint border, 6px
-   corners — never a raw fill, which on tab-1 lands close enough to vermilion
-   to be misread. The hue is mixed 30% into the canvas in OKLCH, which keeps
-   it vivid; the border carries it mixed 65%, darker than the wash, so the chip
-   still reads as a chip in greyscale; the label is the hue 45% toward the ink,
-   which clears
-   4.5:1 on all six hues. Labels are Thai, so 13px and no tracking. */
+   The badge (DESIGN.md § 7), drawn solid: a status or select option is a
+   fill of its own option colour (DESIGN.md § 9.2 — red, yellow, sky, green,
+   grey, dark grey, orange, pink) with that colour's ink, so it parts at a
+   glance from the module tag, which is a module hue drawn light. The option
+   palette is not the module hues: each fill is picked to be drawn as it is,
+   its ink clears 4.5:1 on it, and none comes within 0.10 of vermilion in
+   OKLab (tests/house-style.test.ts). The 1px border is the fill a shade
+   darker, so two chips still part in greyscale. Labels are Thai, so 13px and
+   no tracking. */
 
 .pill {
   display: inline-flex;
@@ -784,10 +788,10 @@ tr[aria-selected='true'] .hole { background: var(--brand); box-shadow: none; }
   max-width: 100%;
   height: 22px;
   padding: 0 8px 0 9px;
-  border: 1px solid color-mix(in oklch, var(--opt-hue) 65%, var(--color-canvas));
+  border: 1px solid oklch(from var(--opt-hue) calc(l - 0.08) c h);
   border-radius: var(--radius-badge);
-  background: color-mix(in oklch, var(--opt-hue) 30%, var(--color-canvas));
-  color: color-mix(in oklch, var(--opt-hue) 45%, var(--color-ink-secondary));
+  background: var(--opt-hue);
+  color: var(--opt-ink);
   font-size: 13px;
   font-weight: 500;
   letter-spacing: normal;
@@ -795,7 +799,7 @@ tr[aria-selected='true'] .hole { background: var(--brand); box-shadow: none; }
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.pill .arch { color: inherit; opacity: 0.7; }
+.pill .arch { color: inherit; opacity: 0.8; }
 
 /* On a module row the whole name is already a filled tag of the hue, so the
    dot would be the same fact stated twice. */
@@ -828,14 +832,16 @@ tr[aria-selected='true'] .hole { background: var(--brand); box-shadow: none; }
 .slip {
   display: inline-block;
   padding: 1px 7px;
-  border: 1px solid color-mix(in oklch, var(--color-vermilion) 55%, var(--color-canvas));
+  /* Apart from the module tags by its ink, not its wash: the border and the
+     figure are vermilion itself and the figure is bold, while a tag's border
+     is its hue re-lit light. A bright orange tag beside it can then never be
+     read as the misclosure, nor out-shout it. */
+  border: 1px solid var(--color-vermilion);
   border-radius: var(--radius-badge);
   line-height: 1.3;
-  /* Lighter than the module tags' 30% on purpose: at 30% a warm module tag and
-     the vermilion slip come out too alike, and the slip must never be
-     mistaken for a module. */
-  background: color-mix(in oklch, var(--color-vermilion) 20%, var(--color-canvas));
-  color: color-mix(in oklch, var(--color-vermilion) 45%, var(--color-ink-secondary));
+  background: oklch(from var(--color-vermilion) 0.94 calc(c * 0.3) h);
+  color: var(--color-vermilion);
+  font-weight: 600;
   font-family: var(--list-font);
   font-size: 12px;
   font-variant-numeric: tabular-nums;

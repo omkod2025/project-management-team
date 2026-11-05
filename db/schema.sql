@@ -174,10 +174,10 @@ CREATE TABLE pmt_field_options (
     option_field_id     uuid           NOT NULL
                                        REFERENCES pmt_field_definitions(field_id) ON DELETE CASCADE,
     option_label        text           NOT NULL,
-    -- Tab-wheel index 1..6 from DESIGN.md, not a raw hex value. Keeping the
-    -- palette in one place means a token change repaints every option.
+    -- Option-palette index 1..8 from DESIGN.md § 9.2, not a raw hex value.
+    -- Keeping the palette in one place means a token change repaints every option.
     option_color_index  smallint       NOT NULL DEFAULT 1
-                                       CHECK (option_color_index BETWEEN 1 AND 6),
+                                       CHECK (option_color_index BETWEEN 1 AND 8),
     -- NULL for select fields that are not the project's status field.
     option_stage        pm_stage_kind,
     option_position     integer        NOT NULL DEFAULT 0,
@@ -857,10 +857,10 @@ CREATE TABLE pmt_defect_field_options (
     option_field_id     uuid           NOT NULL
                                        REFERENCES pmt_defect_field_definitions(field_id) ON DELETE CASCADE,
     option_label        text           NOT NULL,
-    -- Tab-wheel index 1..6 from DESIGN.md, not a raw hex value. Keeping the
-    -- palette in one place means a token change repaints every option.
+    -- Option-palette index 1..8 from DESIGN.md § 9.2, not a raw hex value.
+    -- Keeping the palette in one place means a token change repaints every option.
     option_color_index  smallint       NOT NULL DEFAULT 1
-                                       CHECK (option_color_index BETWEEN 1 AND 6),
+                                       CHECK (option_color_index BETWEEN 1 AND 8),
     -- NULL for select fields that are not the project's status field.
     option_stage        pm_stage_kind,
     option_position     integer        NOT NULL DEFAULT 0,

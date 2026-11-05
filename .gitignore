@@ -24,6 +24,9 @@ dist/
 /db/migrations/*
 !/db/migrations/020_defects.sql
 !/db/migrations/021_wiki.sql
+!/db/migrations/022_option_palette.sql
+!/db/migrations/023_status_colours.sql
+!/db/migrations/024_status_colours_by_label.sql
 
 .impeccable
 .rea-edge-profile

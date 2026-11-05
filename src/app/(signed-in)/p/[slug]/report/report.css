@@ -58,10 +58,10 @@
 .report-options .report-money {
   margin-left: 6px;
   padding: 0 6px;
-  border: 1px solid color-mix(in oklch, var(--color-danger) 65%, var(--color-canvas));
+  border: 1px solid oklch(from var(--color-danger) 0.76 calc(c * 0.95) h);
   border-radius: var(--radius-badge);
-  background: color-mix(in oklch, var(--color-danger) 30%, var(--color-canvas));
-  color: color-mix(in oklch, var(--color-danger) 45%, var(--color-ink-secondary));
+  background: oklch(from var(--color-danger) 0.92 calc(c * 0.62) h);
+  color: oklch(from var(--color-danger) 0.43 calc(c * 0.85) h);
 }
 .report-caution {
   margin: 0 0 12px;

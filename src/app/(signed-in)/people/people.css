@@ -349,14 +349,14 @@ table.board {
   font-weight: 500;
 }
 .who-state.pending {
-  border-color: color-mix(in oklch, var(--color-ink-blue) 65%, var(--cu-canvas));
-  background: color-mix(in oklch, var(--color-ink-blue) 30%, var(--cu-canvas));
+  border-color: oklch(from var(--color-ink-blue) 0.76 calc(c * 0.95) h);
+  background: oklch(from var(--color-ink-blue) 0.92 calc(c * 0.62) h);
   color: var(--color-ink-blue);
 }
 .who-state.off {
-  border-color: color-mix(in oklch, var(--color-danger) 65%, var(--cu-canvas));
-  background: color-mix(in oklch, var(--color-danger) 30%, var(--cu-canvas));
-  color: color-mix(in oklch, var(--color-danger) 45%, var(--color-ink-secondary));
+  border-color: oklch(from var(--color-danger) 0.76 calc(c * 0.95) h);
+  background: oklch(from var(--color-danger) 0.92 calc(c * 0.62) h);
+  color: oklch(from var(--color-danger) 0.43 calc(c * 0.85) h);
 }
 
 .board tbody td {
