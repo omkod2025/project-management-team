@@ -27,39 +27,114 @@
    it or be filed underneath it. */
 .book { --names-w: 260px; }
 
+/* ---- the task modal, shared with the Calendar ----
+
+   A house dialog: white, 16px, the layered shadow, 4px fields and one
+   primary pill. The Calendar opens this same modal; its own page is pinned
+   separately and does not read anything below. */
 .rs-task-modal {
   width: min(640px, calc(100vw - 32px));
   max-height: calc(100dvh - 48px);
   margin: auto;
-  padding: 24px;
+  padding: var(--space-lg);
   overflow: auto;
-  border: 1px solid var(--cu-line);
-  border-radius: var(--cu-r);
-  background: var(--cu-ground);
-  color: var(--cu-ink);
-  font: 14px/1.5 var(--font-read), system-ui, sans-serif;
+  border: 0;
+  border-radius: var(--radius-xl);
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  box-shadow: var(--shadow-2), 0 0 0 1px rgb(0 0 0 / 6%);
+  font: 400 15px/1.5 var(--font-sans), var(--font-read), system-ui, sans-serif;
 }
-.rs-task-modal::backdrop { background: rgb(0 0 0 / 35%); }
-.rs-task-head, .rs-task-actions { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-.rs-task-head { margin-bottom: 20px; }
-.rs-task-head h2 { margin: 0; font-size: 20px; }
-.rs-task-head p { margin: 4px 0 0; color: var(--cu-ink-soft); }
+.rs-task-modal::backdrop { background: rgb(15 15 15 / 40%); }
+.rs-task-modal[open] { animation: rs-task-in .18s cubic-bezier(.16, 1, .3, 1); }
+.rs-task-modal[open]::backdrop { animation: rs-task-fade .18s ease-out; }
+@keyframes rs-task-in { from { opacity: 0; transform: translateY(6px) scale(.98); } }
+@keyframes rs-task-fade { from { opacity: 0; } }
+.rs-task-head, .rs-task-actions { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); }
+.rs-task-head { align-items: flex-start; margin-bottom: var(--space-lg); }
+.rs-task-head h2 { margin: 0; font-size: 20px; font-weight: 600; line-height: 1.4; color: var(--color-ink); }
+.rs-task-head p { margin: 2px 0 0; color: var(--color-ink-muted); font-size: 14px; }
 .rs-task-modal fieldset { min-width: 0; padding: 0; border: 0; margin: 0; }
-.rs-task-modal label { display: grid; gap: 4px; margin-bottom: 14px; }
-.rs-task-modal input:not([type=checkbox]), .rs-task-modal select, .rs-task-modal textarea,
-.rs-task-modal button {
-  min-width: 0; padding: 8px 10px; border: 1px solid var(--cu-line);
-  border-radius: var(--cu-r); background: var(--cu-ground); color: inherit; font: inherit;
+.rs-task-modal label {
+  display: grid;
+  gap: 6px;
+  margin-bottom: var(--space-md);
+  color: var(--color-ink-secondary);
+  font-size: 14px;
+  font-weight: 500;
 }
-.rs-task-modal button { cursor: pointer; }
+.rs-task-modal input:not([type=checkbox]), .rs-task-modal select, .rs-task-modal textarea {
+  min-width: 0;
+  min-height: 36px;
+  padding: 6px 10px;
+  border: 1px solid var(--color-field-line);
+  border-radius: var(--radius-xs);
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font: 400 15px/1.5 var(--font-sans), var(--font-read), system-ui, sans-serif;
+  transition: border-color .12s ease, box-shadow .12s ease;
+}
+.rs-task-modal :is(input:not([type=checkbox]), select, textarea):focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgb(0 117 222 / 16%), var(--shadow-1);
+  outline: none;
+}
+.rs-task-modal input[type=checkbox] { accent-color: var(--color-primary); }
+/* The utility button: white, hairline, 8px. */
+.rs-task-modal button {
+  min-height: 34px;
+  padding: 6px 14px;
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-md);
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font: 500 14px/1.4 var(--font-sans), var(--font-read), system-ui, sans-serif;
+  cursor: pointer;
+  transition: background-color .12s ease, border-color .12s ease;
+}
+.rs-task-modal button:hover:not(:disabled) { background: var(--color-paper); }
+/* The one primary action: the house blue pill. */
+.rs-task-actions button[type=submit] {
+  padding: 6px 18px;
+  border-color: var(--color-primary);
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
+  color: #fff;
+  font-weight: 600;
+}
+.rs-task-actions button[type=submit]:hover:not(:disabled) {
+  border-color: var(--color-primary-active);
+  background: var(--color-primary-active);
+}
 .rs-task-modal :disabled { opacity: .6; cursor: default; }
-.rs-task-modal :focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
-.rs-task-dates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px; }
-.rs-task-modal .rs-task-options { margin-bottom: 14px; }
-.rs-task-options legend { margin-bottom: 6px; }
-.rs-task-modal .rs-task-options label, .rs-task-modal .rs-task-check { display: flex; align-items: center; gap: 8px; }
-.rs-task-actions { justify-content: flex-end; margin-top: 20px; }
-.rs-task-modal [role=alert] { color: var(--color-vermilion); }
+.rs-task-actions button[type=submit]:disabled {
+  opacity: 1;
+  border-color: color-mix(in srgb, var(--color-primary) 34%, #fff);
+  background: color-mix(in srgb, var(--color-primary) 34%, #fff);
+}
+.rs-task-modal :focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.rs-task-dates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 var(--space-md); }
+.rs-task-modal .rs-task-options { margin-bottom: var(--space-md); }
+.rs-task-options legend { margin-bottom: 6px; color: var(--color-ink-secondary); font-size: 14px; font-weight: 500; }
+.rs-task-modal .rs-task-options label, .rs-task-modal .rs-task-check {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 8px; color: var(--color-ink); font-weight: 400;
+}
+.rs-task-actions { justify-content: flex-end; gap: var(--space-xs); margin-top: var(--space-lg); }
+/* A task that would not load is an ordinary error, in the house red. */
+.rs-task-modal [role=alert] {
+  margin: 0 0 var(--space-md);
+  padding: 8px 12px;
+  border-radius: var(--radius-xs);
+  background: var(--color-danger-wash);
+  color: var(--color-danger);
+  font-size: 14px;
+}
+/* A save that did not land is a failed write: that, and only that, keeps the
+   vermilion errata (DESIGN.md, Colors rule 1). */
+.rs-task-modal .rs-task-errata {
+  background: var(--color-vermilion-wash);
+  color: var(--color-vermilion);
+}
 @media (max-width: 480px) { .rs-task-dates { grid-template-columns: 1fr; } }
 
 .rs-names {
@@ -73,21 +148,22 @@
   justify-content: center;
   gap: 2px;
   padding: 0 12px;
-  border-bottom: 1px solid var(--cu-line);
+  border-bottom: 1px solid var(--color-hairline);
   cursor: pointer;
   overflow: hidden;
   position: relative;
+  transition: background-color .12s ease;
 }
-.rs-name:hover { background: var(--cu-hover); }
+.rs-name:hover { background: color-mix(in srgb, var(--color-paper) 70%, var(--color-canvas)); }
 .rs-name:focus-visible {
-  outline: 2px solid var(--brand);
+  outline: 2px solid var(--color-primary);
   outline-offset: -2px;
 }
 
 /* Soloing is a state of the whole page, so the name that caused it is marked
    structurally — a filled left edge — rather than by a wash that would read as
    mere hover. */
-.rs-name.soloed { background: var(--cu-hover); }
+.rs-name.soloed { background: var(--color-primary-wash); }
 .rs-name.soloed::before {
   content: '';
   position: absolute;
@@ -95,17 +171,17 @@
   top: 0;
   bottom: 0;
   width: 3px;
-  background: var(--brand);
+  background: var(--color-primary);
 }
 
 .rs-person {
-  font-family: var(--font-read), system-ui, sans-serif;
-  font-size: 13px;
+  font-family: var(--font-sans), var(--font-read), system-ui, sans-serif;
+  font-size: 14px;
   font-weight: 500;
   letter-spacing: normal;
   text-transform: none;
   line-height: 1.5;
-  color: var(--cu-ink);
+  color: var(--color-ink);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -115,30 +191,31 @@
    name — not smaller, not italic — because the point of keeping the lane is
    that it is read, and it is pinned last so it never competes for the top. */
 .rs-name.unassigned .rs-person {
-  color: var(--cu-ink-soft);
+  color: var(--color-ink-muted);
   font-style: italic;
 }
 
 .rs-tally {
-  font-size: 11px;
-  color: var(--cu-ink-soft);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-ink-muted);
   white-space: nowrap;
 }
 .rs-undated {
-  font-family: var(--font-read), system-ui, sans-serif;
-  font-size: 11px;
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: 12px;
   letter-spacing: normal;
   text-transform: none;
-  color: var(--cu-ink-faint);
+  color: var(--color-ink-faint);
 }
 
 .rs-more {
   position: absolute;
   right: 10px;
   bottom: 4px;
-  color: var(--cu-ink-faint);
-  font-family: var(--font-read), system-ui, sans-serif;
-  font-size: 11px;
+  color: var(--color-ink-faint);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: 12px;
   letter-spacing: normal;
   text-transform: none;
 }
@@ -147,7 +224,7 @@
 
 .rs-lane {
   position: relative;
-  border-bottom: 1px solid var(--cu-line);
+  border-bottom: 1px solid var(--color-hairline);
 }
 
 .rs-sub { position: absolute; left: 0; right: 0; }
@@ -173,25 +250,29 @@
    edge is vermilion, exactly as the parent bracket draws its overhang. */
 .rs-item .bar.act.rs-late { box-shadow: inset -3px 0 0 var(--color-vermilion); }
 
+/* Task names here are mostly Thai: 13px is the floor. */
 .rs-label {
   position: absolute;
-  top: 3px;
+  top: 2px;
   max-width: 46ch;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-family: var(--font-read), system-ui, sans-serif;
-  font-size: 12.5px;
+  font-family: var(--font-sans), var(--font-read), system-ui, sans-serif;
+  font-size: 13px;
   line-height: 1.5;
-  color: var(--cu-ink);
+  color: var(--color-ink);
   pointer-events: none;
 }
 .rs-slip {
   margin-left: 8px;
   padding: 1px 5px;
+  border-radius: var(--radius-xs);
   background: var(--color-vermilion-wash);
   color: var(--color-vermilion);
   font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ---- contention ----
@@ -217,9 +298,9 @@
   display: inline-block;
   width: max-content;
   padding-top: 6px;
-  color: var(--cu-ink-faint);
-  font-family: var(--font-read), system-ui, sans-serif;
-  font-size: 11.5px;
+  color: var(--color-ink-faint);
+  font-family: var(--font-sans), var(--font-read), system-ui, sans-serif;
+  font-size: 13px;
   letter-spacing: normal;
   text-transform: none;
   z-index: 2;
@@ -229,58 +310,65 @@
 
 .proj-filter { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
 
+/* A project name may be Thai: 13px, untracked. A toggle, so a pill. */
 .proj-chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 24px;
-  padding: 0 9px;
-  border: 1px solid var(--cu-line);
-  border-radius: var(--cu-r);
-  background: var(--cu-ground);
-  color: var(--cu-ink-faint);
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-full);
+  background: var(--color-canvas);
+  color: var(--color-ink-faint);
   cursor: pointer;
-  font-family: var(--font-read), system-ui, sans-serif;
-  font-size: 12px;
+  font-family: var(--font-sans), var(--font-read), system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
   letter-spacing: normal;
   text-transform: none;
   max-width: 180px;
   overflow: hidden;
   white-space: nowrap;
+  transition: background-color .12s ease, color .12s ease;
 }
-.proj-chip:hover { background: var(--cu-hover); }
-.proj-chip[aria-pressed='true'] { color: var(--cu-ink); }
+.proj-chip:hover { background: var(--color-paper); }
+.proj-chip[aria-pressed='true'] { color: var(--color-ink); }
 .proj-chip .proj-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
   flex: 0 0 auto;
-  background: var(--chip-hue);
+  /* The key matches its own bars: the same share toward the ink as
+     `.tl.rs .bar.act`, never the raw hue. */
+  background: color-mix(in srgb, var(--chip-hue) 66%, var(--color-ink-blue));
 }
 /* An excluded project keeps its name and loses its colour: the row of chips
    has to stay a legible key whether or not it is filtering. */
 .proj-chip[aria-pressed='false'] .proj-dot {
   background: none;
-  box-shadow: inset 0 0 0 1px var(--cu-ink-faint);
+  box-shadow: inset 0 0 0 1px var(--color-ink-faint);
 }
 
 .toolbar .count { margin-left: auto; white-space: nowrap; }
 
 .clear-who {
-  height: 24px;
-  padding: 0 9px;
-  border: 1px solid var(--cu-line);
-  border-radius: var(--cu-r);
-  background: var(--cu-ground);
-  color: var(--cu-ink-soft);
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-md);
+  background: var(--color-canvas);
+  color: var(--color-ink-secondary);
   cursor: pointer;
-  font-family: var(--font-read), system-ui, sans-serif;
-  font-size: 12px;
+  font-family: var(--font-sans), var(--font-read), system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
   letter-spacing: normal;
   text-transform: none;
   white-space: nowrap;
+  transition: background-color .12s ease, color .12s ease;
 }
-.clear-who:hover { background: var(--cu-hover); color: var(--cu-ink); }
+.clear-who:hover { background: var(--color-paper); color: var(--color-ink); }
 
 @media (max-width: 900px) {
   .book { --names-w: 172px; }
@@ -294,14 +382,14 @@
 
 /* The unassigned lane is soloable like any person's, so it keeps the pointer;
    what it loses is only the claim to be somebody. */
-.rs-name.unassigned:hover { background: var(--cu-hover); }
+.rs-name.unassigned:hover { background: color-mix(in srgb, var(--color-paper) 70%, var(--color-canvas)); }
 
 /* A soloed row states where the work lives as well as what it is: across five
    projects a task name alone does not say which book it came out of. */
 .rs-where {
   margin-left: 10px;
-  color: var(--cu-ink-faint);
-  font-size: 11.5px;
+  color: var(--color-ink-muted);
+  font-size: 13px;
 }
 
 /* The person's name holds the top of the sheet while their lane scrolls under
@@ -312,10 +400,9 @@
 
 /* ---- the project's colour, on this page only ----
 
-   `timeline.css` mixes both bars against `--color-page`, the field book's
-   paper, and holds the hue share low: inside one project the six hues separate
-   six modules on a beige ground, and restraint is right there because module
-   identity is a secondary read.
+   `timeline.css` holds the hue share low: inside one project the six hues
+   separate six modules, and restraint is right there because module identity
+   is a secondary read.
 
    Here it is the primary read. This page exists to answer "who is holding
    what, across which projects", and at the low share five projects arrived as
@@ -323,7 +410,7 @@
    project chips in the filter bar already promise, and a bar that does not
    match its own chip is worse than no colour at all.
 
-   The share stays above the project field's own (26% / 62%) rather than beside
+   The share stays above the project field's own (26% / 60%) rather than beside
    it. Both fields now mix against the same white ground, so the difference
    between them is entirely the difference in what the hue is doing: secondary
    there, load-bearing here.
@@ -335,7 +422,7 @@
 
 .tl.rs .bar.est {
   border-color: color-mix(in srgb, var(--bar-hue) 62%, var(--color-ink-graphite-soft));
-  background-color: color-mix(in srgb, var(--bar-hue) 36%, var(--cu-canvas));
+  background-color: color-mix(in srgb, var(--bar-hue) 36%, var(--color-canvas));
 }
 /* The record bar's ceiling is not a matter of taste. `--color-tab-1` is a brick
    red, and a filled bar is a far larger area of it than the chip that teaches
@@ -348,7 +435,7 @@
 }
 .tl.rs .mile {
   border-color: color-mix(in srgb, var(--bar-hue) 62%, var(--color-ink-graphite-soft));
-  background: color-mix(in srgb, var(--bar-hue) 36%, var(--cu-canvas));
+  background: color-mix(in srgb, var(--bar-hue) 36%, var(--color-canvas));
 }
 .tl.rs .mile.act {
   background: color-mix(in srgb, var(--bar-hue) 66%, var(--color-ink-blue));

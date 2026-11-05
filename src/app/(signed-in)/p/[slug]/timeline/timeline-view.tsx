@@ -753,7 +753,7 @@ function Row({
               {(() => {
                 const g = bar(drag.origin.s, drag.origin.e);
                 return g ? (
-                  <div className="ghost" style={{ ...g, top: mode === 'both' ? (drag.kind === 'est' ? 3 : 19) : (drag.kind === 'est' ? 5 : 20), height: 9 }} />
+                  <div className="ghost" style={{ ...g, top: mode === 'both' ? (drag.kind === 'est' ? 3 : 19) : (drag.kind === 'est' ? 5 : 20), height: drag.kind === 'est' ? 9 : 11 }} />
                 ) : null;
               })()}
               {(drag.kind === 'est' ? est : act).s && (

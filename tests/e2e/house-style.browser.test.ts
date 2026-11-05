@@ -26,6 +26,17 @@ export const PAGES: Array<{
     },
     primary: '.toolbar-add',
   },
+  // Neither Timeline has a create action; the way back to today is the one
+  // control every visit uses, so it stands in as the primary.
+  {
+    name: 'project timeline',
+    path: async (fx) => {
+      const { rows } = await fx.client.query('SELECT project_slug FROM pmt_projects WHERE project_id=$1', [fx.projectId]);
+      return `/p/${rows[0].project_slug}/timeline`;
+    },
+    primary: '.today-jump',
+  },
+  { name: 'all timeline', path: () => '/timeline', primary: '.today-jump' },
 ];
 
 const cookiesFor = (header: string) => header.split('; ').map((pair) => {

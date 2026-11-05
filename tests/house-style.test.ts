@@ -24,6 +24,8 @@ const MIGRATED: string[] = [
   'src/app/(signed-in)/p/[slug]/file-field.css',
   'src/app/(signed-in)/p/[slug]/image-field.css',
   'src/app/(signed-in)/p/[slug]/loading-status.module.css',
+  'src/app/(signed-in)/p/[slug]/timeline/timeline.css',
+  'src/app/(signed-in)/timeline/roster.css',
 ];
 
 const root = fileURLToPath(new URL('..', import.meta.url));
@@ -173,4 +175,49 @@ test('list text that can hold Thai is never below 13px', () => {
     assert.ok(size, `\`${selector}\` sets no font-size`);
     assert.ok(Number(size![1]) >= 13, `\`${selector}\` is ${size![1]}px; Thai may not go below 13px`);
   }
+});
+
+const TIMELINE = 'src/app/(signed-in)/p/[slug]/timeline/timeline.css';
+const ROSTER = 'src/app/(signed-in)/timeline/roster.css';
+
+test('today line stays datum', () => {
+  const rules = stripComments(read(TIMELINE));
+  assert.match(rules, /--color-datum/, 'timeline.css no longer draws today in datum ink');
+  const datum = ruleBlocks(read(TIMELINE)).find((b) => b.selector === '.datum');
+  assert.ok(datum, 'timeline.css has no `.datum` rule');
+  assert.match(datum!.body, /background:\s*var\(--color-datum\)/, 'the today line is not datum');
+});
+
+test('bars keep a small radius at most', () => {
+  const bar = ruleBlocks(read(TIMELINE)).find((b) => b.selector === '.bar');
+  assert.ok(bar, 'timeline.css has no `.bar` rule');
+  const radius = /border-radius:\s*(\d+(?:\.\d+)?)px/.exec(bar!.body);
+  assert.ok(radius, '`.bar` sets no px border-radius');
+  assert.ok(Number(radius![1]) <= 3, `bars are rounded ${radius![1]}px; a pill eats the leading edge`);
+});
+
+test('the task modal is a house dialog with a primary pill', () => {
+  const blocks = ruleBlocks(read(ROSTER));
+  const modal = blocks.find((b) => b.selector === '.rs-task-modal');
+  assert.ok(modal, 'roster.css has no `.rs-task-modal` rule');
+  assert.match(modal!.body, /border-radius:\s*var\(--radius-xl\)/);
+  assert.match(modal!.body, /box-shadow:[^;]*var\(--shadow-2\)/);
+  const primary = blocks.find((b) => b.selector.includes('.rs-task-actions') && /type=['"]?submit/.test(b.selector)
+    && /border-radius:\s*var\(--radius-full\)/.test(b.body));
+  assert.ok(primary, "the modal's save button is not a primary pill");
+});
+
+test('the date scale never sets Thai-capable text below 13px and caps never collide', () => {
+  const blocks = ruleBlocks(read(TIMELINE));
+  // Names and module labels can be Thai.
+  for (const selector of ['.rowmodule', '.tl-namerow']) {
+    const block = blocks.find((b) => b.selector === selector && /font-size/.test(b.body));
+    assert.ok(block, `timeline.css has no \`${selector}\` rule with a font-size`);
+    const size = /font-size:\s*(\d+(?:\.\d+)?)px/.exec(block!.body);
+    assert.ok(size && Number(size[1]) >= 13, `\`${selector}\` is below 13px`);
+  }
+  // The Today cap and the month caption share the month band; they sit on
+  // different lines of it so a month that starts near today is not overprinted.
+  const month = blocks.find((b) => b.selector === '.tl-month');
+  assert.ok(month && /align-items:\s*flex-start/.test(month.body), 'the month caption is not held to the top of its band');
 });

@@ -70,7 +70,10 @@ export default function TaskModal({ nodeId, onClose, onSaved }: {
       <div><h2 id="rs-task-title">Task details</h2>{detail && <p>{detail.projectName}</p>}</div>
       <button type="button" disabled={saving} onClick={onClose} aria-label="Close task details">Close</button>
     </div>
-    {error && <p role="alert">{error}</p>}
+    {/* Once the task has loaded, an error can only be a save that did not
+        land — a failed write, which keeps the vermilion errata. A task that
+        would not load is an ordinary error. */}
+    {error && <p role="alert" className={detail ? 'rs-task-errata' : undefined}>{error}</p>}
     {!detail ? error
       ? <button type="button" onClick={() => setAttempt((n) => n + 1)}>Try again</button>
       : <p role="status">Loading task…</p>
