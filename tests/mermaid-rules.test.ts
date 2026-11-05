@@ -6,6 +6,7 @@ import {
   isMermaidLanguage,
   mermaidSources,
   assertMermaidLimits,
+  mermaidProblem,
 } from '../src/lib/mermaid-rules.ts';
 import { encodeRich } from '../src/lib/doc-rich-content.ts';
 import { parsePageContent } from '../src/lib/doc-rules.ts';
@@ -65,6 +66,8 @@ test('MERMAID_CONFIG is frozen and locked down', () => {
   assert.equal(MERMAID_CONFIG.securityLevel, 'strict');
   assert.equal(MERMAID_CONFIG.htmlLabels, false);
   assert.equal(MERMAID_CONFIG.startOnLoad, false);
+  // Mermaid's own error graphic lands in document.body, outside the block.
+  assert.equal(MERMAID_CONFIG.suppressErrorRendering, true);
   assert.equal(Object.isFrozen(MERMAID_CONFIG), true);
 });
 
@@ -99,4 +102,35 @@ test('MERMAID_CONFIG draws without shadow or gradient (DESIGN.md § Elevation & 
   assert.equal(MERMAID_CONFIG.themeVariables.dropShadow, 'none');
   assert.equal(MERMAID_CONFIG.themeVariables.useGradient, false);
   assert.match(MERMAID_CONFIG.themeVariables.fontFamily, /Anuphan/);
+});
+
+// D-71: the editor's error says where. Error shapes below are what Mermaid
+// 12.3 throws from parse() for these sources.
+const parseError = (message: string, firstLine?: number) =>
+  Object.assign(new Error(message), firstLine ? { hash: { loc: { first_line: firstLine } } } : {});
+
+test('D-71: a parse error names the line from hash.loc, quoting the source line as typed', () => {
+  const source = 'flowchart LR\n  A["กล้อง"] --> B\n  B -->\n  C[x';
+  const problem = mermaidProblem(source, parseError(
+    "Parse error on line 5:\n...--> B  B -->  C[x\n--------------------^\nExpecting 'SQE', 'PE', got '1'", 4));
+  assert.deepEqual(problem, { line: 4, text: '  C[x', detail: "Expecting 'SQE', 'PE', got '1'" });
+});
+
+test('D-71: without hash.loc the line comes from the message, clamped to the source', () => {
+  const source = 'sequenceDiagram\n  A->>B: hi\n  B-->>';
+  assert.equal(mermaidProblem(source, parseError('Parse error on line 3:\nx\n^\nExpecting ACTOR')).line, 3);
+  assert.equal(mermaidProblem(source, parseError('Parse error on line 9:\nx\n^\nExpecting ACTOR')).line, 3);
+});
+
+test('D-71: no diagram type points at the first line and says what it must name', () => {
+  const unknown = Object.assign(new Error('No diagram type detected matching given configuration for text: #test'), { name: 'UnknownDiagramError' });
+  const problem = mermaidProblem('\n#test', unknown);
+  assert.equal(problem.line, 2);
+  assert.equal(problem.text, '#test');
+  assert.match(problem.detail, /first line must name the diagram type/);
+});
+
+test('D-71: an error with no position still reports its message, and never throws', () => {
+  assert.deepEqual(mermaidProblem('pie', new Error('Something odd')), { line: null, text: null, detail: 'Something odd' });
+  assert.deepEqual(mermaidProblem('pie', 'not an error'), { line: null, text: null, detail: 'Could not render this diagram.' });
 });

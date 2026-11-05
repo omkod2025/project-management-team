@@ -49,6 +49,7 @@ export default function EditorToolbar({ editor, position, onPosition, onInsert }
         {[1, 2, 3, 4, 5, 6].map((level) => <button key={level} onClick={() => act(() => editor.chain().focus().setHeading({ level: level as 1 | 2 | 3 | 4 | 5 | 6 }).run())}><DocIcon name="heading" />Heading {level}<kbd>H{level}</kbd></button>)}
         <button onClick={() => act(() => editor.chain().focus().toggleCodeBlock().run())}><DocIcon name="code" />Code block</button>
         <button onClick={() => act(() => editor.chain().focus().setCodeBlock({ language: 'mermaid' }).run())}><DocIcon name="code" />Mermaid diagram</button>
+        <button onClick={() => act(() => editor.chain().focus().setCodeBlock({ language: 'markdown' }).run())}><DocIcon name="code" />Markdown</button>
         <button onClick={() => act(() => editor.chain().focus().toggleBlockquote().run())}><DocIcon name="quote" />Quote</button>
       </>}
       {menu === 'lists' && <><h3>Lists</h3>

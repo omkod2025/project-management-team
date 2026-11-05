@@ -127,6 +127,24 @@ test('Mermaid blocks render in read mode, survive publishing, and round-trip thr
     await page.keyboard.type('\nA-->');
     // In the editor the author does see the parse error.
     await editedBlock.locator('.doc-mermaid-error').waitFor();
+    // The guide link under the error must open, though it sits inside the
+    // editable area, where a browser would otherwise treat it as text.
+    const [guide] = await Promise.all([
+      page.waitForEvent('popup'),
+      editedBlock.getByRole('link', { name: 'How to write Mermaid that renders' }).click(),
+    ]);
+    await guide.waitForLoadState();
+    assert.equal(new URL(guide.url()).pathname, '/wiki/mermaid-guide');
+    await guide.close();
+    // Back in the editor: the click took focus, so put the caret back at the
+    // end of the page, which is the end of the block being edited.
+    await content.focus();
+    await page.keyboard.press('Control+End');
+    await page.waitForFunction(() => {
+      const views = document.querySelectorAll('[data-mermaid-node-view]');
+      const caret = getSelection()?.anchorNode;
+      return !!caret && views.length > 0 && views[views.length - 1]!.contains(caret);
+    });
     for (let i = 0; i < 5; i++) await page.keyboard.press('Backspace');
     await editedBlock.locator('.doc-mermaid svg').first().waitFor();
 

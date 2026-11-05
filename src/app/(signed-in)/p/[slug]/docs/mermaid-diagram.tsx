@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useId, useRef, useState } from 'react';
-import { MERMAID_CONFIG, MERMAID_FONT_PX } from '@/lib/mermaid-rules.ts';
+import { MERMAID_CONFIG, MERMAID_FONT_PX, mermaidProblem, type MermaidProblem } from '@/lib/mermaid-rules.ts';
 
 /**
  * Renders a Mermaid source block to an inline SVG.
@@ -52,7 +52,7 @@ export default function MermaidDiagram({
   const reactId = useId().replace(/[^a-zA-Z0-9_-]/g, '-');
   const container = useRef<HTMLDivElement>(null);
   const [html, setHtml] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<MermaidProblem | null>(null);
   const [copyLabel, setCopyLabel] = useState(COPY_IDLE);
 
   useEffect(() => {
@@ -74,12 +74,15 @@ export default function MermaidDiagram({
       } catch (err) {
         if (cancelled) return;
         setHtml(null);
-        setError(err instanceof Error ? err.message : 'Could not render this diagram.');
+        setError(mermaidProblem(source, err));
       } finally {
         // mermaid.render can leave a detached temporary element in
         // document.body behind when it fails partway through.
-        const stray = document.getElementById(id);
-        if (stray && stray.parentNode === document.body) stray.remove();
+        // Its wrapper is `d<id>`; the svg itself may be left there too.
+        for (const strayId of [id, `d${id}`]) {
+          const stray = document.getElementById(strayId);
+          if (stray && stray.parentNode === document.body) stray.remove();
+        }
       }
     }, 300);
     return () => {
@@ -109,12 +112,26 @@ export default function MermaidDiagram({
       {html && <div ref={container} className="doc-mermaid" />}
       {/* Mermaid's parse error is for the author fixing the source (spec §3c).
           A reader gets the source block alone, not a stack of parser jargon. */}
-      {error && showSource && <p className="doc-mermaid-error">{error}</p>}
+      {error && showSource && <MermaidError problem={error} />}
       {!showSource && (
         <button type="button" className="doc-mermaid-copy" onClick={copy}>
           {copyLabel}
         </button>
       )}
+    </div>
+  );
+}
+
+/** Where the source fails, for the author (spec 12 D-71): the line, as typed, then what Mermaid expected. */
+function MermaidError({ problem }: { problem: MermaidProblem }) {
+  return (
+    <div className="doc-mermaid-error" role="status">
+      <p><strong>{problem.line ? `Syntax error on line ${problem.line}` : 'Syntax error'}</strong></p>
+      {problem.line !== null && (
+        <pre className="doc-mermaid-error-line"><span aria-hidden="true">{problem.line}</span><code>{problem.text || ' '}</code></pre>
+      )}
+      <p className="doc-mermaid-error-detail">{problem.detail}</p>
+      <p><a href="/wiki/mermaid-guide" target="_blank" rel="noopener noreferrer">How to write Mermaid that renders</a></p>
     </div>
   );
 }

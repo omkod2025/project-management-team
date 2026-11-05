@@ -1,6 +1,6 @@
-# 12 — Wiki (คลังความรู้) and Mermaid blocks
+# 12 — Wiki (คลังความรู้), Mermaid and Markdown blocks
 
-Knowledge that belongs to no project, shared per wiki, readable by people through a public link and by AI through a read-only MCP endpoint. Diagrams are Mermaid, in the Wiki and in project Docs alike.
+Knowledge that belongs to no project, shared per wiki, readable by people through a public link and by AI through a read-only MCP endpoint. Diagrams are Mermaid, and pasted Markdown can stay Markdown, in the Wiki and in project Docs alike.
 
 Related: [01-domain](01-domain.md) · [05-permissions](05-permissions.md) · [08-operations](08-operations.md) · [10-docs](10-docs.md)
 
@@ -26,7 +26,8 @@ Success looks like this: someone imports an existing `.md` file with diagrams, i
 
 - A token, a public link or a non-member learns that a wiki **exists** when they were not given it.
 - A token that can read more than its owner currently can.
-- Mermaid code that disappears or is altered silently on save, import or export.
+- Mermaid or Markdown block source that disappears or is altered silently on save, import or export.
+- A Markdown block whose source renders raw HTML, or a link that skips the URL gate.
 - A diagram that runs script or follows a `javascript:` link, above all on the public page.
 - Wiki rows in `pmt_docs` / `pmt_doc_pages`.
 
@@ -36,11 +37,23 @@ Success looks like this: someone imports an existing `.md` file with diagrams, i
 
 **D-70. A Mermaid block is a `codeBlock` whose `language` is `mermaid`.** Nothing new is stored. In rich content it passes `decodeRich` unchanged; in legacy Markdown it is the ```` ```mermaid ```` fence itself; `contentMarkdown()` already exports it as that fence. A dedicated node type was refused: a second way to represent the same thing, with its own allowlist entry, exporter branch and migration.
 
-**D-71. The source is the truth, and it is never refused or rewritten.** At most 50,000 characters per block (`MERMAID_MAX_CHARS`, checked on save). Source that does not parse is kept exactly as typed; the editor shows Mermaid's error in ordinary ink under it (vermilion means only "out of closure"), and readers see the source as a code block, never an empty space. `.md` import turns fences whose info string is `mermaid` (case-insensitive, trimmed) into Mermaid blocks with the body unchanged byte for byte; import then export gives the same fence body back. Other formats export the source in a code block with the language noted; HTML uses `<pre class="mermaid">`.
+**D-71. The source is the truth, and it is never refused or rewritten.** At most 50,000 characters per block (`MERMAID_MAX_CHARS`, checked on save). Source that does not parse is kept exactly as typed; the editor shows the error in ordinary ink under it (vermilion means only "out of closure"), and readers see the source as a code block, never an empty space. The editor's error says **where**: "Syntax error on line N", the line itself quoted from the source (Thai intact — Mermaid's own excerpt collapses lines and cuts text), then what Mermaid expected. The line is Mermaid's `hash.loc.first_line` when it gives one, else the `line N` in its message, clamped to the source's line count. Source with no diagram type on its first line names that line and says the first line must name the type (`flowchart LR`, `sequenceDiagram`). The rule is `mermaidProblem` in `mermaid-rules.ts`. Under the error a link opens **How to write Mermaid that renders** (`/wiki/mermaid-guide`, signed-in only, in a new tab): the Thai guide kept at `docs/guides/mermaid.md`, read on every request and rendered through the Markdown path, so its closing example draws under the same locked config as every block. The Wiki menu links it too. Mermaid's own error graphic is never drawn (`suppressErrorRendering: true`), so nothing appears outside the block. `.md` import turns fences whose info string is `mermaid` (case-insensitive, trimmed) into Mermaid blocks with the body unchanged byte for byte; import then export gives the same fence body back. Other formats export the source in a code block with the language noted; HTML uses `<pre class="mermaid">`.
 
 **D-72. A diagram can never run anything.** `securityLevel: 'strict'`, `htmlLabels: false`, no `click`/`href` directive takes effect, and the SVG is sanitized (DOMPurify, SVG profile) before insertion. The theme is Mermaid's `base` mapped to `DESIGN.md` tokens: graphite ink, paper, square corners, no shadow, no gradient, no `tab-` hue, no vermilion; Thai labels never below 13px and never letter-spaced.
 
 Editing shows the source with a live preview below it (re-rendered ~300 ms after typing stops). Reading shows only the diagram with a **Copy Mermaid** button. Read mode stays server-rendered without the editor bundle (`10-docs.md` §10): Mermaid loads only on pages that contain a block, as a client island over the server-rendered `<pre data-mermaid>`.
+
+### 2b. Markdown blocks (Docs and Wiki)
+
+Added 2026-11-05. A manual written elsewhere — a project README, a procedure kept in a repository — arrives as Markdown. Pasted into a Mermaid block it stayed literal text (the RSU wiki's first page held a whole README as one code block, its inner ```` ```bash ```` fences printed as characters). The author wants it to read as a formatted page and still be editable as the Markdown it came from.
+
+**D-83. A Markdown block is a `codeBlock` whose `language` is `markdown` or `md`.** Nothing new is stored, for the reason `D-70` gives. `isMarkdownLanguage` (case-insensitive, first word of the info string, trimmed) sits beside `isMermaidLanguage` in a pure module. The block is inserted from the toolbar and the `/` menu as **Markdown**. The source is the truth (`D-71`): kept byte for byte, never rewritten on save, import or export. It counts toward the page's 200,000-character limit and has no limit of its own.
+
+**D-84. A Markdown block reads as the formatted content it describes, through the same gate as every other link.** Read mode, the published link (`/d/<token>`, `/w/<token>`) and the editor's live preview all render it with the renderer legacy Markdown pages already use — `react-markdown` + `remark-gfm`, `skipHtml`, every `href`/`src` through the one URL gate (`safeDocUrl` signed in, `publishedLink` on a public page). Raw HTML in the source is never rendered. A ```` ```mermaid ```` fence inside it draws as a diagram under `D-72`; any other fence inside it — a nested ```` ```markdown ```` included — is a plain code block, so rendering never recurses. Each such code block carries a copy icon at its top-right corner (accessible name **Copy code**; it shows a check for two seconds once copied) that copies the fence body without its final newline — in read mode, on the published link and in the editor's preview alike. Headings inside the block do not join the page's table of contents or outline. Editing shows the source alone — no live preview. **Preview** (a toggle above the block, not saved) puts the rendered content beside the source: source left and still editable, preview right, updating as the author types; on a phone the preview stacks below the source. **Hide preview** returns to the source alone. Reading shows only the rendered content, with a **Copy Markdown** button.
+
+**D-85. A Markdown block can be turned into page content, once, by the author.** In the editor the block carries **Convert to page content**: the block is replaced by the rich content its source parses to (`insertContent(source, { contentType: 'markdown' })`), at the same position, as one undoable step. After that it is ordinary page content, edited in place; there is no way back to the source except undo. Nothing converts automatically.
+
+**Export writes the source back out unchanged.** `contentMarkdown()` writes every code block — Markdown, Mermaid and plain alike — with a fence one backtick longer than the longest backtick run in its body (three at least), so a body holding its own ```` ``` ```` fences can no longer close the block early. `.md` import turns a fence whose info string is `markdown` or `md` back into a Markdown block, body unchanged; import then export gives the same body back. MCP `read_page` returns the block as that fence. Search (`D-73`) indexes its source as code is indexed.
 
 ---
 
@@ -134,6 +147,7 @@ Every tool carries `readOnlyHint: true`, and none writes; an unknown tool name i
 |---|---|
 | `tests/wiki-rules.test.ts` | the §4 matrix cell by cell; effective scope (`D-78`) — revoked, expired, inactive owner, lost and regained membership; token input; search terms, LIKE escape, snippet; the rate limiter; the breadcrumb |
 | `tests/mermaid-rules.test.ts`, `tests/doc-mermaid-render.test.ts` | fence import, byte-identical round trip, the 50,000-character limit, safe rendering |
+| `tests/markdown-block.test.ts` | `isMarkdownLanguage`; the export fence outgrows any backtick run in the body; a Markdown block holding nested fences, Thai and hostile HTML round-trips byte for byte |
 | `db/tests.sql` group O | depth cap, cycle refusal, cascades |
 | `tests/e2e/wiki.test.ts` | the role table through the API, 404s for strangers, pages, search, assets, the public link, tokens |
 | `tests/e2e/wiki-mcp.test.ts` | Bearer only (no header, garbage, session cookie, public link secret → 401), the four tools and their `readOnlyHint`, scope ∩ visible, Mermaid byte-identical in `read_page`, membership loss and regain, revoked / expired / deactivated → 401 with `last_used_at` untouched, the once-a-minute `last_used_at`, injection strings, 429 on the 61st call, no tool can write |

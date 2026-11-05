@@ -36,6 +36,7 @@ export default async function WikiGuidePage() {
         <a href="/wiki">Wikis</a>
         <a href="/wiki/tokens">Tokens / MCP</a>
         <span aria-current="page">How to connect</span>
+        <a href="/wiki/mermaid-guide">Mermaid guide</a>
       </nav>
     </header>
     <div className="docs-content">

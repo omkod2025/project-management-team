@@ -46,6 +46,7 @@ export default async function WikiIndex() {
       <nav className="views" aria-label="Wiki menu">
         <span aria-current="page">Wikis</span>
         <a href="/wiki/tokens">Tokens / MCP</a>
+        <a href="/wiki/mermaid-guide">Mermaid guide</a>
       </nav>
     </header>
     <div className="docs-content">

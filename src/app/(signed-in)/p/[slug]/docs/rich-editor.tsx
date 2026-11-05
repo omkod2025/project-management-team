@@ -94,6 +94,7 @@ export default function RichEditor({ value, label, onChange, endpoints, onProble
     { label: 'Quote', hint: 'Highlight a quotation', apply: (c) => c.toggleBlockquote() },
     { label: 'Code block', hint: 'Code and technical notes', apply: (c) => c.toggleCodeBlock() },
     { label: 'Mermaid diagram', hint: 'Paste Mermaid text to draw a diagram', apply: (c) => c.setCodeBlock({ language: 'mermaid' }) },
+    { label: 'Markdown', hint: 'Paste Markdown to show it formatted', apply: (c) => c.setCodeBlock({ language: 'markdown' }) },
     { label: 'Table', hint: 'Three columns with a header', apply: (c) => c.insertTable({ rows: 3, cols: 3, withHeaderRow: true }) },
     { label: 'Divider', hint: 'Separate sections', apply: (c) => c.setHorizontalRule() },
     ...(['info','success','warning','danger'] as const).map(tone => ({ label: `${tone.charAt(0).toUpperCase()+tone.slice(1)} banner`, hint: 'Callout with background color', apply: (c: ChainedCommands) => c.insertContent({ type: 'banner', attrs: {tone}, content: [{type:'paragraph'}] }) })),

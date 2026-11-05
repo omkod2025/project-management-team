@@ -29,6 +29,7 @@ export default async function WikiTokensPage() {
       <nav className="views" aria-label="Wiki menu">
         <a href="/wiki">Wikis</a>
         <span aria-current="page">Tokens / MCP</span>
+        <a href="/wiki/mermaid-guide">Mermaid guide</a>
       </nav>
     </header>
     <div className="docs-content">

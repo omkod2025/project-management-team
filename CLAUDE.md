@@ -47,12 +47,14 @@ Project management for software delivery. Plan and reality are recorded separate
 | [`tests/e2e/wiki.browser.test.ts`](tests/e2e/wiki.browser.test.ts) | 1 browser test: create a wiki, write Thai and Mermaid, the read-only member, the stranger's 404, `.md` import, whole-wiki export in tree order |
 | [`tests/e2e/wiki-mcp.test.ts`](tests/e2e/wiki-mcp.test.ts) | 24 end-to-end tests: the MCP endpoint — Bearer only, the four read-only tools, ids in any case, scope decided per request, revoked/expired/deactivated → 401, injection, the rate limit |
 | [`tests/e2e/wiki-guide.test.ts`](tests/e2e/wiki-guide.test.ts) | 6 end-to-end tests: the in-app MCP guide names the real origin, is for signed-in people only, and its every example still parses and connects |
-| [`tests/mermaid-rules.test.ts`](tests/mermaid-rules.test.ts) | 9 tests: what counts as a Mermaid block, the 50,000-character ceiling, and the locked config — strict, no HTML labels, no shadow, and the keys no diagram directive may override |
+| [`tests/mermaid-rules.test.ts`](tests/mermaid-rules.test.ts) | 13 tests: what counts as a Mermaid block, where a parse error points, the 50,000-character ceiling, and the locked config — strict, no HTML labels, no shadow, and the keys no diagram directive may override |
+| [`tests/markdown-block.test.ts`](tests/markdown-block.test.ts) | 5 tests: the Markdown block — `markdown`/`md` in any case, the export fence that outgrows the backticks inside, nested fences, Thai and hostile HTML round-tripping byte for byte |
 | [`tests/doc-mermaid-render.test.ts`](tests/doc-mermaid-render.test.ts) | 5 tests: a Mermaid fence survives Markdown, rich JSON and back byte for byte, hostile source included |
 | [`tests/e2e/doc-mermaid.browser.test.ts`](tests/e2e/doc-mermaid.browser.test.ts) | 1 browser test: diagrams draw in read mode and on the public link, a parse error is shown to the editor only, an `%%{init}%%` directive cannot override the house theme, live preview, HTML export and re-import |
 | [`docs/TASKS.md`](docs/TASKS.md) | Build plan T0–T9 with per-task checklists |
 | [`docs/wireframes/index.html`](docs/wireframes/index.html) | Rendered wireframes for both views |
 | [`docs/guides/wiki-mcp.md`](docs/guides/wiki-mcp.md) | Connecting AI clients to the Wiki over MCP |
+| [`docs/guides/mermaid.md`](docs/guides/mermaid.md) | Writing Mermaid that renders — the in-app guide at `/wiki/mermaid-guide`, in Thai |
 
 ---
 
