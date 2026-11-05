@@ -89,8 +89,8 @@
 .docs-book .doc-tree-row > button { border: 0; background: transparent; color: var(--color-ink-muted); padding: 2px 6px; min-height: 28px; }
 .docs-book .doc-tree-row > button:hover:not(:disabled) { background: var(--cu-hover); color: var(--color-ink); }
 .doc-tree-add { opacity: 0; }
-.docs-book .doc-tree-delete { flex: 0 0 28px; color: var(--color-danger); }
-.docs-book .doc-tree-delete:hover:not(:disabled) { background: var(--color-danger-wash); color: var(--color-danger-active); }
+.docs-book .doc-tree-row > .doc-tree-delete { flex: 0 0 28px; color: var(--color-danger); }
+.docs-book .doc-tree-row > .doc-tree-delete:hover:not(:disabled) { background: var(--color-danger-wash); color: var(--color-danger-active); }
 .doc-tree-delete:disabled { opacity: .4; cursor: not-allowed; }
 .doc-delete-confirm { margin-block: 12px; padding: 10px; border: 0; border-radius: var(--radius-md); background: var(--color-paper); overflow-wrap: anywhere; }
 .doc-delete-confirm p { margin-block: 8px; font-size: 13px; }

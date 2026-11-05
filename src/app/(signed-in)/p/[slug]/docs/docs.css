@@ -17,7 +17,7 @@
    these screens — it means out of closure and nothing else. Deletion is
    --color-danger. */
 
-.docs-book {
+.book.docs-book {
   --cu-ground: var(--color-paper);
   --cu-canvas: var(--color-canvas);
   --cu-line: var(--color-hairline);

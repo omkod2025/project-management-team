@@ -102,6 +102,51 @@ test('shell, shelf and bell hold the house style', async () => {
 });
 
 /**
+ * Deleting a page is danger red, never vermilion and never the tree's quiet
+ * grey. The static guard reads declarations; only a browser can see that the
+ * generic tree-button rule does not outrank the delete rule.
+ */
+test('the Docs tree delete button draws in danger', async () => {
+  const fx = await setup();
+  let browser: Browser | undefined;
+  try {
+    const admin = await signIn(fx.admin.email, fx.admin.password);
+    const post = async (url: string, body: unknown) => {
+      const res = await fetch(`${BASE_URL}${url}`, { method: 'POST', headers: { cookie: admin.header, 'content-type': 'application/json' }, body: JSON.stringify(body) });
+      const json = await res.json().catch(() => null);
+      assert.equal(res.status, 200, JSON.stringify(json));
+      return json;
+    };
+    const doc = await post(`/api/projects/${fx.projectId}/docs`, { title: 'Danger check' });
+    const page0 = await post(`/api/docs/${doc.id}/pages`, { title: 'หน้าที่จะลบ', template: 'free', content: { body: 'ข้อความ' } });
+    const { rows } = await fx.client.query('SELECT project_slug FROM pmt_projects WHERE project_id=$1', [fx.projectId]);
+
+    browser = await chromium.launch({ channel: 'msedge', headless: true });
+    const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    await context.addCookies(cookiesFor(admin.header));
+    const page = await context.newPage();
+    await page.goto(`${BASE_URL}/p/${rows[0].project_slug}/docs/${page0.slug}`);
+
+    const trash = page.locator('.doc-tree-row > .doc-tree-delete').first();
+    await trash.waitFor();
+    assert.equal(await trash.isDisabled(), false, 'the delete button is disabled, so its rest colour is not under test');
+    const ink = () => trash.evaluate((el) => getComputedStyle(el).color);
+    const wash = () => trash.evaluate((el) => getComputedStyle(el).backgroundColor);
+    assert.equal(await ink(), 'rgb(196, 54, 47)', 'the tree delete button is not --color-danger at rest');
+
+    await trash.hover();
+    await page.waitForTimeout(200); // the 120ms background transition
+    assert.equal(await wash(), 'rgb(251, 236, 235)', 'the tree delete button does not take --color-danger-wash on hover');
+    assert.equal(await ink(), 'rgb(165, 44, 38)', 'the tree delete button is not --color-danger-active on hover');
+
+    await context.close();
+  } finally {
+    await browser?.close();
+    await fx.cleanup();
+  }
+});
+
+/**
  * The List's airy rows are 40px, padded 8px 12px, which leaves 23px for the
  * cell's content. An editor taller than that would make the row jump every
  * time a cell opens for editing — so the row must measure the same before

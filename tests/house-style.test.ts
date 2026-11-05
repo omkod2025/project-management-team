@@ -246,8 +246,8 @@ test('docs deletion is danger, not vermilion', () => {
 });
 
 test('Docs and Wiki share one skin on .docs-book', () => {
-  const book = ruleBlocks(read('src/app/(signed-in)/p/[slug]/docs/docs.css')).find((b) => b.selector === '.docs-book');
-  assert.ok(book, 'docs.css has no `.docs-book` rule');
+  const book = ruleBlocks(read('src/app/(signed-in)/p/[slug]/docs/docs.css')).find((b) => b.selector === '.book.docs-book');
+  assert.ok(book, 'docs.css has no `.book.docs-book` rule');
   assert.match(book!.body, /--brand:\s*var\(--color-primary\)/);
   assert.match(book!.body, /--cu-ground:\s*var\(--color-paper\)/);
 });
