@@ -55,6 +55,8 @@ Added 2026-11-05. A manual written elsewhere — a project README, a procedure k
 
 **Export writes the source back out unchanged.** `contentMarkdown()` writes every code block — Markdown, Mermaid and plain alike — with a fence one backtick longer than the longest backtick run in its body (three at least), so a body holding its own ```` ``` ```` fences can no longer close the block early. `.md` import turns a fence whose info string is `markdown` or `md` back into a Markdown block, body unchanged; import then export gives the same body back. MCP `read_page` returns the block as that fence. Search (`D-73`) indexes its source as code is indexed.
 
+**Pasting into any code block stays literal.** Paste conversion (`doc-markdown-paste.ts`: Markdown on the clipboard becomes formatted content) applies only when the caret is outside a code block. Inside a Mermaid, Markdown or plain code block the clipboard text is inserted as typed — the block's source is what the author pasted.
+
 ---
 
 ## 3. Shape

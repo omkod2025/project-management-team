@@ -79,7 +79,7 @@ npm run db:seed -- <email> <password>
 
 ```bash
 npm run check      # typecheck + domain tests — the pre-commit bar
-npm test           # 429 domain rule tests (nodes, admin, list, roster, notifications, docs, wiki, mermaid), no database needed
+npm test           # 438 domain rule tests (nodes, admin, list, roster, notifications, docs, wiki, mermaid, markdown blocks), no database needed
 npm run db:test    # 14 SQL groups, rolled back
 npm run test:e2e   # 147 API tests — REQUIRES `npm run dev` in another terminal
 npm run test:wiki  # 98 wiki tests: REST, browser, MCP, guide — same requirement (5 skip without E2E_INSTALL_ADMIN_PASSWORD)
