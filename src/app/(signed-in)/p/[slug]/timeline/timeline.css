@@ -1,111 +1,152 @@
+/*
+ * The Timeline — and, through roster.css, All Timeline.
+ *
+ * ---- the restyle of 2026-11-05 (the Notion house style, DESIGN.md §1–8) ----
+ *
+ * The chrome around the field — toolbar, filters, the date scale, the name
+ * column — moved to the house: white canvas, hairline rules, Inter, 4px
+ * fields, an 8px utility button and a paper-track segmented control. The
+ * field's grammar did not move, because it is the grammar and not the styling:
+ *
+ *   - plan above in pencil hatch, record below in solid ink, separated by
+ *     POSITION, HEIGHT and FILL before they are separated by hue — greyscale,
+ *     a colour-blind viewer and a bad screen all still read plan-versus-record
+ *     (acceptance test A8 reads the two bar rules below and checks it);
+ *   - vermilion on the overhang and the misclosure figure, nowhere else;
+ *   - the six tab hues say *whose* work it is and never how it is going, and
+ *     are always mixed before they are drawn;
+ *   - today is a datum-green rule, and today's number in the scale is datum ink.
+ *
+ * The task name is not drawn beside its bar: this view has a pinned name
+ * column, and printing every name twice would fill the field with the one
+ * thing already readable without scrolling.
+ */
+
+/* ---- filters ---- */
+
 .timeline-filters {
   display: flex;
   flex-wrap: wrap;
   align-items: end;
-  gap: 12px;
-  padding: 10px 16px;
-  border-bottom: 1px solid var(--cu-line);
+  gap: var(--space-sm);
+  padding: 10px var(--space-md);
+  border-bottom: 1px solid var(--color-hairline);
+  background: var(--color-canvas);
   font-size: 12px;
 }
-.timeline-filters > label { display: grid; gap: 4px; color: var(--cu-ink-soft); }
+.timeline-filters > label {
+  display: grid;
+  gap: var(--space-xxs);
+  color: var(--color-ink-muted);
+  font-weight: 600;
+}
 /* Direct children only. The filter menu hangs its own panel in here, and its
    chrome is the sort menu's — a descendant selector would repaint every
-   checkbox row in the panel as a 30px bordered field. */
+   checkbox row in the panel as a bordered field. */
 .timeline-filters > label > select,
-.timeline-filters > label > input,
+.timeline-filters > label > input {
+  min-height: 30px;
+  padding: 4px 10px;
+  border: 1px solid var(--color-field-line);
+  border-radius: var(--radius-xs);
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font: 400 14px/1.4 var(--font-sans), var(--font-read), system-ui, sans-serif;
+  transition: border-color .12s ease, box-shadow .12s ease;
+}
+.timeline-filters > label > select:focus,
+.timeline-filters > label > input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgb(0 117 222 / 16%);
+  outline: none;
+}
+.timeline-filters > label > input::placeholder { color: var(--color-ink-faint); }
+.timeline-filters > label > select { max-width: 240px; }
 .timeline-filters > button {
   min-height: 30px;
-  padding: 4px 8px;
-  border: 1px solid var(--cu-line);
-  border-radius: var(--cu-r);
-  background: var(--cu-ground);
-  color: var(--cu-ink);
-  font: inherit;
+  padding: 4px 12px;
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-md);
+  background: var(--color-canvas);
+  color: var(--color-ink-secondary);
+  font: 500 13px/1 var(--font-sans), var(--font-read), system-ui, sans-serif;
+  cursor: pointer;
+  transition: background-color .12s ease, color .12s ease;
 }
-.timeline-filters > label > select { max-width: 240px; }
-.timeline-filters > button { cursor: pointer; }
-.timeline-filters > span { align-self: center; color: var(--cu-ink-soft); }
+.timeline-filters > button:hover { background: var(--color-paper); color: var(--color-ink); }
+.timeline-filters > span {
+  align-self: center;
+  color: var(--color-ink-muted);
+  font-variant-numeric: tabular-nums;
+}
 
-/*
- * The field. See DESIGN.md § Components and spec 04.
- *
- * The rule that decides whether this view works: estimate and actual differ
- * by POSITION, HEIGHT and FILL before they differ by ink. Greyscale, a
- * colour-blind viewer and a bad screen all still read plan-versus-record.
- *
- * ---- the restyle of 2026-09-08 ----
- *
- * The chrome around this field — `.book`, `.head`, `.toolbar`, `.scroller` —
- * moved to the ClickUp/roadmap reference language with the List, and the
- * shelf followed. The field did not, so a beige paper ground was being pinned
- * inside a white sheet and the seam ran straight down the middle of the view.
- * The palette here is now the sheet's own (`--cu-*`, defined on `.book`),
- * matching the roadmap reference the user pinned: a light neutral field, a
- * period grid you can measure against, and group blocks in the name column.
- *
- * What did NOT move, because it is the grammar rather than the styling:
- *
- *   - plan above in pencil hatch, record below in solid ink, separated by
- *     position and height before they are separated by hue;
- *   - vermilion on the overhang and the misclosure figure, nowhere else;
- *   - the six tab hues say *whose* work it is and never how it is going;
- *   - figures in Martian Mono.
- *
- * The reference draws a task's name beside its bar. This view does not, and
- * that is deliberate: it has a pinned name column the reference lacks, and
- * printing every name twice would fill the field with the one thing already
- * readable without scrolling.
- */
+/* ---- the field ---- */
 
 /* The field runs to the foot of the sheet whether or not the rows fill it.
    A period grid that stops two thirds of the way down, with white below it,
    reads as a page that failed to finish loading rather than as a project with
-   room left in it. Same argument the roster already made for its party
-   column, applied to the field the column indexes. */
+   room left in it. */
 .tl { display: flex; min-width: max-content; min-height: 100%; }
-.tl-field { display: flex; flex-direction: column; }
-.tl-rows { flex: 1 1 auto; }
+.tl-field { display: flex; flex-direction: column; position: relative; }
+.tl-rows { flex: 1 1 auto; position: relative; }
 
 .tl-names {
   position: sticky;
   left: 0;
-  z-index: 4;
+  /* Above the field's sticky scale (5), or the month band slides over the
+     column's own "Name" head when the field is scrolled sideways — which hid
+     it on every visit, the view opening a year into the field. Still below a
+     bar being dragged (8) and its date readout (9). */
+  z-index: 7;
   width: 320px;
   min-width: 320px;
-  background: var(--cu-canvas);
-  border-right: 1px solid var(--cu-line);
-  /* Same device as the List: the name column is a leaf above the field
-     sliding beneath it, marked by the one hard offset the system allows. */
-  box-shadow: 2px 0 0 rgba(41, 45, 52, 0.06);
+  background: var(--color-canvas);
+  /* The name column is a leaf above the field sliding beneath it. One
+     hairline says so; the old hard 2px offset was field-book furniture. */
+  border-right: 1px solid var(--color-hairline);
 }
 
-.tl-field { position: relative; }
+/* ---- the date scale ----
 
+   Two bands: the month band (36px) and the day numbers (22px), both sticky.
+   The month caption sits at the TOP of its band and the Today cap at the
+   FOOT of it, directly over today's number. Before this they shared one
+   centred line, and a month that began a few days before today had its
+   caption overprinted by the cap ("November 202ı Today"). Different lines,
+   so neither can cover the other wherever today falls. */
 .tl-head {
-  height: 30px;
+  height: 36px;
   flex: 0 0 auto;
   position: sticky;
   top: 0;
   z-index: 5;
-  background: var(--cu-canvas);
-  box-shadow: inset 0 -1px 0 var(--cu-line);
+  background: var(--color-canvas);
+  box-shadow: inset 0 -1px 0 var(--color-hairline);
 }
 
-.tl-months { display: flex; height: 30px; align-items: center; }
-.tl-month {
-  height: 30px;
+.tl-months {
   display: flex;
-  align-items: center;
-  padding-left: 10px;
+  height: 36px;
+  align-items: flex-start;
+  color: var(--color-ink-muted);
+}
+.tl-names .tl-months { padding-top: 7px; }
+/* The eyebrow, without the capitals: English month names are fixed chrome. */
+.tl-month {
+  height: 36px;
+  display: flex;
+  align-items: flex-start;
+  padding: 7px 0 0 10px;
   /* The period boundary, stated once in the header and continued down the
-     field as `.tl-mrule`. It is the reference's whole structure: without a
-     vertical to measure against, a bar three months out is a bar nowhere. */
-  border-left: 1px solid var(--cu-line);
-  color: var(--cu-ink);
-  font-family: var(--font-read), system-ui, sans-serif;
+     field as `.tl-mrule`. Without a vertical to measure against, a bar three
+     months out is a bar nowhere. */
+  border-left: 1px solid var(--color-hairline);
+  color: var(--color-ink-muted);
+  font-family: var(--font-sans), var(--font-read), system-ui, sans-serif;
   font-size: 12px;
   font-weight: 600;
-  letter-spacing: normal;
+  line-height: 1;
+  letter-spacing: 0.125px;
   text-transform: none;
   overflow: hidden;
   white-space: nowrap;
@@ -117,100 +158,80 @@
   flex: 0 0 auto;
   align-items: center;
   position: sticky;
-  top: 30px;
+  top: 36px;
   z-index: 5;
-  background: var(--cu-canvas);
-  border-bottom: 1px solid var(--cu-line);
+  background: var(--color-canvas);
+  border-bottom: 1px solid var(--color-hairline);
 }
 .tl-day {
   flex: 0 0 auto;
-  text-align: center;
-  font-family: var(--font-figure), monospace;
-  font-size: 10px;
-  color: var(--cu-ink-faint);
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: normal;
+  color: var(--color-ink-faint);
   overflow: hidden;
 }
-.tl-day.off { background: var(--cu-line-soft); }
+/* Non-working days: the paper band, the same one that runs down the field. */
+.tl-day.off { background: var(--color-paper); }
+/* The datum, stated in the scale itself. Not a filled marker — the number
+   simply changes ink, the same way a computed cell does. */
+.tl-day.is-today { color: var(--color-datum); font-weight: 700; }
 
-/* The period grid, run the full height of the field behind every bar. Drawn
-   from the same month boundaries as the header labels, so a bar reads against
-   the label that names its column rather than against a count of days. */
+/* The period grid, run the full height of the field behind every bar. */
 .tl-mrule {
   position: absolute;
   top: 0;
   bottom: 0;
   width: 1px;
-  background: var(--cu-line);
+  background: var(--color-hairline);
   z-index: 0;
 }
-/* The datum, stated in the scale itself. Not a filled marker — the number
-   simply changes ink, the same way a computed cell does. */
-.tl-day.is-today { color: var(--color-datum); font-weight: 600; }
 
-.tl-rows { position: relative; }
+/* ---- rows ---- */
 
 .tl-namerow,
 .tl-row {
-  height: var(--space-row);
-  border-bottom: 1px solid var(--cu-line-soft);
+  height: 34px;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-hairline) 60%, var(--color-canvas));
   position: relative;
 }
-.tl-namerow:hover { background: var(--cu-hover); }
 .tl-namerow {
   display: flex;
   align-items: center;
   gap: 4px;
   padding: 0 10px;
+  color: var(--color-ink);
+  font-size: 14px;
   /* Fixed height and no wrapping. A wrapped Thai name would make this row
      taller than its counterpart in the field, and every row below it would
      drift out of register — the bar you read would not belong to the name
      you read. */
   overflow: hidden;
   white-space: nowrap;
+  transition: background-color .12s ease;
 }
+.tl-namerow:hover { background: color-mix(in srgb, var(--color-paper) 70%, var(--color-canvas)); }
 .tl-namerow .name-text { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .tl-namerow.module,
-.tl-row.module { height: 44px; box-shadow: inset 0 1px 0 var(--cu-line); }
+.tl-row.module { height: 44px; box-shadow: inset 0 1px 0 var(--color-hairline); }
 
-/* Both uses two full lanes on the same date scale for direct comparison. */
-.tl-both .tl-namerow,
-.tl-both .tl-row { height: 32px; box-sizing: border-box; }
-.tl-both .tl-namerow { padding-right: 72px; }
-.tl-lane-labels {
-  position: absolute;
-  right: 8px;
-  top: 0;
-  display: grid;
-  grid-template-rows: 16px 16px;
-  align-items: center;
-  font-size: 10px;
-  color: var(--cu-ink-soft);
-}
-.tl-both .bar.est { top: 3px; }
-.tl-both .bar.act { top: 19px; }
-.tl-both .mile { top: 3px; }
-.tl-both .mile.act { top: 19px; }
-.tl-both .brk.base { top: 4px; }
-.tl-both .brk.roll,
-.tl-both .brk.over { top: 20px; }
-.tl-both .over-fig { top: 16px; }
-
-/* The reference groups its left column into filled blocks of colour, one per
-   swim-lane, and that is the read this column was missing: a module head sat
-   in the same ink and on the same ground as the tasks under it, distinguished
-   only by weight. It now takes a wash of its own hue and a full-height spine,
-   so the name column parses as blocks before it is read as names.
-
-   A wash and a 3px spine, not a filled block: the module hue at full strength
-   over a whole row is a band of colour that competes with the bars, and this
-   column's job is to index the field, not to out-shout it. */
+/* The name column parses as blocks before it is read as names: a module head
+   takes a wash of its own hue and a full-height spine. A wash and a spine,
+   not a filled block — this column indexes the field, it does not out-shout
+   it. The spine is mixed toward the page like every other hue mark. */
 .tl-namerow.module {
-  font-family: var(--font-struct), sans-serif;
+  font-family: var(--type-title-family);
   font-weight: 600;
   padding-left: 14px;
-  background: color-mix(in srgb, var(--row-hue) 9%, var(--cu-canvas));
+  background: color-mix(in srgb, var(--row-hue) 9%, var(--color-canvas));
 }
-.tl-namerow.module:hover { background: color-mix(in srgb, var(--row-hue) 14%, var(--cu-canvas)); }
+.tl-namerow.module:hover { background: color-mix(in srgb, var(--row-hue) 14%, var(--color-canvas)); }
 .tl-namerow.module::before {
   content: '';
   position: absolute;
@@ -218,25 +239,20 @@
   top: 0;
   bottom: 0;
   width: 3px;
-  background: var(--row-hue);
+  background: color-mix(in srgb, var(--row-hue) 80%, var(--color-canvas));
 }
-/* The block is stated in the name column only. The field's own module row
-   keeps its ground clear: a wash there is painted by a row that sits above the
-   period grid and the weekend bands in the stacking order, and it would erase
-   both wherever a module falls. */
+/* The field's own module row keeps its ground clear: a wash there sits above
+   the period grid and the weekend bands, and would erase both. */
 
-.tl-namerow[aria-selected='true'] { box-shadow: inset 3px 0 0 rgba(41, 45, 52, 0.35); }
+/* Selection is a place, not a verdict: the house blue, as in the List. */
+.tl-namerow[aria-selected='true'] {
+  background: var(--color-primary-wash);
+  box-shadow: inset 2px 0 0 var(--color-primary);
+}
 
-/* ---- the module's colour in the name column ----
-
-   The same 3px chip and 2px indent hairline the List draws, reading
-   --row-hue from the row. Shared vocabulary on purpose: a module has one
-   colour across both views, so switching instrument does not re-teach the
-   index. `.modchip` itself is defined in list.css, which this view imports.
-
-   The hairline sits at a fixed 12px rather than following the indent, again
-   matching the List — it is a spine down the block, not a depth gauge, and
-   the indent is already saying depth. */
+/* The same 2px indent hairline the List draws, reading --row-hue from the
+   row: a module keeps one colour across both views. `.modchip` is defined in
+   list.css, which this view imports. */
 .tl-namerow:not(.module)::before {
   content: '';
   position: absolute;
@@ -248,74 +264,80 @@
 }
 
 /* Non-working days band the whole run, behind every bar. */
-.band { position: absolute; top: 0; bottom: 0; background: var(--cu-line-soft); z-index: 0; }
+.band { position: absolute; top: 0; bottom: 0; background: var(--color-paper); z-index: 0; }
 
+/* Today. */
 .datum { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--color-datum); z-index: 3; }
-/* The cap rides in the month band, not among the day numbers. Spec 04 §5 says
-   today's own number is set in datum ink because it is the one date somebody
-   scans the scale for — and the cap, centred on the same column at `top: 4px`,
-   was sitting straight on top of it. The label and the number were competing
-   to say the same thing, and the label was winning. */
+/* The cap rides at the foot of the month band, directly over today's number
+   and below the month caption (see `.tl-month`). Positioned against
+   `.tl-days`, which is its containing block. */
 .datum-cap {
   position: absolute;
-  top: -21px;
+  top: -16px;
+  height: 14px;
   transform: translateX(-50%);
   z-index: 6;
   padding: 0 4px;
-  background: var(--cu-canvas);
+  border-radius: var(--radius-xs);
+  background: var(--color-canvas);
   color: var(--color-datum);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 14px;
+  letter-spacing: 0.125px;
+  text-transform: none;
+  white-space: nowrap;
 }
 
-/* ---- the two bars ---- */
+/* ---- the two bars ----
 
-/* The reference draws its bars as pills. A full pill is refused here: at 9px
-   tall it eats the leading edge, and the leading edge is where a run starts —
-   the one pixel column the eye lands on when reading a date off the scale. The
-   radius is taken to 3px instead, which is the sheet's own `--cu-r` scaled to
-   a 9px bar, and the lead cap follows it so the corner stays one shape. */
+   A full pill is refused: at 9px tall it eats the leading edge, and the
+   leading edge is where a run starts — the one pixel column the eye lands on
+   when reading a date off the scale. 3px at most (guarded).
+
+   Both bars are keyed to their module's colour, so a run of work reads as one
+   thread across a field of two hundred rows. The colour says *whose*; it never
+   says how the work is going.
+
+   The plan/record distinction is NOT carried by hue and must not become so.
+   It is carried by position (upper/lower), height (9px/11px) and treatment
+   (hatch/solid). */
 .bar { position: absolute; z-index: 2; box-sizing: border-box; border-radius: 3px; }
+/* The leading edge, in the mixed hue — deeper than either fill so it still
+   reads on the solid record, and further from vermilion than the fill. */
 .bar .lead {
   position: absolute;
   left: 0;
   top: 0;
   bottom: 0;
   width: 3px;
-  background: var(--bar-hue);
+  background: color-mix(in srgb, var(--bar-hue) 45%, var(--color-ink-blue));
   border-radius: 3px 0 0 3px;
 }
 
-/* Both bars are keyed to their module's colour, so a run of work reads as one
-   thread across a field of two hundred rows. The colour says *whose*; it never
-   says how the work is going — that is the misclosure's job, and vermilion
-   stays the only colour that carries a verdict.
-
-   The plan/record distinction is NOT carried by hue, and must not become so.
-   It survives in position (upper/lower), height (9px/13px) and treatment
-   (hatch/solid), which is what keeps it legible in a greyscale print and to a
-   colour-blind reader. Hue is a third axis laid over the top of that, not a
-   replacement for it. */
-
-/* pencil — a plan */
+/* pencil — a plan. These two rules come before every override of them: A8
+   reads the first estimate and actual bar rules in this file as plain text,
+   so neither may be preceded by an override or quoted with its brace. */
 .bar.est {
   top: 5px;
   height: 9px;
-  border: 1px solid color-mix(in srgb, var(--bar-hue) 50%, var(--color-ink-graphite-soft));
-  /* Mixed against the field's own ground, which is now white. Against the old
-     paper this read as a tinted wash; against white the same 22% arrived
-     washed out, so the share is lifted to hold the module's colour. */
-  background-color: color-mix(in srgb, var(--bar-hue) 26%, var(--cu-canvas));
+  border: 1px solid color-mix(in srgb, var(--bar-hue) 50%, var(--color-ink-muted));
+  background-color: color-mix(in srgb, var(--bar-hue) 26%, var(--color-canvas));
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='6'%3E%3Cpath d='M-1,1 l2,-2 M0,6 l6,-6 M5,7 l2,-2' stroke='%232A2622' stroke-width='1' opacity='.34'/%3E%3C/svg%3E");
 }
-/* ink — a record. Darkened toward the blue-black so a filled bar stays ink
-   rather than becoming a bright block, and so tab-1 cannot be mistaken at a
-   glance for the vermilion of an overrun. */
+/* ink — a record. Taller than the plan, solid, and darkened toward the
+   blue-black so a filled bar stays ink rather than becoming a bright block —
+   and so tab-1 cannot be mistaken at a glance for the vermilion of an
+   overrun. A8 does that arithmetic on the 60% below. */
 .bar.act {
   top: 20px;
-  height: 9px;
-  background: color-mix(in srgb, var(--bar-hue) 62%, var(--color-ink-blue));
+  height: 11px;
+  background: color-mix(in srgb, var(--bar-hue) 60%, var(--color-ink-blue));
   border: 1px solid color-mix(in srgb, var(--bar-hue) 40%, var(--color-ink-blue-soft));
 }
 
+/* Dragging tracks the pointer 1:1: no transition on a bar, ever. */
 .bar.draggable { cursor: grab; }
 .bar.dragging { cursor: grabbing; z-index: 8; }
 .bar .handle {
@@ -330,21 +352,26 @@
 /* the original position, held while dragging so the size of the change shows */
 .ghost {
   position: absolute;
-  border: 1px dashed var(--color-ink-graphite-soft);
+  border: 1px dashed var(--color-ink-muted);
+  border-radius: 3px;
   z-index: 1;
   pointer-events: none;
 }
 
 .drag-dates {
   position: absolute;
-  top: -14px;
+  top: -16px;
   z-index: 9;
   white-space: nowrap;
-  padding: 0 4px;
-  background: var(--cu-canvas);
-  color: var(--cu-ink);
-  font-family: var(--font-figure), monospace;
-  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: var(--radius-xs);
+  background: var(--color-canvas);
+  box-shadow: var(--shadow-1), 0 0 0 1px var(--color-hairline);
+  color: var(--color-ink);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
 }
 
 /* milestone: an end with no start (D-12) */
@@ -353,7 +380,7 @@
   top: 8px;
   width: 9px; height: 9px;
   transform: rotate(45deg);
-  border: 1px solid color-mix(in srgb, var(--bar-hue) 50%, var(--color-ink-graphite-soft));
+  border: 1px solid color-mix(in srgb, var(--bar-hue) 50%, var(--color-ink-muted));
   border-radius: 1px;
   z-index: 2;
 }
@@ -361,7 +388,7 @@
    carried by treatment rather than by hue. */
 .mile.act {
   top: 20px;
-  background: color-mix(in srgb, var(--bar-hue) 62%, var(--color-ink-blue));
+  background: color-mix(in srgb, var(--bar-hue) 60%, var(--color-ink-blue));
   border-color: color-mix(in srgb, var(--bar-hue) 40%, var(--color-ink-blue-soft));
 }
 
@@ -373,7 +400,7 @@
   z-index: 2;
 }
 .brk.base { top: 8px; border: 1px solid var(--color-ink-graphite); border-bottom: 0; }
-.brk.roll { top: 24px; border: 1px solid var(--color-ink-graphite-soft); border-top: 0; }
+.brk.roll { top: 24px; border: 1px solid var(--color-ink-muted); border-top: 0; }
 /* only the overhang is vermilion, never the whole bracket */
 .brk.over { top: 24px; border: 1px solid var(--color-vermilion); border-top: 0; z-index: 3; }
 
@@ -383,38 +410,72 @@
   z-index: 4;
   padding-left: 4px;
   color: var(--color-vermilion);
-  font-family: var(--font-figure), monospace;
+  font-family: var(--font-sans), system-ui, sans-serif;
   font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
-/* ---- controls ---- */
+/* ---- Both: two full lanes on the same date scale ----
 
-/* These sit in the sheet's toolbar beside the search and the count, so they
-   are drawn in the toolbar's language: hairline rules, the sheet's radius, a
-   soft hover ground. Pressed is still an inversion — a segmented control has
-   to say which segment is live at a glance, and a tint would not. */
+   After the base bar rules on purpose (see `.bar.est`). */
+.tl-both .tl-namerow,
+.tl-both .tl-row { height: 32px; box-sizing: border-box; }
+.tl-both .tl-namerow { padding-right: 72px; }
+.tl-lane-labels {
+  position: absolute;
+  right: 8px;
+  top: 0;
+  display: grid;
+  grid-template-rows: 16px 16px;
+  align-items: center;
+  color: var(--color-ink-muted);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+}
+.tl-both .bar.est { top: 3px; }
+.tl-both .bar.act { top: 19px; }
+.tl-both .mile { top: 3px; }
+.tl-both .mile.act { top: 19px; }
+.tl-both .brk.base { top: 4px; }
+.tl-both .brk.roll,
+.tl-both .brk.over { top: 20px; }
+.tl-both .over-fig { top: 16px; }
+
+/* ---- controls ----
+
+   They sit in the sheet's toolbar beside the search and the count. A
+   segmented control is a paper track with the live segment lifted out of it
+   in white — it has to say which segment is live at a glance. */
 .seg {
   display: flex;
-  height: 26px;
-  border: 1px solid var(--cu-line);
-  border-radius: var(--cu-r);
-  overflow: hidden;
+  height: 28px;
+  padding: 2px;
+  gap: 2px;
+  border-radius: var(--radius-sm);
+  background: var(--color-paper);
 }
 .seg button {
   padding: 0 10px;
   border: 0;
-  border-right: 1px solid var(--cu-line);
-  background: none;
-  color: var(--cu-ink-soft);
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--color-ink-muted);
   cursor: pointer;
-  font-family: var(--font-read), system-ui, sans-serif;
-  font-size: 12px;
+  font-family: var(--font-sans), var(--font-read), system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
   letter-spacing: normal;
   text-transform: none;
+  transition: background-color .12s ease, color .12s ease, box-shadow .12s ease;
 }
-.seg button:last-child { border-right: 0; }
-.seg button:hover { background: var(--cu-hover); color: var(--cu-ink); }
-.seg button[aria-pressed='true'] { background: var(--brand); color: var(--brand-ink); }
+.seg button:hover { color: var(--color-ink); background: rgb(0 0 0 / 4%); }
+.seg button[aria-pressed='true'] {
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  box-shadow: var(--shadow-1), 0 0 0 1px rgb(0 0 0 / 6%);
+}
 
 @media (max-width: 900px) {
   .tl-names { width: 200px; min-width: 200px; }
@@ -423,9 +484,8 @@
 .tl-empty {
   padding: 10px 20px;
   margin: 0;
-  color: var(--cu-ink-soft);
-  font-style: italic;
-  font-size: 12.5px;
+  color: var(--color-ink-muted);
+  font-size: 14px;
 }
 
 /* ---- sort control ---- */
@@ -434,49 +494,53 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  color: var(--cu-ink-soft);
+  color: var(--color-ink-muted);
 }
 .sortbox .field-input {
-  height: 26px;
-  padding: 0 6px;
-  background: var(--cu-canvas);
-  border: 1px solid var(--cu-line);
-  border-radius: var(--cu-r);
-  color: var(--cu-ink);
+  height: 28px;
+  padding: 0 8px;
+  background: var(--color-canvas);
+  border: 1px solid var(--color-field-line);
+  border-radius: var(--radius-xs);
+  color: var(--color-ink);
+  font-family: var(--font-sans), var(--font-read), system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 400;
   letter-spacing: normal;
   text-transform: none;
+  transition: border-color .12s ease, box-shadow .12s ease;
 }
-.sortbox .field-input:focus { border-color: var(--brand); }
+.sortbox .field-input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgb(0 117 222 / 16%);
+  outline: none;
+}
 
-/* Ruled, no fill — the ordinary button of the sheet. It is not the primary
-   action (that inversion is reserved), it is a way back. */
+/* The house utility button: hairline, 8px, white. Not the primary action —
+   it is a way back. */
 .today-jump,
 .flip {
-  height: 26px;
-  border: 1px solid var(--cu-line);
-  border-radius: var(--cu-r);
-  background: none;
-  color: var(--cu-ink-soft);
+  height: 28px;
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-md);
+  background: var(--color-canvas);
+  color: var(--color-ink-secondary);
   cursor: pointer;
-  font-family: var(--font-read), system-ui, sans-serif;
-  font-size: 12px;
+  font-family: var(--font-sans), var(--font-read), system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
   letter-spacing: normal;
   text-transform: none;
+  transition: background-color .12s ease, color .12s ease;
 }
-.today-jump { padding: 0 10px; }
-.flip { width: 26px; font-family: var(--font-figure), monospace; }
+.today-jump { padding: 0 12px; }
+.flip { width: 28px; font-variant-numeric: tabular-nums; }
 .today-jump:hover,
-.flip:hover { background: var(--cu-hover); color: var(--cu-ink); }
+.flip:hover { background: var(--color-paper); color: var(--color-ink); }
 
 /* Which module a row belongs to, shown only when the sort has flattened the
-   tree and the indent can no longer say it.
- *
- * This carried the `label` class until 2026-09-08, which meant tracked
- * uppercase — and most module names in this data are Thai. Thai has no case,
- * so `text-transform` does nothing but the tracking prises the vowel and tone
- * marks off the consonants they belong to. CLAUDE.md § Language forbids both
- * on Thai; the rule was being broken on the one row-level label most likely to
- * be Thai. It is set in the reading face now, like the name beside it. */
+   tree and the indent can no longer say it. Most module names are Thai, so it
+   is set in the reading face at 13px, untracked and never capitalised. */
 .rowmodule {
   margin-left: auto;
   padding-left: 10px;
@@ -484,9 +548,9 @@
   max-width: 40%;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: var(--cu-ink-faint);
-  font-family: var(--font-read), system-ui, sans-serif;
-  font-size: 11.5px;
+  color: var(--color-ink-muted);
+  font-family: var(--font-sans), var(--font-read), system-ui, sans-serif;
+  font-size: 13px;
   letter-spacing: normal;
   text-transform: none;
 }

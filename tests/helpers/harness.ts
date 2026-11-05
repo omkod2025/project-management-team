@@ -29,6 +29,32 @@ export type Fixture = {
 
 const uid = () => randomUUID();
 
+/** Accounts made by `makeUser`, per fixture connection, removed by `cleanup`. */
+const extraUsers = new Map<pg.Client, string[]>();
+
+/**
+ * One more throwaway account beside the fixture's admin and viewer, on no
+ * project. `cleanup` deletes it with the others; anything it owns that has a
+ * RESTRICT reference (a wiki) must be deleted by the test first.
+ */
+export async function makeUser(
+  client: pg.Client,
+  tag: string,
+): Promise<{ id: string; email: string; password: string }> {
+  const user = {
+    id: uid(),
+    email: `e2e-${tag}-${randomBytes(4).toString('hex')}@test.invalid`,
+    password: randomBytes(18).toString('base64url'),
+  };
+  await client.query(
+    `INSERT INTO pmt_users (user_id, user_email, user_full_name, user_password_hash)
+     VALUES ($1, $2, $3, $4)`,
+    [user.id, user.email, `E2E ${tag}`, await hashPassword(user.password)],
+  );
+  extraUsers.set(client, [...(extraUsers.get(client) ?? []), user.id]);
+  return user;
+}
+
 export async function setup(): Promise<Fixture> {
   const client = new pg.Client({
     host: process.env.PGHOST,
@@ -121,7 +147,8 @@ export async function setup(): Promise<Fixture> {
   const cleanup = async () => {
     await client.query('DELETE FROM pmt_nodes WHERE node_project_id = $1', [projectId]);
     await client.query('DELETE FROM pmt_projects WHERE project_id = $1', [projectId]);
-    await client.query('DELETE FROM pmt_users WHERE user_id = ANY($1)', [[admin.id, viewer.id]]);
+    await client.query('DELETE FROM pmt_users WHERE user_id = ANY($1)', [[admin.id, viewer.id, ...(extraUsers.get(client) ?? [])]]);
+    extraUsers.delete(client);
     await client.end();
   };
 

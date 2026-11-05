@@ -4,12 +4,9 @@ import DocIcon from "./doc-icon";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { publishedHref } from "@/lib/doc-publish-rules";
-import {
-  pageMarkdown,
-  pageSections,
-  parsePageContent,
-  type DocPage,
-} from "@/lib/doc-rules";
+import type { DocPage } from "@/lib/doc-rules";
+import { projectDocEndpoints } from "@/lib/doc-endpoints";
+import { exportPages, readImportFile } from "./doc-transfer";
 type ToolsData = {
   comments: {
     id: string;
@@ -129,73 +126,7 @@ export default function PageTools({
     setError("");
     try {
       const selected = scope === "doc" ? pages : [page];
-      let source = "",
-        mime = "text/plain;charset=utf-8";
-      if (format === "md")
-        source = selected
-          .map((p) => `# ${p.title}\n\n${pageMarkdown(p.template, p.content)}`)
-          .join("\n\n---\n\n");
-      if (format === "json") {
-        source = JSON.stringify(
-          {
-            format: "fieldbook-doc-v1",
-            pages: selected.map(({ title, template, content }) => ({
-              title,
-              template,
-              content,
-            })),
-          },
-          null,
-          2,
-        );
-        mime = "application/json";
-      }
-      if (format === "html" || format === "print") {
-        const [{ renderToStaticMarkup }, { default: DocContent }] =
-          await Promise.all([
-            import("react-dom/server"),
-            import("./doc-content"),
-          ]);
-        const exportBody = document.createElement("div");
-        exportBody.innerHTML = renderToStaticMarkup(
-          <>
-            {selected.map((p) => (
-              <section key={p.id}>
-                <h1>{p.title}</h1>
-                {pageSections(p.template).map(([key, label]) => (
-                  <section key={key}>
-                    {p.template === "module" && <h2>{label}</h2>}
-                    <DocContent value={p.content[key] ?? ""} />
-                  </section>
-                ))}
-              </section>
-            ))}
-          </>,
-        );
-        exportBody
-          .querySelectorAll<HTMLElement>("[href],[src]")
-          .forEach((el) => {
-            for (const attr of ["href", "src"]) {
-              const value = el.getAttribute(attr);
-              if (value?.startsWith("/") && !value.startsWith("//"))
-                el.setAttribute(attr, new URL(value, location.origin).href);
-            }
-          });
-        const escape = (s: string) =>
-          s.replace(
-            /[&<>"']/g,
-            (c) =>
-              ({
-                "&": "&amp;",
-                "<": "&lt;",
-                ">": "&gt;",
-                '"': "&quot;",
-                "'": "&#39;",
-              })[c]!,
-          );
-        source = `<!doctype html><html><head><meta charset="utf-8"><title>${escape(page.title)}</title><style>body{max-width:760px;margin:48px auto;font:16px/1.5 system-ui}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccc;padding:8px}img{max-width:100%}.doc-columns{display:grid;grid-template-columns:1fr 1fr;gap:20px}.doc-banner{padding:12px;background:#e8f0ff}.tone-success{background:#d8f3e0}.tone-warning{background:#fff0b3}.tone-danger{background:#ffe2e2}.doc-embed{width:100%;height:360px;border:0}.doc-link-button{display:inline-block;background:#2b3a8f;color:white;padding:8px 16px;border-radius:6px}body>div>section{break-before:page}</style></head><body>${exportBody.innerHTML}</body></html>`;
-        mime = "text/html";
-      }
+      const { source, mime } = await exportPages(format, selected, page.title);
       if (format === "print") {
         const frame = document.createElement("iframe");
         frame.style.position = "fixed";
@@ -239,68 +170,10 @@ export default function PageTools({
     setError("");
     let created = 0;
     try {
-      let text = await file.text();
-      let conversionWarnings: string[] = [];
-      if (/\.docx$/i.test(file.name)) {
-        const { importDocx } = await import("./import-docx");
-        const converted = await importDocx(file, projectId);
-        text = converted.html;
-        conversionWarnings = converted.warnings;
-      }
-      let items: {
-        title: string;
-        template: "free" | "module";
-        content: Record<string, string>;
-      }[];
-      if (file.name.endsWith(".json")) {
-        const input = JSON.parse(text);
-        if (
-          input.format !== "fieldbook-doc-v1" ||
-          !Array.isArray(input.pages) ||
-          !input.pages.length ||
-          input.pages.length > 100
-        )
-          throw new Error("Choose a Fieldbook JSON export with 1–100 pages.");
-        items = input.pages;
-      } else if (/\.(html?|docx)$/i.test(file.name)) {
-        const [{ generateJSON }, { docEditorExtensions }, { encodeRich }] =
-          await Promise.all([
-            import("@tiptap/core"),
-            import("@/lib/doc-editor-extensions"),
-            import("@/lib/doc-rich-content"),
-          ]);
-        items = [
-          {
-            title: file.name.replace(/\.[^.]+$/, "").slice(0, 200),
-            template: "free",
-            content: {
-              body: encodeRich(
-                generateJSON(
-                  text,
-                  docEditorExtensions(true),
-                ) as import("@/lib/doc-rich-content").RichNode,
-              ),
-            },
-          },
-        ];
-      } else
-        items = [
-          {
-            title: file.name.replace(/\.[^.]+$/, "").slice(0, 200),
-            template: "free",
-            content: { body: text },
-          },
-        ];
-      for (const item of items) {
-        if (
-          !["free", "module"].includes(item.template) ||
-          typeof item.title !== "string" ||
-          !item.title.trim() ||
-          item.title.length > 200
-        )
-          throw new Error("Invalid imported page.");
-        parsePageContent(item.content, item.template);
-      }
+      const { items, warnings: conversionWarnings } = await readImportFile(
+        file,
+        projectDocEndpoints(projectId).uploadAsset,
+      );
       for (const item of items) {
         const res = await fetch(`/api/docs/${page.docId}/pages`, {
           method: "POST",
@@ -334,7 +207,7 @@ export default function PageTools({
       const body = new FormData();
       body.set("file", file);
       body.set("kind", "image");
-      const res = await fetch(`/api/projects/${projectId}/doc-assets`, {
+      const res = await fetch(projectDocEndpoints(projectId).uploadAsset, {
         method: "POST",
         body,
       });

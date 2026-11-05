@@ -1,5 +1,6 @@
 import { domainError } from './errors.ts';
 import { contentMarkdown, decodeRich } from './doc-rich-content.ts';
+import { assertMermaidLimits } from './mermaid-rules.ts';
 
 export function parseNewDoc(input: unknown): { title: string; version: string } {
   if (!input || typeof input !== 'object' || Array.isArray(input)) {
@@ -42,6 +43,7 @@ export function parsePageContent(value: unknown, template: PageTemplate): PageCo
     if (typeof input[key] !== 'string') throw domainError('E_INVALID_DOC', 'Every section must contain text.');
     content[key] = input[key];
     try { decodeRich(content[key]); } catch { throw domainError('E_INVALID_DOC', 'This page contains invalid or unsupported rich content.'); }
+    assertMermaidLimits(content[key]);
   }
   if (Object.values(content).join('').length > 200_000) throw domainError('E_INVALID_DOC', 'Keep each page within 200,000 characters. Split longer content into another page.');
   return content;

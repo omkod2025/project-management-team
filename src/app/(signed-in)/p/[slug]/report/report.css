@@ -1,11 +1,18 @@
 /*
- * The client report.
+ * The client report, in the Notion house style (DESIGN.md).
  *
- * On screen it is the field book: buff page, red rules, the same inks.
- * On paper the page IS paper, so the ground drops to white — printing a buff
- * background wastes ink and reproduces badly on an office printer. The rules
- * and the three inks stay, because they are what make the document legible
- * and what make it recognisably this product.
+ * The header and view nav are `.book`/`.sheet`/`.head`/`.views` from
+ * `list.css`, already on the house style. Everything below belongs to this
+ * file: the on-screen controls as house fields and pills, and the document
+ * itself as a white panel on paper — a report is read on screen before it is
+ * ever sent, so it earns the same panel treatment as any other document.
+ *
+ * On paper the panel drops away: printing a bordered, shadowed card wastes
+ * ink and reproduces badly on an office printer, so `@media print` flattens
+ * it back to the page itself. The three inks — graphite for what was entered,
+ * blue-black for what the system derived, vermilion for the one misclosure
+ * slip — stay on both, because they are what make the document legible and
+ * what make it recognisably this product.
  */
 
 .report-controls {
@@ -13,66 +20,111 @@
   margin: 0 auto;
   padding: 22px 20px 0;
 }
+/* The shared `.head` (list.css) assumes a short Latin title; a project name
+   here can be long or Thai, so it wraps rather than pushing the phone wide. */
+.report-controls .head { flex-wrap: wrap; height: auto; min-height: 56px; }
+
+.report-controls .aside {
+  margin: 10px 0 0;
+  max-width: 68ch;
+  color: var(--color-ink-muted);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
 
 .report-options {
   display: flex;
   gap: 28px;
   flex-wrap: wrap;
   align-items: flex-start;
-  margin: 14px 0;
-  padding-bottom: 14px;
-  border-bottom: 1px solid var(--color-rule);
+  margin: 16px 0;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--color-hairline);
 }
-.report-options label { display: flex; align-items: center; gap: 8px; color: var(--color-ink-graphite-soft); }
-.report-options fieldset { border: 1px solid var(--color-rule); padding: 10px 14px; }
+.report-options label { display: flex; align-items: center; gap: 8px; color: var(--color-ink-muted); }
+.report-options fieldset {
+  border: 1px solid var(--color-field-line);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+}
 .report-options fieldset label { display: flex; margin: 3px 0; }
-.report-options legend { padding: 0 6px; color: var(--color-ink-graphite-soft); }
+.report-options legend { padding: 0 6px; color: var(--color-ink-muted); }
 .report-options .field-input { margin-left: 6px; }
 .report-options .money { color: var(--color-ink-graphite); }
-.report-options .warn {
+
+/* A money column is a caution, not a misclosure: nothing is out of closure
+   and no write failed, so it takes danger red, never vermilion (CLAUDE.md
+   § Colour law). The tag names the column type; the band below says why. */
+.report-options .report-money {
   margin-left: 6px;
-  padding: 1px 5px;
-  background: var(--color-vermilion-wash);
-  color: var(--color-vermilion);
+  padding: 0 6px;
+  border: 1px solid oklch(from var(--color-danger) 0.76 calc(c * 0.95) h);
+  border-radius: var(--radius-badge);
+  background: oklch(from var(--color-danger) 0.92 calc(c * 0.62) h);
+  color: oklch(from var(--color-danger) 0.43 calc(c * 0.85) h);
+}
+.report-caution {
+  margin: 0 0 12px;
+  padding: 9px 12px;
+  border: 1px solid color-mix(in srgb, var(--color-danger) 28%, var(--color-canvas));
+  border-radius: var(--radius-sm);
+  background: var(--color-danger-wash);
+  color: var(--color-danger);
 }
 
 .report-controls button.primary {
-  margin: 6px 0 24px;
-  padding: 6px 16px;
-  border: 1px solid var(--brand);
-  background: var(--brand);
-  color: var(--brand-ink);
+  margin: 10px 0 24px;
+  height: 34px;
+  padding: 0 18px;
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
+  color: #fff;
   cursor: pointer;
+  font-weight: 600;
+  transition: background-color 120ms ease, border-color 120ms ease;
 }
+.report-controls button.primary:hover { background: var(--color-primary-active); border-color: var(--color-primary-active); }
 
-/* ---- the document ---- */
+/* ---- the document ----
+
+   A white panel on paper, sitting the way any other document in this
+   product does (DESIGN.md § Panels). */
 
 .report {
   max-width: 900px;
-  margin: 0 auto 60px;
-  padding: 0 20px 40px;
-  background: var(--color-page);
+  margin: 20px auto 60px;
+  padding: 24px 28px 36px;
+  background: var(--color-canvas);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
 }
 
 .report-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-end;
-  gap: 20px;
+  gap: 8px 20px;
   padding-bottom: 10px;
-  box-shadow: inset 0 -1px 0 var(--color-rule-major), 0 2px 0 -1px var(--color-rule-major);
+  border-bottom: 1px solid var(--color-hairline);
 }
 .report-head h1 {
   margin: 0;
-  font-family: var(--font-struct), sans-serif;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--font-sans), var(--font-read), sans-serif;
   font-size: 22px;
   font-weight: 600;
 }
-.report-meta { margin-left: auto; text-align: right; color: var(--color-ink-graphite-soft); font-size: 11px; }
+.report-meta { margin-left: auto; text-align: right; color: var(--color-ink-muted); font-size: 11px; }
 
-.report-module { margin-top: 26px; }
+/* A module's table can run to more columns than a phone is wide; it scrolls
+   on its own rather than widening the page under it. */
+.report-module { margin-top: 26px; overflow-x: auto; }
 .report-module h2 {
   margin: 0 0 2px;
-  font-family: var(--font-struct), sans-serif;
+  font-family: var(--font-sans), var(--font-read), sans-serif;
   font-size: 15px;
   font-weight: 600;
   display: flex;
@@ -80,22 +132,27 @@
   gap: 10px;
 }
 .report-count { color: var(--color-ink-blue); font-size: 11px; }
-.report-dates { margin: 0 0 8px; color: var(--color-ink-graphite-soft); font-size: 11px; }
-.report-empty { margin: 4px 0 0; color: var(--color-ink-graphite-soft); font-style: italic; font-size: 12px; }
+.report-dates { margin: 0 0 8px; color: var(--color-ink-muted); font-size: 11px; }
+.report-empty { margin: 4px 0 0; color: var(--color-ink-muted); font-style: italic; font-size: 12px; }
 
 .report-table { width: 100%; border-collapse: separate; border-spacing: 0; }
 .report-table th {
+  /* Column names are user-defined and can be Thai: the row's global `.label`
+     eyebrow would set them at 12px and tracked. */
+  font-size: 13px;
+  letter-spacing: normal;
   text-align: left;
-  padding: 4px 8px;
-  color: var(--color-ink-graphite-soft);
-  border-bottom: 1px solid var(--color-rule-major);
+  padding: 6px 8px;
+  color: var(--color-ink-muted);
+  border-bottom: 1px solid var(--color-hairline);
   white-space: nowrap;
 }
 .report-table td {
-  padding: 5px 8px;
-  border-bottom: 1px solid var(--color-rule);
+  padding: 6px 8px;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-hairline) 60%, var(--color-canvas));
   vertical-align: top;
 }
+.report-table tr:last-child td { border-bottom: 0; }
 .report-table .num { text-align: right; }
 .report-table td .report-count { margin-left: 8px; }
 
@@ -105,20 +162,25 @@
   gap: 12px;
   margin-top: 30px;
   padding-top: 8px;
-  border-top: 1px solid var(--color-rule);
-  color: var(--color-ink-graphite-soft);
+  border-top: 1px solid var(--color-hairline);
+  color: var(--color-ink-muted);
   font-size: 10px;
 }
 .report-mark {
   flex: 0 0 auto;
-  font-family: var(--font-struct), sans-serif;
+  font-family: var(--font-sans), var(--font-read), sans-serif;
   font-weight: 600;
   letter-spacing: 0.13em;
-  text-transform: uppercase;
   color: var(--color-ink-graphite);
 }
 
 /* ---- paper ---- */
+
+@media (max-width: 480px) {
+  .report-controls { padding: 16px 16px 0; }
+  .report { margin: 16px auto 40px; padding: 16px 16px 24px; }
+  .report-options { gap: 16px; }
+}
 
 @media print {
   .no-print { display: none !important; }
@@ -126,7 +188,15 @@
   @page { margin: 16mm 14mm; }
 
   html, body { background: #fff; }
-  .report { background: #fff; max-width: none; margin: 0; padding: 0; }
+  .report {
+    background: #fff;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
 
   /* A module is a unit of reading; do not split one across a page break
      unless it is too long to fit on one. */

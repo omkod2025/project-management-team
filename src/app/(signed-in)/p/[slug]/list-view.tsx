@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import type { LedgerRow, MoneyValue } from '@/db/schema';
 import type { FieldDef, Person } from '@/lib/ledger';
 import { MAX_DEPTH } from '@/lib/constants';
+import { optionStyle } from '@/lib/option-colors';
 import { ImageField } from './image-field';
 import { FileField } from './file-field';
 import ListHeader from './list-header';
@@ -1914,7 +1915,7 @@ function FieldCell(p: CellProps & { field: FieldDef }) {
       return (
         <span
           className={`pill${opt.archived ? ' opt-archived' : ''}`}
-          style={{ ['--opt-hue' as string]: TAB_HUE(opt.colorIndex) }}
+          style={optionStyle(opt.colorIndex)}
         >
           {opt.label}
           {opt.archived && <span className="arch">ARCH</span>}
@@ -1929,7 +1930,7 @@ function FieldCell(p: CellProps & { field: FieldDef }) {
           {ids.map((id) => {
             const o = f.options.find((x) => x.id === id);
             return o ? (
-              <span className="pill" key={id} style={{ ['--opt-hue' as string]: TAB_HUE(o.colorIndex) }}>
+              <span className="pill" key={id} style={optionStyle(o.colorIndex)}>
                 {o.label}
               </span>
             ) : null;
@@ -2050,7 +2051,7 @@ function FieldEditor(p: CellProps & { field: FieldDef; value: unknown }) {
               </span>
             )}
             {f.kind !== 'people' && (
-              <span className="swatch" style={{ ['--opt-hue' as string]: TAB_HUE(o.colorIndex) }} />
+              <span className="swatch" style={optionStyle(o.colorIndex)} />
             )}
             {o.label}
             {o.stage && (

@@ -1,4 +1,6 @@
 /** Versioned rich content inside existing string slots. Legacy Markdown is untouched. */
+import { codeFence } from "./markdown-block-rules.ts";
+
 export const RICH_PREFIX = "fieldbook-rich-v1:";
 export type RichNode = {
   type: string;
@@ -307,14 +309,19 @@ export function contentMarkdown(value: string): string {
     if (n.type === "linkButton")
       return `[${escape(String(n.attrs?.label ?? "Open link"))}](${n.attrs?.href})\n\n`;
     if (n.type === "embed") return `[Embedded content](${n.attrs?.src})\n\n`;
-    if (n.type === "codeBlock")
+    if (n.type === "codeBlock") {
+      const body = (n.content ?? []).map((x) => x.text ?? "").join("");
+      const fence = codeFence(body);
       return (
-        "```" +
+        fence +
         String(n.attrs?.language ?? "").replace(/[\r\n`]/g, "") +
         "\n" +
-        (n.content ?? []).map((x) => x.text ?? "").join("") +
-        "\n```\n\n"
+        body +
+        "\n" +
+        fence +
+        "\n\n"
       );
+    }
     if (["bulletList", "orderedList", "taskList"].includes(n.type))
       return (
         (n.content ?? [])

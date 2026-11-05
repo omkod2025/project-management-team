@@ -1,7 +1,7 @@
 'use client';
 import DocIcon from "./doc-icon";
 
-import { useEffect, useRef, useState, useTransition } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import type { DocPage, PageTemplate } from '@/lib/doc-rules';
@@ -14,6 +14,7 @@ import '../list.css';
 import './docs.css';
 import './editor.css';
 import Bell from '../../../bell';
+import { projectDocEndpoints } from '@/lib/doc-endpoints';
 
 const PageEditor = dynamic(() => import('./page-editor'), { ssr: false, loading: () => <p role="status">Loading editor…</p> });
 type Props = {
@@ -50,6 +51,8 @@ export default function DocWorkspace({ project, doc, pages, page: serverPage, ar
   const [showPages, setShowPages] = useState(false);
   const [removing, setRemoving] = useState<DocPage | null>(null);
   const base = `/p/${project.slug}/docs`;
+  // Stable across renders: the editor's save callback depends on it.
+  const endpoints = useMemo(() => projectDocEndpoints(project.id), [project.id]);
   const ordered: DocPage[] = [];
   const walk = (parent: string | null) => {
     for (const p of pages.filter((p) => p.parentId === parent)) { ordered.push(p); walk(p.id); }
@@ -148,7 +151,7 @@ export default function DocWorkspace({ project, doc, pages, page: serverPage, ar
           {page.settings?.icon && <div className="doc-page-icon">{String(page.settings.icon)}</div>}
           {!editing && <><div className="doc-page-heading"><h1>{canEdit && !page.nodeId && !page.protected ? <button className="doc-title-button" title="Rename page" disabled={refreshing} onClick={() => { setFocusTitle(true); setAdding(false); setEditing(true); }}>{pageTitle}</button> : pageTitle}</h1>{canEdit && !page.protected && <button className="docs-primary" disabled={refreshing} onClick={() => { setFocusTitle(false); setAdding(false); setEditing(true); }}><DocIcon name="edit" />Edit page</button>}</div>{metadata}</>}
 
-          {editing ? <PageEditor key={page.id} actionsContainer={editActions} page={page} projectId={project.id} focusTitle={focusTitle} metadata={metadata} onTitleSaved={setPageTitle} onDone={(saved) => { setSavedPage({ id: page.id, ...saved }); setEditing(false); window.history.replaceState(null, '', `${base}/${page.slug}`); startRefresh(() => router.refresh()); }} /> : <article className="doc-prose">{page !== serverPage ? pageSections(page.template).map(([key, label]) => <section key={key} className="doc-section">{page.template === 'module' && <h2>{label}</h2>}{page.content[key] ? <DocContent value={page.content[key]} /> : <p className="docs-muted">Nothing written yet.</p>}</section>) : children}</article>}
+          {editing ? <PageEditor key={page.id} actionsContainer={editActions} page={page} endpoints={endpoints} focusTitle={focusTitle} metadata={metadata} onTitleSaved={setPageTitle} onDone={(saved) => { setSavedPage({ id: page.id, ...saved }); setEditing(false); window.history.replaceState(null, '', `${base}/${page.slug}`); startRefresh(() => router.refresh()); }} /> : <article className="doc-prose">{page !== serverPage ? pageSections(page.template).map(([key, label]) => <section key={key} className="doc-section">{page.template === 'module' && <h2>{label}</h2>}{page.content[key] ? <DocContent value={page.content[key]} /> : <p className="docs-muted">Nothing written yet.</p>}</section>) : children}</article>}
           {page.settings?.showStats && <p className="docs-muted doc-page-stats">{pageMarkdown(page.template,page.content).length.toLocaleString()} characters · {Math.max(1,Math.ceil(pageMarkdown(page.template,page.content).length/1000))} min read</p>}
           {!editing && pages.some(p=>p.parentId===page.id) && <nav className="doc-subpages" aria-label="Subpages"><h2>Subpages</h2>{pages.filter(p=>p.parentId===page.id).map(p=><a key={p.id} href={`${base}/${p.slug}`}>▤ {p.title}</a>)}</nav>}
         </> : <div className="doc-overview"><h1>{doc.title}</h1><p className="docs-muted">{doc.version || 'No version stamp'} · {pages.length} pages</p>

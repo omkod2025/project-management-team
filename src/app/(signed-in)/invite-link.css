@@ -1,11 +1,11 @@
 /*
- * The one-time invite link.
+ * The one-time invite link, in the house (Notion) style.
  *
  * It reads in whatever palette the surface around it sets, so the `--cu-*`
- * names below all fall back: on `/people` they resolve to that sheet's white
- * ground, and anywhere the field book still holds they resolve to paper. A
- * shared component that hard-codes a palette is a shared component that can
- * only be used once.
+ * names below all fall back: on `/people` they resolve to that sheet's own
+ * ground, and anywhere else falls back to the house canvas, hairline and ink
+ * (DESIGN.md § 2). A shared component that hard-codes a palette is a shared
+ * component that can only be used once.
  */
 
 .token-line {
@@ -19,11 +19,12 @@
   flex: 1 1 auto;
   min-width: 0;
   padding: 9px 11px;
-  background: var(--cu-canvas, var(--color-page));
-  border: 1px solid var(--cu-line, var(--color-rule));
-  border-radius: var(--cu-r, 0);
-  color: var(--cu-ink, var(--color-ink-graphite));
-  font-family: var(--font-figure), ui-monospace, monospace;
+  background: var(--cu-canvas, var(--color-canvas));
+  border: 1px solid var(--cu-line, var(--color-field-line));
+  border-radius: var(--cu-r, var(--radius-xs));
+  color: var(--cu-ink, var(--color-ink));
+  font-family: var(--type-figure-family);
+  font-variant-numeric: tabular-nums;
   font-size: 11.5px;
   word-break: break-all;
 }
@@ -31,17 +32,22 @@
 .token-copy {
   flex: 0 0 auto;
   padding: 0 12px;
-  border: 1px solid var(--cu-line, var(--color-rule));
-  border-radius: var(--cu-r, 0);
-  background: var(--cu-canvas, var(--color-page));
-  color: var(--cu-ink, var(--color-ink-graphite));
+  border: 1px solid var(--cu-line, var(--color-field-line));
+  border-radius: var(--cu-r, var(--radius-xs));
+  background: var(--cu-canvas, var(--color-canvas));
+  color: var(--cu-ink, var(--color-ink));
   cursor: pointer;
   font-size: 12.5px;
   font-weight: 500;
   white-space: nowrap;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
 }
 .token-copy:hover {
   border-color: var(--brand);
   background: var(--brand-wash);
   color: var(--brand);
+}
+.token-copy:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
 }

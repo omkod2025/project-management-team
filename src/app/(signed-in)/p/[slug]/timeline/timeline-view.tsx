@@ -450,7 +450,7 @@ export default function TimelineView({
           <Bell />
           <div className="views label">
             <a href={siblingHref(`/p/${slug}`, selected)}>List</a>
-            <span style={{ color: 'var(--color-rule)' }}>·</span>
+            <span style={{ color: 'var(--color-hairline)' }}>·</span>
             <span aria-current="page">Timeline</span>
             <a href={siblingHref(`/p/${slug}/calendar`, selected)}>Calendar</a>
             <a href={`/p/${slug}/docs`}>Docs</a>
@@ -753,7 +753,7 @@ function Row({
               {(() => {
                 const g = bar(drag.origin.s, drag.origin.e);
                 return g ? (
-                  <div className="ghost" style={{ ...g, top: mode === 'both' ? (drag.kind === 'est' ? 3 : 19) : (drag.kind === 'est' ? 5 : 20), height: 9 }} />
+                  <div className="ghost" style={{ ...g, top: mode === 'both' ? (drag.kind === 'est' ? 3 : 19) : (drag.kind === 'est' ? 5 : 20), height: drag.kind === 'est' ? 9 : 11 }} />
                 ) : null;
               })()}
               {(drag.kind === 'est' ? est : act).s && (

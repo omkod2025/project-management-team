@@ -4,8 +4,9 @@ import { createPortal } from 'react-dom';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { pageMarkdown, pageSections, type DocPage, type PageContent } from '@/lib/doc-rules';
 import RichEditor from './rich-editor';
+import type { DocEndpoints } from '@/lib/doc-endpoints';
 
-export default function PageEditor({ page, projectId, onDone, onTitleSaved, focusTitle = false, metadata, actionsContainer }: { page: DocPage; projectId: string; onDone: (saved: { content: PageContent; title: string; updatedAt: string }) => void; onTitleSaved: (title: string) => void; focusTitle?: boolean; metadata: React.ReactNode; actionsContainer: HTMLDivElement | null }) {
+export default function PageEditor({ page, endpoints, onDone, onTitleSaved, focusTitle = false, metadata, actionsContainer }: { page: DocPage; endpoints: DocEndpoints; onDone: (saved: { content: PageContent; title: string; updatedAt: string }) => void; onTitleSaved: (title: string) => void; focusTitle?: boolean; metadata: React.ReactNode; actionsContainer: HTMLDivElement | null }) {
   const draft = useRef<PageContent>({ ...page.content });
   const titleDraft = useRef(page.title);
   const [title, setTitle] = useState(page.title);
@@ -43,7 +44,7 @@ export default function PageEditor({ page, projectId, onDone, onTitleSaved, focu
     setStatus('Saving…'); setError('');
     flight.current = (async () => {
       try {
-        const response = await fetch(`/api/doc-pages/${page.id}`, { method: 'PATCH', headers: { 'content-type': 'application/json' },
+        const response = await fetch(endpoints.savePage(page.id), { method: 'PATCH', headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ ...JSON.parse(snapshot), updatedAt: stamp.current, forceRevision:forceRevision.current, finalizeAssets, uploadedAssets: [...uploadedAssets.current] }) });
         const body = await response.json();
         if (!response.ok) {
@@ -67,7 +68,7 @@ export default function PageEditor({ page, projectId, onDone, onTitleSaved, focu
       }
     })();
     return flight.current;
-  }, [page.id, page.nodeId, onTitleSaved]);
+  }, [page.id, page.nodeId, onTitleSaved, endpoints]);
 
   useEffect(() => {
     if (finishing.current || stopped.current || snapshotDraft() === saved.current) return;
@@ -107,7 +108,7 @@ export default function PageEditor({ page, projectId, onDone, onTitleSaved, focu
 
   async function showHistory() {
     try {
-      const res = await fetch(`/api/doc-pages/${page.id}/history`);
+      const res = await fetch(endpoints.history(page.id));
       if (!res.ok) throw new Error();
       setHistory(await res.json());
     } catch { setError('Could not load history. Try again.'); }
@@ -147,7 +148,7 @@ export default function PageEditor({ page, projectId, onDone, onTitleSaved, focu
     </details>) : <p>No saved revisions yet.</p>}</div>}
     {pageSections(page.template).map(([key, label], index) => <section key={key} className="doc-section">
       {page.template === 'module' && <h2>{label}</h2>}
-      <RichEditor key={`${key}-${editorVersion}`} value={editorValues[key] ?? ''} label={label} projectId={projectId} onProblem={setError} onAssetUploaded={url => uploadedAssets.current.add(url)} autoFocus={!focusTitle && index === 0}
+      <RichEditor key={`${key}-${editorVersion}`} value={editorValues[key] ?? ''} label={label} endpoints={endpoints} onProblem={setError} onAssetUploaded={url => uploadedAssets.current.add(url)} autoFocus={!focusTitle && index === 0}
         onUploadChange={(delta) => { pendingUploads.current += delta; setUploads(pendingUploads.current); }} onChange={(value) => {
         draft.current = { ...draft.current, [key]: value }; setCopied(false); setChange((n) => n + 1); setStatus('Unsaved changes');
       }} />

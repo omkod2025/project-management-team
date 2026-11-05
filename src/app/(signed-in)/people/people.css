@@ -1,12 +1,13 @@
 /*
- * The access board, restyled to the Untitled UI user-management reference
- * (`User management — Untitled UI.jpg`) by explicit instruction on 2026-09-08.
+ * The access board, in the Notion house style (DESIGN.md).
  *
- * It now speaks the same language as the List sheet: white ground, cool grey
- * hairlines, a 4–10px radius, a grey page under a floating sheet. The `--cu-*`
- * names are the List's, redeclared here rather than imported — `list.css` scopes
- * them to `.book`, and one page reaching into another page's stylesheet for its
- * palette is how two surfaces end up unable to move independently.
+ * It now speaks the same language as the List sheet and Docs/Wiki: warm paper
+ * ground, a white floating sheet, hairline borders, a 12px panel radius and
+ * the house's barely-there shadow. The `--cu-*` names are the List's,
+ * redeclared here and bound to the house tokens rather than imported —
+ * `list.css` scopes them to `.book`, and one page reaching into another
+ * page's stylesheet for its palette is how two surfaces end up unable to move
+ * independently.
  *
  * What the reference has and this page does not, on purpose:
  *
@@ -22,42 +23,44 @@
  *   - pagination. The board is a matrix; a person's row is only worth reading
  *     against every project at once, so it scrolls rather than paginates.
  *
- * Vermilion still means out of tolerance and nothing else. On this page that is
- * the armed delete and a deactivated account — both states where something is
- * wrong or about to be — and nowhere else. Acceptance test A8 checks it.
+ * Vermilion still means out of tolerance and nothing else — it never carries
+ * deletion, which draws in the house danger red instead. On this page
+ * vermilion is left to the failed-save banner and the deactivated-account
+ * errata. Acceptance test A8 and tests/house-style.test.ts both check it.
  */
 
 .people {
-  --cu-canvas: #ffffff;
-  --cu-ground: #eef0f6;
-  --cu-line: #e4e7f0;
-  --cu-line-soft: #edeff6;
-  --cu-ink: #292d34;
-  --cu-ink-soft: #7c828d;
-  --cu-ink-faint: #a5abb5;
-  --cu-hover: #f6f7fc;
-  --cu-chip: #ebeef8;
-  --cu-r: 4px;
-  --cu-r-lg: 6px;
-  --cu-r-sheet: 10px;
+  --cu-canvas: var(--color-canvas);
+  --cu-ground: var(--color-paper);
+  --cu-line: var(--color-hairline);
+  --cu-line-soft: color-mix(in srgb, var(--color-hairline) 60%, var(--color-canvas));
+  --cu-ink: var(--color-ink);
+  --cu-ink-soft: var(--color-ink-muted);
+  --cu-ink-faint: var(--color-ink-faint);
+  --cu-hover: color-mix(in srgb, var(--color-paper) 70%, var(--color-canvas));
+  --cu-chip: var(--color-paper);
+  --cu-font: var(--font-sans), var(--font-read), -apple-system, system-ui, 'Segoe UI', Helvetica, Arial, sans-serif;
+  --cu-r: var(--radius-xs);
+  --cu-r-lg: var(--radius-md);
+  --cu-r-sheet: var(--radius-lg);
 
   min-height: 100vh;
   padding: 24px 24px 64px;
   background: var(--cu-ground);
   color: var(--cu-ink);
+  font-family: var(--cu-font);
   box-shadow: none;
   max-width: none;
 }
 
-/* The sheet. One shadow, offset and blurred — the field book's hard 2px rule
-   is a paper edge, and this page is no longer paper. */
+/* The sheet. A white panel on paper, the house's own elevation. */
 .people-sheet {
   max-width: 1440px;
   margin: 0 auto;
   background: var(--cu-canvas);
   border: 1px solid var(--cu-line);
   border-radius: var(--cu-r-sheet);
-  box-shadow: 0 1px 2px rgba(43, 58, 143, 0.06), 0 8px 24px -12px rgba(43, 58, 143, 0.18);
+  box-shadow: var(--shadow-2);
   overflow: hidden;
 }
 
@@ -68,13 +71,15 @@
   align-items: flex-start;
   gap: 20px;
   padding: 22px 24px 18px;
+  background: var(--cu-canvas);
+  border-bottom: 1px solid var(--cu-line);
 }
 .people-head h1 {
   margin: 0;
-  font-family: var(--font-struct), system-ui, sans-serif;
+  font-family: var(--cu-font);
   font-size: 22px;
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
   line-height: 1.25;
 }
 .people-sub {
@@ -86,9 +91,10 @@
 }
 .people-out { margin-left: auto; display: flex; align-items: center; gap: 8px; }
 
-/* The two chrome controls follow the sheet rather than the field book. Both are
-   overrides of `.shelf-button`, which is rendered by pages this stylesheet does
-   not own (`sign-out`, and the way back to the shelf). */
+/* The two chrome controls follow the sheet rather than the field book. Both
+   are overrides of `.shelf-button` (globals.css), rendered by pages this
+   stylesheet does not own (`sign-out`, and the way back to the shelf) —
+   drawn as the house's own 8px utility button. */
 .people .shelf-link,
 .people .shelf-button {
   display: inline-flex;
@@ -96,21 +102,22 @@
   height: 32px;
   padding: 0 12px;
   border: 1px solid var(--cu-line);
-  border-radius: var(--cu-r);
+  border-radius: var(--cu-r-lg);
   background: var(--cu-canvas);
   color: var(--cu-ink-soft);
   text-decoration: none;
   white-space: nowrap;
-  font-family: var(--font-read), system-ui, sans-serif;
+  font-family: var(--cu-font);
   font-size: 13px;
   font-weight: 500;
   letter-spacing: normal;
   text-transform: none;
+  transition: background-color 120ms ease, border-color 120ms ease;
 }
 .people .shelf-link:hover,
 .people .shelf-button:hover {
   background: var(--cu-hover);
-  border-color: var(--cu-ink-faint);
+  border-color: var(--color-field-line);
   color: var(--cu-ink);
 }
 
@@ -151,37 +158,43 @@
   width: 236px;
   padding: 0 10px 0 30px;
   background: var(--cu-canvas);
-  border: 1px solid var(--cu-line);
+  border: 1px solid var(--color-field-line);
   border-radius: var(--cu-r);
+  font-family: var(--cu-font);
   font-size: 13px;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
 }
 .people-search::placeholder { color: var(--cu-ink-faint); }
 .people-search:focus {
-  border-color: var(--cu-ink-faint);
+  border-color: var(--brand);
   outline: none;
   box-shadow: 0 0 0 3px var(--brand-glow);
 }
 
 /* The one filled control on the page. It does not open anything — the invite
-   form is already below and always has been — it moves the caret there, so the
-   page keeps one place where people are made. */
+   form is already below and always has been — it moves the caret there, so
+   the page keeps one place where people are made. The house's primary pill. */
 .people-add {
   display: inline-flex;
   align-items: center;
   gap: 7px;
   height: 32px;
-  padding: 0 13px;
+  padding: 0 14px;
   border: 1px solid var(--brand);
-  border-radius: var(--cu-r);
+  border-radius: var(--radius-full);
   background: var(--brand);
-  color: #fff;
+  color: var(--brand-ink);
   cursor: pointer;
+  font-family: var(--cu-font);
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   white-space: nowrap;
+  transition: background-color 120ms ease, border-color 120ms ease;
 }
 .people-add:hover { background: var(--brand-deep); border-color: var(--brand-deep); }
 
+/* A failed write — the one state on this board that is out of tolerance and
+   nothing else, so it keeps the vermilion the colour law reserves for it. */
 .people-errata {
   margin: 0 24px 12px;
   padding: 9px 12px;
@@ -189,6 +202,7 @@
   border: 1px solid color-mix(in srgb, var(--color-vermilion) 28%, var(--cu-canvas));
   border-radius: var(--cu-r);
   color: var(--color-vermilion);
+  font-family: var(--cu-font);
   font-size: 12.5px;
 }
 
@@ -217,16 +231,19 @@ table.board {
   min-width: 100%;
 }
 
+/* The table wears the house's table law: a paper header row, Stone captions.
+   Project names are Thai-capable, so the row stays at 13px rather than
+   dropping to the fixed-English 12px eyebrow. */
 .board thead th {
   height: 38px;
   padding: 0 12px;
   text-align: left;
   white-space: nowrap;
-  background: var(--cu-hover);
+  background: var(--color-paper);
   color: var(--cu-ink-soft);
-  font-family: var(--font-read), system-ui, sans-serif;
-  font-size: 12px;
-  font-weight: 500;
+  font-family: var(--cu-font);
+  font-size: 13px;
+  font-weight: 600;
   letter-spacing: normal;
   text-transform: none;
   box-shadow: inset 0 -1px 0 var(--cu-line);
@@ -253,7 +270,7 @@ table.board {
 }
 .board thead th.who {
   z-index: 3;
-  background: var(--cu-hover);
+  background: var(--color-paper);
   box-shadow: inset 0 -1px 0 var(--cu-line), 1px 0 0 var(--cu-line);
 }
 .board tbody tr:hover th.who { background: var(--cu-hover); }
@@ -277,10 +294,10 @@ table.board {
   place-items: center;
   width: 34px;
   height: 34px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background: var(--cu-chip);
   color: var(--cu-ink-soft);
-  font-family: var(--font-struct), system-ui, sans-serif;
+  font-family: var(--cu-font);
   font-size: 12.5px;
   font-weight: 600;
   line-height: 1;
@@ -312,29 +329,34 @@ table.board {
   background: var(--cu-chip);
   color: var(--cu-ink-soft);
   font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: normal;
+  text-transform: none;
   vertical-align: 1px;
 }
 
 /* An unclaimed invitation and a deactivated account both mean "cannot sign
-   in", and they are drawn differently because only one of them is a problem. */
+   in", and they are drawn differently because only one of them is a problem.
+   A deactivated account is a state, not a misclosure or a write that failed,
+   so it takes danger red, never vermilion (CLAUDE.md § Colour law). */
 .who-state {
   display: inline-block;
   margin-top: 3px;
-  padding: 1px 6px;
-  border-radius: var(--cu-r);
-  font-size: 10.5px;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-badge);
+  font-size: 11px;
   font-weight: 500;
 }
 .who-state.pending {
-  background: color-mix(in srgb, var(--color-ink-blue) 8%, var(--cu-canvas));
+  border-color: oklch(from var(--color-ink-blue) 0.76 calc(c * 0.95) h);
+  background: oklch(from var(--color-ink-blue) 0.92 calc(c * 0.62) h);
   color: var(--color-ink-blue);
 }
 .who-state.off {
-  background: var(--color-vermilion-wash);
-  color: var(--color-vermilion);
+  border-color: oklch(from var(--color-danger) 0.76 calc(c * 0.95) h);
+  background: oklch(from var(--color-danger) 0.92 calc(c * 0.62) h);
+  color: oklch(from var(--color-danger) 0.43 calc(c * 0.85) h);
 }
 
 .board tbody td {
@@ -361,44 +383,46 @@ table.board {
   background: none;
   border: 1px solid transparent;
   border-radius: var(--cu-r);
+  font-family: var(--cu-font);
   font-size: 12.5px;
   cursor: pointer;
   appearance: none;
   -webkit-appearance: none;
+  transition: background-color 120ms ease, border-color 120ms ease;
 }
 .role:hover { background: var(--cu-canvas); border-color: var(--cu-line); }
 .board tbody tr:hover .role:hover { background: var(--cu-canvas); }
 .role:focus {
   background: var(--cu-canvas);
-  border-color: var(--cu-ink-faint);
+  border-color: var(--brand);
   outline: none;
   box-shadow: 0 0 0 3px var(--brand-glow);
 }
 .role:disabled { color: var(--cu-ink-faint); cursor: default; }
 
 /* A held role is stated in ink weight and slope, not in colour: the six tab
-   hues mean module identity and cannot be borrowed for a permission level
-   (DESIGN.md § Colors). No access is the quiet state, because most cells on a
-   real install are empty. */
+   hues mean module identity and cannot be borrowed for a permission level,
+   and neither can the one house blue (DESIGN.md § Colors) — a role is not
+   "the thing you act on" and does not get that ink. No access is the quiet
+   state, because most cells on a real install are empty. */
 .board td.none .role { color: var(--cu-ink-faint); }
 .board td.has .role {
   background: var(--cu-chip);
   color: var(--cu-ink);
   font-weight: 500;
 }
-/* The admin marker takes the base rather than black ink. It is still weight
-   first — the bar is the second signal, so the distinction survives greyscale
-   exactly as it did before. */
-.board td.role-admin .role { font-weight: 600; box-shadow: inset 2px 0 0 var(--brand); }
+/* The admin marker takes extra weight rather than a hue. It is still weight
+   first — the distinction survives greyscale exactly as it did before. */
+.board td.role-admin .role { font-weight: 700; }
 .board td.role-viewer .role { font-style: italic; }
 
 /* ---- the account column ----
 
-   Vermilion appears on the armed confirm and nowhere else in this column. That
-   is inside the colour law rather than an exception to it: an armed delete is
-   a state out of tolerance, which is the one thing vermilion is allowed to
-   mean (DESIGN.md § Colors rule 1). The resting Delete is grey, because a row
-   that has not been armed is not in trouble. */
+   Deletion draws in the house danger red and nothing in this column reaches
+   for vermilion — an armed delete is irreversible, which is what danger means
+   in this system, not "out of closure" (DESIGN.md § Colors rule 1 and the
+   amendment separating deletion from the misclosure colour). The resting
+   Delete is grey, because a row that has not been armed is not in trouble. */
 
 .board td.acct, .board th.acct { padding: 0 16px 0 12px; }
 .board th.acct { text-align: right; }
@@ -427,73 +451,89 @@ table.board {
 }
 .acct-mine:hover { color: var(--cu-ink-soft); text-decoration: underline; }
 
-/* Reset is the recoverable verb, so it never reaches for vermilion — the
-   account is not in trouble, it is being handed a password. Grey at rest, a
-   frame on approach, and that is the whole of it. */
+/* Reset is the recoverable verb, so it never reaches for danger or vermilion
+   — the account is not in trouble, it is being handed a password. Grey at
+   rest, a frame on approach, and that is the whole of it. */
 .acct-pw {
   height: 28px;
   padding: 0 11px;
   border: 1px solid transparent;
-  border-radius: var(--cu-r);
+  border-radius: var(--cu-r-lg);
   background: none;
   color: var(--cu-ink-faint);
   cursor: pointer;
+  font-family: var(--cu-font);
   font-size: 12.5px;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
 }
 .board tbody tr:hover .acct-pw { color: var(--cu-ink-soft); border-color: var(--cu-line); }
 .acct-pw:hover,
 .acct-pw:focus-visible {
   background: var(--cu-canvas);
-  border-color: var(--cu-ink-faint);
+  border-color: var(--color-field-line);
   color: var(--cu-ink);
 }
 
 /* Armed, it borrows `.acct-armed` from the delete below — same shape, same
-   vermilion confirm. Vermilion is earned here rather than borrowed: at the
-   moment that button is pressed the account holds no password at all, which is
-   a state out of tolerance until the link is claimed. */
+   danger confirm. The account holds no password at all between this click and
+   the claim, which is a problem, but it is a problem this page fixes by
+   handing out a link, not by deleting anything — so it stays grey, never red. */
 
 .acct-del {
   height: 28px;
   padding: 0 11px;
   border: 1px solid transparent;
-  border-radius: var(--cu-r);
+  border-radius: var(--cu-r-lg);
   background: none;
   color: var(--cu-ink-faint);
   cursor: pointer;
+  font-family: var(--cu-font);
   font-size: 12.5px;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
 }
 /* Revealed on approach rather than parked: one irreversible verb per row, on a
    page whose ordinary work is the grid to its left. It stays for the keyboard,
-   which has no approach. */
+   which has no approach. Danger red, never vermilion: deletion is not a
+   misclosure (DESIGN.md § Colors). */
 .board tbody tr:hover .acct-del { color: var(--cu-ink-soft); border-color: var(--cu-line); }
+/* The row-hover reveal above is (0,3,2) — one class heavier than a plain
+   `.acct-del:hover` (0,2,0) — so hovering the row keeps outranking the
+   button's own hover unless the button's rule is stated at least as
+   specifically under the same row context. Restated here so danger always
+   wins once the pointer or the keyboard actually reaches the button. */
 .acct-del:hover,
-.acct-del:focus-visible {
-  border-color: color-mix(in srgb, var(--color-vermilion) 45%, var(--cu-canvas));
-  background: var(--color-vermilion-wash);
-  color: var(--color-vermilion);
+.acct-del:focus-visible,
+.board tbody tr:hover .acct-del:hover,
+.board tbody tr:hover .acct-del:focus-visible {
+  border-color: var(--color-danger);
+  background: var(--color-danger-wash);
+  color: var(--color-danger);
 }
 
 .acct-armed { display: inline-flex; gap: 6px; }
 .acct-armed button {
   height: 28px;
   padding: 0 10px;
-  border-radius: var(--cu-r);
+  border-radius: var(--cu-r-lg);
   cursor: pointer;
+  font-family: var(--cu-font);
   font-size: 12.5px;
   font-weight: 500;
+  transition: background-color 120ms ease, border-color 120ms ease;
 }
+/* The one irreversible confirm on this page: house danger, filled. */
 .acct-yes {
-  border: 1px solid var(--color-vermilion);
-  background: var(--color-vermilion);
+  border: 1px solid var(--color-danger);
+  background: var(--color-danger);
   color: #fff;
 }
+.acct-yes:hover { background: var(--color-danger-active); border-color: var(--color-danger-active); }
 .acct-no {
   border: 1px solid var(--cu-line);
   background: var(--cu-canvas);
   color: var(--cu-ink);
 }
-.acct-no:hover { border-color: var(--cu-ink-faint); background: var(--cu-hover); }
+.acct-no:hover { border-color: var(--color-field-line); background: var(--cu-hover); }
 
 /* ---- invite ---- */
 
@@ -501,13 +541,13 @@ table.board {
   margin: 0;
   padding: 22px 24px 24px;
   border-top: 1px solid var(--cu-line);
-  background: var(--cu-hover);
+  background: var(--cu-ground);
 }
 .invite h2 {
   margin: 0;
   padding: 0;
   color: var(--cu-ink);
-  font-family: var(--font-struct), system-ui, sans-serif;
+  font-family: var(--cu-font);
   font-size: 15px;
   font-weight: 600;
   letter-spacing: normal;
@@ -520,31 +560,34 @@ table.board {
   height: 34px;
   padding: 0 10px;
   background: var(--cu-canvas);
-  border: 1px solid var(--cu-line);
+  border: 1px solid var(--color-field-line);
   border-radius: var(--cu-r);
+  font-family: var(--cu-font);
   font-size: 13px;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
 }
 .invite-row input { min-width: 200px; flex: 1 1 200px; }
 .invite-row input::placeholder { color: var(--cu-ink-faint); }
 .invite-row input:focus,
 .invite-row select:focus {
-  border-color: var(--cu-ink-faint);
+  border-color: var(--brand);
   outline: none;
   box-shadow: 0 0 0 3px var(--brand-glow);
 }
 .invite-row button {
   height: 34px;
-  padding: 0 16px;
+  padding: 0 18px;
   border: 1px solid var(--brand);
-  border-radius: var(--cu-r);
+  border-radius: var(--radius-full);
   background: var(--brand);
-  color: #fff;
+  color: var(--brand-ink);
   cursor: pointer;
-  font-family: var(--font-read), system-ui, sans-serif;
+  font-family: var(--cu-font);
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   letter-spacing: normal;
   text-transform: none;
+  transition: background-color 120ms ease, border-color 120ms ease;
 }
 .invite-row button:hover:not(:disabled) { background: var(--brand-deep); border-color: var(--brand-deep); }
 .invite-row button:disabled { opacity: 0.5; cursor: default; }
@@ -575,7 +618,7 @@ table.board {
   padding: 14px 24px 20px;
   max-width: 76ch;
   color: var(--cu-ink-soft);
-  background: var(--cu-hover);
+  background: var(--cu-ground);
   font-size: 12.5px;
   line-height: 1.6;
 }
@@ -600,7 +643,7 @@ table.board {
 }
 .legend > div:last-child { border-bottom: 0; }
 .legend dt { color: var(--cu-ink); font-weight: 500; }
-.legend dt.role-admin { font-weight: 600; }
+.legend dt.role-admin { font-weight: 700; }
 .legend dt.role-viewer { font-style: italic; font-weight: 400; }
 .legend dd { margin: 0; color: var(--cu-ink-soft); line-height: 1.55; }
 

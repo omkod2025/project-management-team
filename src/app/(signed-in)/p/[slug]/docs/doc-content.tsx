@@ -1,8 +1,8 @@
 import React, { type CSSProperties } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import FilterableTable from './filterable-table';
 import DocImage from './doc-image';
+import MermaidDiagram from './mermaid-diagram';
+import { MarkdownBlock, MarkdownSource, linkTarget, type DocUrlGate } from './markdown-source';
 import {
   decodeRich,
   safeColor,
@@ -10,22 +10,9 @@ import {
   safeEmbed,
   type RichNode,
 } from "@/lib/doc-rich-content";
-import { publishedLink } from "@/lib/doc-publish-rules";
-
-/**
- * Where a link opens.
- *
- * Every link written into a document leaves for its own window. A document is
- * read, not navigated through: following a reference used to replace the page
- * the reader was in the middle of, and coming back cost a load and the scroll
- * position. A fragment is the exception — it points inside this very page, so
- * a new window would be a copy of the one already open.
- *
- * `rel="noopener noreferrer"` travels with it everywhere, so the opened page
- * gets no handle on this one.
- */
-const linkTarget = (href: unknown): "_blank" | undefined =>
-  typeof href === "string" && href.startsWith("#") ? undefined : "_blank";
+import { publishedLink, type PublishedLinkOptions } from "@/lib/doc-publish-rules";
+import { isMermaidLanguage } from "@/lib/mermaid-rules";
+import { isMarkdownLanguage } from "@/lib/markdown-block-rules";
 
 /**
  * How a page is being read.
@@ -35,8 +22,20 @@ const linkTarget = (href: unknown): "_blank" | undefined =>
  * §8b) by somebody with no account, and every URL on the page has to be asked
  * about: an asset becomes the token's own path, an app-internal link stops
  * being a link at all, and only external schemes survive untouched.
+ *
+ * The optional fields are `PublishedLinkOptions`: absent, the page is a Docs
+ * page at `/d/<token>`; the Wiki passes `wikiPublishOptions(...)` so its
+ * assets and its links between its own pages land on `/w/<token>`.
  */
-export type PublishContext = { token: string; assets: ReadonlySet<string> };
+export type PublishContext = {
+  token: string;
+  assets: ReadonlySet<string>;
+} & Partial<PublishedLinkOptions>;
+
+function publishOptions(publish: PublishContext): PublishedLinkOptions | undefined {
+  const { assetPrefix, publicBase, rewriteInternal } = publish;
+  return assetPrefix && publicBase ? { assetPrefix, publicBase, rewriteInternal } : undefined;
+}
 
 /** Explicit renderer: document JSON never becomes executable HTML. */
 export default function DocContent({
@@ -51,46 +50,16 @@ export default function DocContent({
    * "there is no address here a reader may follow" — the caller then renders
    * the words without a link, or drops the image.
    */
-  const url = (raw: unknown): string | null =>
+  const url: DocUrlGate = (raw) =>
     publish
-      ? publishedLink(raw, publish.token, publish.assets)
+      ? publishedLink(raw, publish.token, publish.assets, publishOptions(publish))
       : safeDocUrl(raw)
         ? raw
         : null;
   const tree = decodeRich(value);
-  if (!tree)
-    return (
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        skipHtml
-        /* A page still held as Markdown reads the same way as one held as
-           rich content, so its links leave for their own window too. */
-        components={{
-          a: ({ href, children, ...rest }) => {
-            const to = url(href);
-            // A link with nowhere to go keeps its words and loses its href —
-            // deleting the text would silently edit the document.
-            if (!to) return <>{children}</>;
-            return (
-              <a
-                {...rest}
-                href={to}
-                target={linkTarget(to)}
-                rel="noopener noreferrer"
-              >
-                {children}
-              </a>
-            );
-          },
-          img: ({ src, alt, node: _node, ...rest }) => {
-            const to = url(src);
-            return to ? <DocImage {...rest} src={to} alt={alt ?? ""} /> : null;
-          },
-        }}
-      >
-        {value}
-      </ReactMarkdown>
-    );
+  // A page still held as Markdown reads the same way as one held as rich
+  // content, through the same link gate.
+  if (!tree) return <MarkdownSource source={value} url={url} />;
   const headings: RichNode[] = [];
   const walk = (n: RichNode) => {
     if (n.type === "heading") headings.push(n);
@@ -224,12 +193,18 @@ export default function DocContent({
             : "Add headings to build the table of contents."}
         </nav>
       );
-    if (n.type === "codeBlock")
+    if (n.type === "codeBlock") {
+      const source = n.content?.map((c) => c.text ?? "").join("") ?? "";
+      if (isMermaidLanguage(a.language))
+        return <MermaidDiagram key={key} source={source} />;
+      if (isMarkdownLanguage(a.language))
+        return <MarkdownBlock key={key} source={source} url={url} />;
       return (
         <pre key={key}>
-          <code>{n.content?.map((c) => c.text ?? "").join("")}</code>
+          <code>{source}</code>
         </pre>
       );
+    }
     if (n.type === 'table' && n.content?.[0]?.content?.length && n.content[0].content.every(cell => cell.type === 'tableHeader' && Number(cell.attrs?.rowspan ?? 1) === 1))
       return <FilterableTable key={key} table={n} header={node(n.content[0], 0)} rows={n.content.slice(1).map(node)} />;
     if (n.type === "table")

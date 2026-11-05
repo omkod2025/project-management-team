@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 
 import type { LedgerRow } from '@/db/schema';
 import type { FieldDef, Person } from '@/lib/ledger';
+import { optionStyle } from '@/lib/option-colors';
 
 /**
  * The facing page (spec 03 §7).
@@ -118,12 +119,10 @@ function sourceNote(
 const signed = (n: number | null) => (n === null ? null : n === 0 ? '0' : `${n > 0 ? '+' : '−'}${Math.abs(n)}d`);
 const inkFor = (n: number | null) => (n !== null && n !== 0 ? 'vermilion' : 'computed');
 
-const TAB_HUE = (i: number) => `var(--color-tab-${((i - 1) % 6) + 1})`;
-
 /** The same chip the grid draws — the facing page shows the value, not a
- *  paraphrase of it, so a status that is amber in the run is amber here too. */
+ *  paraphrase of it, so a status that is red in the run is red here too. */
 const Chip = ({ label, colorIndex }: { label: string; colorIndex: number }) => (
-  <span className="pill" style={{ ['--opt-hue' as string]: TAB_HUE(colorIndex) }}>{label}</span>
+  <span className="pill" style={optionStyle(colorIndex)}>{label}</span>
 );
 
 function display(f: FieldDef, raw: unknown, people: Person[]): ReactNode {

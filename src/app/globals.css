@@ -1,52 +1,53 @@
 @import './tokens.css';
 
 /*
- * Base sheet for the Field Book world. See DESIGN.md.
+ * Base sheet for the house style — the Notion language. See DESIGN.md.
  *
- * Three rules this file exists to hold:
- *   - radius is 0 everywhere except the punched hole
- *   - there is one shadow in the system, a hard 2px offset at the fore edge
- *   - nothing eases; state changes are a two-frame step at 90ms
+ * Warm paper behind, white panels on it, Inter for Latin and Anuphan for Thai,
+ * one blue for everything a person can act on. Corners are rounded, shadows
+ * are layered and faint, and state changes ease over 120ms rather than snap.
+ *
+ * What this file still holds against convenience:
+ *   - vermilion means out of closure (or a write that failed) and nothing
+ *     else. It is never the danger colour — deletion is `--color-danger`.
+ *   - the six `tab-` hues say whose work it is, never how it is going.
+ *   - Thai is never tracked, never uppercased, never set below 13px.
  */
 
 /*
- * The base pair — indigo on white, pinned by the user on 2026-09-08.
+ * The brand — the house blue.
  *
- * These are not in `tokens.css` because that file is generated from DESIGN.md
- * and describes the paper world. This is the chrome: the shell the paper is
- * read inside. It began as the sign-in panel's field colour and is now the one
- * base the whole product answers to, so it is declared once here and consumed
- * by every sheet rather than retyped as a hex in six of them.
+ * These are chrome, not tokens: the generated `tokens.css` describes values,
+ * and this is the one base every sheet answers to, declared once here rather
+ * than retyped as a hex in each of them.
  *
- * What indigo is allowed to be: a filled primary button, the brand mark, an
- * active state, a focus ring, a selection wash, the tint under a hairline.
- *
- * What it is NOT, and this is the part that costs something to keep:
- *
- *   - it is not vermilion's job. Out of closure stays `--color-vermilion` and
- *     stays the only thing that means it (DESIGN.md § Colors rule 1).
- *   - it is not a module hue. The six `tab-` colours say whose work it is;
- *     indigo says nothing about the work at all.
- *   - it is not the ink in a cell. Graphite means a human entered the value and
- *     blue-black means the system derived it — that pair is the audit trail,
- *     and `--color-ink-blue` (#24384F) is deliberately NOT this indigo. They
- *     are close enough to confuse if either is ever used where the other
- *     belongs, which is exactly why the value ink is left alone.
+ * What the blue may be: a filled primary button, a link, an active state, a
+ * focus ring, a selection wash. What it is not: vermilion's job, a module hue,
+ * or the ink in a cell — `--color-ink-blue` (#24384F) means "the system derived
+ * this value" and stays a separate colour.
  */
 :root {
-  --brand: #2B3A8F;
+  --brand: var(--color-primary);
   /* Pressed and hover. Darker rather than lighter: a primary button that
      lightens under the pointer reads as going away. */
-  --brand-deep: #222E73;
-  --brand-ink: #ffffff;
-  /* The pale ground and the hairline, both drawn from the brand's own hue so
-     the quiet parts of a page belong to it instead of sitting on neutral grey
-     with a blue button dropped on top. */
-  --brand-wash: #EEF0FA;
-  --brand-line: #DBE0F2;
+  --brand-deep: var(--color-primary-active);
+  --brand-ink: #fff;
+  --brand-wash: var(--color-primary-wash);
+  --brand-line: #CFE3F7;
   /* Focus rings and selection: the brand at low alpha, so it works over both
-     white and the wash without a second token per surface. */
-  --brand-glow: rgba(43, 58, 143, 0.16);
+     paper and canvas without a second token per surface. */
+  --brand-glow: rgb(0 117 222 / 16%);
+
+  /* The generator has no shadow group, so the two elevations live here. */
+  --shadow-1: rgb(0 0 0 / 1%) 0 .175px 1.041px, rgb(0 0 0 / 2%) 0 .8px 2.925px,
+    rgb(0 0 0 / 2.7%) 0 2.025px 7.847px, rgb(0 0 0 / 4%) 0 4px 18px;
+  --shadow-2: rgb(0 0 0 / 1%) 0 1px 3px, rgb(0 0 0 / 2%) 0 3px 7px,
+    rgb(0 0 0 / 2%) 0 7px 15px, rgb(0 0 0 / 4%) 0 14px 28px, rgb(0 0 0 / 5%) 0 23px 52px;
+
+  /* `--font-sans` (Inter) and `--font-read` (Anuphan) are set by next/font in
+     the root layout. Inter has no Thai, so the `--type-*-family` stacks fall
+     through to Anuphan for Thai glyphs. Code takes the system mono. */
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
 *,
@@ -57,11 +58,12 @@ html, body { height: 100%; }
 
 body {
   margin: 0;
-  background: var(--color-board);
-  color: var(--color-ink-graphite);
-  font-family: var(--font-read), system-ui, sans-serif;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--type-body-family);
   font-size: var(--type-body-size);
   line-height: var(--type-body-leading);
+  font-feature-settings: 'lnum', 'locl';
   -webkit-font-smoothing: antialiased;
 }
 
@@ -74,70 +76,77 @@ body {
   text-transform: none;
 }
 
+/* The eyebrow: small and semibold, never capitalised. Its slight tracking is
+   for fixed English chrome only. `:lang(th)` above does not rescue it: it
+   matches only elements that carry `lang="th"`, and few do (the root is
+   `lang="en"`). So a `.label` that can hold user-written text — a column
+   name, a field label — must set `letter-spacing: normal` in its own rule,
+   as the List's heads do. */
 .label {
-  font-family: var(--font-struct), system-ui, sans-serif;
+  font-family: var(--type-label-family);
   font-size: var(--type-label-size);
   font-weight: var(--type-label-weight);
   letter-spacing: var(--type-label-tracking);
   line-height: 1;
-  text-transform: uppercase;
 }
 
 .figure {
-  font-family: var(--font-figure), ui-monospace, monospace;
+  font-family: var(--type-figure-family);
   font-size: var(--type-figure-size);
   font-variant-numeric: tabular-nums;
   letter-spacing: var(--type-figure-tracking);
 }
 
-/* The page is the container: filled to its rules, never a centred column. */
+/* The page is the container: filled to its edges, never a centred column. */
 .page {
-  background: var(--color-page);
+  background: var(--color-canvas);
   min-height: 100vh;
   max-width: 1440px;
   margin: 0 auto;
-  box-shadow: 2px 0 0 rgba(0, 0, 0, 0.25);   /* the only shadow in the system */
 }
 
 a { color: inherit; }
 
-/* The system's Button, as DESIGN.md § Components documents it: square, one 1px
-   graphite rule, page ground, label caps. Defined here rather than in a view's
-   stylesheet because the chrome controls that use it (sign out, the way back
-   to the shelf) appear on pages that own no stylesheet of their own. */
+/* A quiet utility button for the chrome controls (sign out, the way back to
+   the shelf) on pages that own no stylesheet of their own: white, an 8px
+   radius, a hairline border and an ink label — the house's own utility
+   button (DESIGN.md § 1), not a brand-coloured outline. */
 .shelf-button {
   display: inline-flex;
   align-items: center;
   height: 30px;
   padding: 0 12px;
-  border: 1px solid var(--brand);
-  background: none;
-  color: var(--brand);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-md);
+  background: var(--color-canvas);
+  color: var(--color-ink);
   text-decoration: none;
   white-space: nowrap;
   cursor: pointer;
+  font-weight: 500;
+  transition: background-color 120ms ease, border-color 120ms ease;
 }
-.shelf-button:hover { background: var(--brand); color: var(--brand-ink); }
+.shelf-button:hover { background: var(--color-paper); border-color: var(--color-field-line); }
+.shelf-button:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 
 button, input, select, textarea {
   font: inherit;
   color: inherit;
-  border-radius: var(--radius-none);
 }
 
-/* Square, high contrast, always visible. This grid is keyboard-operated.
-   Indigo rather than graphite: the ring is chrome, and it is the one piece of
-   chrome that has to be findable on every surface the product has. */
+input, select, textarea { border-radius: var(--radius-xs); }
+
+/* Always visible, and offset so it never sits on a field's own border. The
+   lists and the grid are keyboard-operated. */
 :focus-visible {
   outline: 2px solid var(--brand);
-  outline-offset: 1px;
+  outline-offset: 2px;
 }
 
-/* Selection was vermilion-washed, which spent the one colour that means out of
-   closure on the most ordinary gesture there is. The base takes it back. */
+/* Selection is the brand wash — never vermilion, which means out of closure. */
 ::selection {
   background: var(--brand-wash);
-  color: var(--brand);
+  color: var(--brand-deep);
 }
 
 @media (prefers-reduced-motion: reduce) {

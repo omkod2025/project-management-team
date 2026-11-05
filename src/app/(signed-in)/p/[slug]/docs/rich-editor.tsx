@@ -8,15 +8,18 @@ import { useEffect, useRef, useState } from 'react';
 import type { ChainedCommands } from '@tiptap/core';
 import {TextSelection} from '@tiptap/pm/state';
 import { docEditorExtensions } from '@/lib/doc-editor-extensions';
+import { MermaidCodeBlock } from '@/lib/doc-mermaid-extension';
 import EditorToolbar from './editor-toolbar';
+import type { DocEndpoints } from '@/lib/doc-endpoints';
 import { downloadDocFile, isDocAssetLink } from '@/lib/doc-download';
 import { decodeRich, encodeRich, RICH_PREFIX, safeEmbed } from '@/lib/doc-rich-content';
 import { pasteSpreadsheetText, sliceHasTable } from '@/lib/doc-table-paste';
+import { pastedMarkdown, sliceIsPlainCode, vscodeClipboardMode } from '@/lib/doc-markdown-paste';
 import { colorTableBand } from '@/lib/doc-table-color';
 import { selectedRect } from '@tiptap/pm/tables';
 
-export default function RichEditor({ value, label, onChange, projectId, onProblem, onUploadChange, onAssetUploaded, autoFocus = false }: {
-  value: string; label: string; onChange: (value: string) => void; projectId: string; onProblem: (message: string) => void; onUploadChange: (delta: number) => void; autoFocus?: boolean;
+export default function RichEditor({ value, label, onChange, endpoints, onProblem, onUploadChange, onAssetUploaded, autoFocus = false }: {
+  value: string; label: string; onChange: (value: string) => void; endpoints: DocEndpoints; onProblem: (message: string) => void; onUploadChange: (delta: number) => void; autoFocus?: boolean;
   onAssetUploaded?: (url: string) => void;
 }) {
   const [toolbarPosition, setToolbarPosition] = useState<'floating' | 'top'>('floating');
@@ -43,8 +46,9 @@ export default function RichEditor({ value, label, onChange, projectId, onProble
   const [linkBlock,setLinkBlock]=useState<'button'|'embed'|null>(null),[blockUrl,setBlockUrl]=useState(''),[blockLabel,setBlockLabel]=useState('Open link');
   const root = useRef<HTMLDivElement>(null);
   const handleCommandKey = useRef<(event: KeyboardEvent) => boolean>(() => false);
+  const pasteMarkdown = useRef<(markdown: string) => boolean>(() => false);
   const editor = useEditor({
-    extensions: docEditorExtensions(true), content: decodeRich(value) ?? value, contentType: decodeRich(value) ? 'json' : 'markdown', immediatelyRender: false, autofocus: autoFocus ? 'end' : false,
+    extensions: docEditorExtensions(true, { codeBlock: MermaidCodeBlock }), content: decodeRich(value) ?? value, contentType: decodeRich(value) ? 'json' : 'markdown', immediatelyRender: false, autofocus: autoFocus ? 'end' : false,
     editorProps: {
       attributes: { role: 'textbox', 'aria-label': label, 'aria-multiline': 'true', class: 'doc-prose' },
       handleKeyDown: (_view, event) => handleCommandKey.current(event),
@@ -62,7 +66,13 @@ export default function RichEditor({ value, label, onChange, projectId, onProble
         try { if (pasteSpreadsheetText(view, event)) return true; }
         catch (error) { onProblem(error instanceof Error ? error.message : 'Could not paste this table. Try a smaller range.'); return true; }
         if (event.clipboardData?.files.length) { void uploadFiles(Array.from(event.clipboardData.files)); return true; }
-        return false;
+        // Markdown source pastes as formatted content — headings, bold, lists
+        // and a ```mermaid fence that draws — not as literal characters.
+        const markdown = event.clipboardData && pastedMarkdown({
+          text: event.clipboardData.getData('text/plain'), html: event.clipboardData.getData('text/html'),
+          vscodeMode: vscodeClipboardMode(event.clipboardData.getData('vscode-editor-data')), plainCode: sliceIsPlainCode(slice),
+        });
+        return !!markdown && pasteMarkdown.current(markdown);
       },
       handleDrop: (_view, event) => {
         if (event.dataTransfer?.files.length) { event.preventDefault(); void uploadFiles(Array.from(event.dataTransfer.files)); return true; }
@@ -72,6 +82,7 @@ export default function RichEditor({ value, label, onChange, projectId, onProble
     onUpdate: ({ editor }) => { const json=editor.getJSON(); try {onChange(encodeRich(json));}catch{onChange(RICH_PREFIX+JSON.stringify(json));onProblem('This draft contains unsupported formatting. Download the complete draft before reloading; it has not been saved.');} },
   });
   useEditorState({ editor, selector: ({ editor }) => editor?.state });
+  pasteMarkdown.current = (markdown) => !!editor?.chain().focus().insertContent(markdown, { contentType: 'markdown' }).run();
   useEffect(() => {
     setTableControlsSlot(editor?.view.dom.querySelector<HTMLElement>('.doc-table-config-anchor') ?? null);
   });
@@ -91,6 +102,8 @@ export default function RichEditor({ value, label, onChange, projectId, onProble
     { label: 'Checklist', hint: 'Track items to complete', apply: (c) => c.toggleTaskList() },
     { label: 'Quote', hint: 'Highlight a quotation', apply: (c) => c.toggleBlockquote() },
     { label: 'Code block', hint: 'Code and technical notes', apply: (c) => c.toggleCodeBlock() },
+    { label: 'Mermaid diagram', hint: 'Paste Mermaid text to draw a diagram', apply: (c) => c.setCodeBlock({ language: 'mermaid' }) },
+    { label: 'Markdown', hint: 'Paste Markdown to show it formatted', apply: (c) => c.setCodeBlock({ language: 'markdown' }) },
     { label: 'Table', hint: 'Three columns with a header', apply: (c) => c.insertTable({ rows: 3, cols: 3, withHeaderRow: true }) },
     { label: 'Divider', hint: 'Separate sections', apply: (c) => c.setHorizontalRule() },
     ...(['info','success','warning','danger'] as const).map(tone => ({ label: `${tone.charAt(0).toUpperCase()+tone.slice(1)} banner`, hint: 'Callout with background color', apply: (c: ChainedCommands) => c.insertContent({ type: 'banner', attrs: {tone}, content: [{type:'paragraph'}] }) })),
@@ -167,7 +180,7 @@ export default function RichEditor({ value, label, onChange, projectId, onProble
     setUploading(true); onUploadChange(1);
     try {
       const data = new FormData(); data.set('file', file); data.set('kind', attachment ? 'attachment' : 'image');
-      const res = await fetch(`/api/projects/${projectId}/doc-assets`, { method: 'POST', body: data });
+      const res = await fetch(endpoints.uploadAsset, { method: 'POST', body: data });
       const body = await res.json();
       if (!res.ok) { onProblem(body.message ?? 'Upload failed. Try again.'); return; }
       onAssetUploaded?.(body.url);

@@ -1,49 +1,142 @@
 /* THESIS: A compact project document register with creation on the page.
-   OWN-WORLD: The existing white project sheet, indigo actions, quiet rules.
+   OWN-WORLD: The house style (DESIGN.md): warm paper shell, white documents
+   and panels, near-black Inter, one blue for action, hairlines and
+   barely-there layered shadows.
    STORY: Find a document or name a new one without losing project context.
    FIRST VIEWPORT: Project tabs, title and New doc, search, then the register.
-   FORM: Established project shell; the specified document index, not a new world. */
+   FORM: Established project shell; the specified document index, not a new world.
+
+   One skin for Docs and the Wiki. Both wear `.docs-book`; the Wiki adds
+   `.wiki-book` for what Docs has no class for (wiki.css). The List sheet
+   (list.css) and this one read their colour from --cu-* and --brand;
+   rebinding those here re-inks everything they draw, and the rules below
+   reshape only what a variable cannot reach.
+
+   Page and wiki titles are Thai content: no negative tracking, nothing that
+   can hold Thai below 13px (CLAUDE.md § Language). Vermilion is never used on
+   these screens — it means out of closure and nothing else. Deletion is
+   --color-danger. */
+
+.book.docs-book {
+  --cu-ground: var(--color-paper);
+  --cu-canvas: var(--color-canvas);
+  --cu-line: var(--color-hairline);
+  --cu-line-soft: color-mix(in srgb, var(--color-hairline) 60%, var(--color-canvas));
+  --cu-ink: var(--color-ink);
+  --cu-ink-soft: var(--color-ink-muted);
+  --cu-ink-faint: var(--color-ink-muted);
+  --cu-hover: rgb(0 0 0 / 4%);
+  --cu-r: var(--radius-sm);
+  --cu-r-lg: var(--radius-md);
+  --brand: var(--color-primary);
+  --brand-deep: var(--color-primary-active);
+  --brand-wash: var(--color-primary-wash);
+  /* The pressed state of a quiet control: one step past --cu-hover. */
+  --docs-press: rgb(0 0 0 / 8%);
+
+  font-family: var(--type-body-family);
+  font-feature-settings: 'lnum', 'locl';
+  /* Anuphan is loaded up to 600: a 700 headline takes Inter's real bold for
+     Latin and Anuphan's 600 for Thai, never a smeared synthetic bold. */
+  font-synthesis-weight: none;
+  color: var(--color-ink);
+  caret-color: var(--color-primary);
+}
+.docs-book ::selection { background: var(--brand-glow); }
+.docs-book :is(.views, .doc-prose, .doc-formatting) { font-family: var(--type-body-family); }
+
 .docs-main { width: 100%; min-width: 0; display: flex; flex-direction: column; }
-.docs-book .head { flex-wrap: wrap; height: auto; min-height: 56px; gap: 12px; }
+.docs-book .head { flex-wrap: wrap; height: auto; min-height: 56px; gap: 12px; background: var(--color-canvas); border-bottom-color: var(--color-hairline); }
+.docs-book .head a { color: var(--color-ink-secondary); text-underline-offset: 3px; text-decoration-color: rgb(0 0 0 / 25%); }
 .docs-project { font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
 .docs-book .views { display: flex; flex-wrap: wrap; gap: 16px; }
+.docs-book .views :is(a, span) { border-radius: var(--radius-sm); }
+.docs-book .views [aria-current='page'] { border-radius: 0; color: var(--color-ink); }
 .docs-content { overflow: auto; padding: 24px; }
+/* A white document on the paper shell. */
+.docs-book :is(.doc-reading, .doc-page-outline) { background: var(--color-canvas); }
+
+/* ---- type ---- */
+
 .docs-heading { display: flex; justify-content: space-between; align-items: start; gap: 20px; }
-.docs-heading h1 { margin: 0; font-size: 22px; font-weight: 600; }
-.docs-heading p { margin: 6px 0 0; color: #555e70; overflow-wrap: anywhere; }
-.docs-book button, .docs-book input { font: inherit; font-size: 14px; border: 1px solid var(--cu-line); border-radius: 4px; }
-.docs-book button { min-height: 34px; padding: 6px 12px; background: #fff; color: #303747; cursor: pointer; }
+.docs-heading h1 { margin: 0; font-size: 26px; font-weight: 700; line-height: 1.23; letter-spacing: normal; color: var(--color-ink); }
+.docs-heading p { margin: 8px 0 0; font-size: 15px; line-height: 1.6; color: var(--color-ink-muted); overflow-wrap: anywhere; }
+.docs-muted { color: var(--color-ink-muted); font-size: 13px; font-weight: 400; }
+.docs-error { color: var(--color-danger); }
+.docs-notice { margin: 12px 0; color: var(--brand); overflow-wrap: anywhere; }
+.docs-notice:empty { display: none; }
+
+/* ---- controls: pill for the one primary action, 8px for utility, 4px fields ---- */
+
+.docs-book button, .docs-book input { font: inherit; font-size: 14px; }
+.docs-book button {
+  min-height: 34px;
+  padding: 6px 12px;
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-md);
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color .12s ease, box-shadow .12s ease;
+}
 .docs-book button:hover { background: var(--cu-hover); }
+.docs-book button:active { background: var(--docs-press); }
 .docs-book button:disabled { opacity: .55; cursor: default; }
-.docs-book .docs-primary { background: var(--brand, #2b3a8f); color: #fff; border-color: var(--brand, #2b3a8f); white-space: nowrap; }
-.docs-book .docs-primary:hover { background: var(--brand-deep, #202d73); }
-.docs-book :is(button, input, a):focus-visible { outline: 2px solid var(--brand, #2b3a8f); outline-offset: 3px; }
-.docs-book input { width: 100%; min-width: 0; min-height: 36px; padding: 7px 10px; background: #fff; color: #292d34; }
-.docs-book input::placeholder { color: #616a7c; }
-.docs-create { margin-top: 22px; padding: 18px 0; border-block: 1px solid var(--cu-line); }
-.docs-create h2 { margin: 0 0 14px; font-size: 16px; }
+.docs-book .docs-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 18px;
+  border-radius: var(--radius-full);
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: #fff;
+  white-space: nowrap;
+}
+.docs-book .docs-primary:hover:not(:disabled),
+.docs-book .docs-primary:active:not(:disabled) { background: var(--color-primary-active); border-color: var(--color-primary-active); }
+.docs-book :is(button, input, a, summary):focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.docs-book :is(input, select, textarea) {
+  border: 1px solid var(--color-field-line);
+  border-radius: var(--radius-xs);
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  transition: border-color .12s ease, box-shadow .12s ease;
+}
+.docs-book input { width: 100%; min-width: 0; min-height: 36px; padding: 7px 10px; }
+.docs-book :is(input, textarea)::placeholder { color: var(--color-ink-muted); }
+.docs-book :is(input, select, textarea):focus { border-color: var(--color-primary); box-shadow: 0 0 0 3px var(--brand-glow), var(--shadow-1); outline: none; }
+.docs-book input[type='checkbox'] { accent-color: var(--color-primary); box-shadow: none; }
+.docs-actions { display: flex; gap: 8px; }
+
+/* ---- the register and its forms ---- */
+
+.docs-create { margin-top: 22px; padding: 18px 0; border-block: 1px solid var(--color-hairline); }
+.docs-create h2 { margin: 0 0 14px; font-size: 17px; font-weight: 600; }
 .docs-form-fields { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 16px; max-width: 780px; }
 .docs-form-fields label { display: block; font-size: 13px; font-weight: 500; }
 .docs-form-fields input { display: block; margin-top: 6px; }
-.docs-muted { color: #555e70; font-size: 13px; font-weight: 400; }
-.docs-actions { display: flex; gap: 8px; }
-.docs-error { color: #963427; }
-.docs-notice { margin: 12px 0; color: var(--brand, #2b3a8f); overflow-wrap: anywhere; }
-.docs-notice:empty { display: none; }
 .docs-tools { display: flex; flex-wrap: wrap; align-items: end; gap: 16px; margin: 24px 0 12px; }
 .docs-search { display: grid; gap: 6px; font-size: 13px; width: 300px; max-width: 100%; }
 .docs-tools > span { padding-bottom: 8px; }
-.docs-table-wrap { overflow-x: auto; }
+/* Registers: a white panel on paper, the header row in paper. */
+.docs-table-wrap { overflow-x: auto; background: var(--color-canvas); border: 1px solid var(--color-hairline); border-radius: var(--radius-lg); }
 .docs-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 14px; }
-.docs-table th, .docs-table td { padding: 10px 12px; border-bottom: 1px solid var(--cu-line); overflow-wrap: anywhere; }
-.docs-table th:first-child { padding-left: 0; width: 45%; }
-.docs-table thead th { color: #555e70; font-weight: 500; font-size: 12px; white-space: nowrap; }
+.docs-table th, .docs-table td { padding: 12px 16px; border-bottom: 1px solid var(--color-hairline); overflow-wrap: anywhere; }
+.docs-table th:first-child { width: 45%; }
+/* Column heads are English chrome: the 12px eyebrow with its tracking. */
+.docs-table thead th { background: var(--color-paper); color: var(--color-ink-muted); font-weight: 600; font-size: 12px; letter-spacing: .125px; white-space: nowrap; }
 .docs-table tbody th { font-weight: 500; line-height: 1.6; }
 .docs-table tbody tr:hover { background: var(--cu-hover); }
+.docs-table tbody tr:last-child :is(th, td) { border-bottom: 0; }
+.docs-table tbody th a { color: var(--color-ink); font-weight: 600; text-decoration: none; }
+.docs-table tbody th a:hover { color: var(--color-primary); text-decoration: underline; text-underline-offset: 3px; }
 .docs-table td:last-child { white-space: nowrap; }
-.docs-empty { padding: 28px 0; }
-.docs-empty h2 { font-size: 16px; margin: 0 0 6px; }
-.docs-empty p { margin: 0; color: #555e70; }
+.docs-table :is(td, th) { font-variant-numeric: tabular-nums; }
+.docs-empty { padding: 32px; border: 1px solid var(--color-hairline); border-radius: var(--radius-xl); background: var(--color-canvas); }
+.docs-empty h2 { font-size: 17px; font-weight: 600; margin: 0 0 6px; }
+.docs-empty p { margin: 0; color: var(--color-ink-muted); }
 .docs-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 @media (max-width: 650px) {
   .docs-content { padding: 16px; }

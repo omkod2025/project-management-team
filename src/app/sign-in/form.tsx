@@ -21,7 +21,9 @@ export default function SignInForm() {
         />
       </div>
 
-      {state?.error && <Errata id={errorId}>{state.error}</Errata>}
+      {/* Wrong email or password is an ordinary refusal — the visitor typed
+          something that does not match, not a write that failed to land. */}
+      {state?.error && <Errata id={errorId} kind="refusal">{state.error}</Errata>}
 
       <button type="submit" className="auth-submit" disabled={pending} aria-busy={pending}>
         {pending ? 'Signing in' : 'Sign in'}

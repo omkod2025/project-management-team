@@ -93,10 +93,12 @@ describe('options', () => {
     refuses('E_UNKNOWN_FIELD', () => assertStage('finished'));
   });
 
-  test('a colour must be one of the six tab hues', () => {
+  test('a colour must be one of the eight option colours', () => {
     assert.equal(assertColorIndex(3), 3);
+    assert.equal(assertColorIndex(8), 8);
     assert.equal(assertColorIndex(undefined), 1);
-    refuses('E_UNKNOWN_FIELD', () => assertColorIndex(7));
+    refuses('E_UNKNOWN_FIELD', () => assertColorIndex(0));
+    refuses('E_UNKNOWN_FIELD', () => assertColorIndex(9));
     refuses('E_UNKNOWN_FIELD', () => assertColorIndex('#ff0000'));
   });
 

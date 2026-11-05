@@ -179,7 +179,7 @@ describe('the status column (D-35)', () => {
     assert.equal(res.status, 422);
   });
 
-  test('a colour outside the six tab hues is refused', async () => {
+  test('a colour outside the eight option colours is refused', async () => {
     const res = await call(admin, 'PATCH', `/api/options/${fx.options.backlog}`, { colorIndex: 9 });
     assert.equal(res.status, 422);
   });

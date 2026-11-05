@@ -148,9 +148,9 @@ export default function ReportView({ projectName, slug, rows, fields, people, st
           <Bell />
           <div className="views label">
             <a href={`/p/${slug}`}>List</a>
-            <span style={{ color: 'var(--color-rule)' }}>·</span>
+            <span style={{ color: 'var(--color-hairline)' }}>·</span>
             <a href={`/p/${slug}/timeline`}>Timeline</a>
-            <span style={{ color: 'var(--color-rule)' }}>·</span>
+            <span style={{ color: 'var(--color-hairline)' }}>·</span>
             <span aria-current="page">Report</span>
             <a href={`/p/${slug}/docs`}>Docs</a>
           </div>
@@ -198,7 +198,7 @@ export default function ReportView({ projectName, slug, rows, fields, people, st
                   }
                 />
                 {f.name}
-                {f.kind === 'money' && <span className="warn label">money</span>}
+                {f.kind === 'money' && <span className="report-money label">money</span>}
               </label>
             ))}
             <label>
@@ -213,7 +213,7 @@ export default function ReportView({ projectName, slug, rows, fields, people, st
         </div>
 
         {includesMoney && (
-          <p className="errata">
+          <p className="report-caution">
             This report includes a money column. Check that is what you mean before sending it.
           </p>
         )}
@@ -298,7 +298,10 @@ export default function ReportView({ projectName, slug, rows, fields, people, st
           {/* A document sent outside the building says what produced it.
               Relying on the browser's own print header would not do: it is
               off by default in some browsers and switchable in all of them. */}
-          <span className="report-mark">T-Timeline</span>
+          {/* Rendered already uppercase: the house rule keeps
+              `text-transform: uppercase` off every stylesheet (it breaks Thai
+              mark stacking), so a mark that wants capitals types them. */}
+          <span className="report-mark">T-TIMELINE</span>
           Dates are working days in Asia/Bangkok. “Closed” counts tasks whose
           status has reached a finished stage.
         </footer>

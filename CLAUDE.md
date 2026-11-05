@@ -20,8 +20,9 @@ Project management for software delivery. Plan and reality are recorded separate
 | [`docs/spec/09-roster.md`](docs/spec/09-roster.md) | All Timeline (the roster) — one lane per person, across projects |
 | [`docs/spec/10-docs.md`](docs/spec/10-docs.md) | Project documents — pages, templates, Markdown, assets |
 | [`docs/spec/11-notifications.md`](docs/spec/11-notifications.md) | The bell — being told when your name is put on a task |
+| [`docs/spec/12-wiki.md`](docs/spec/12-wiki.md) | Wiki (คลังความรู้) and Mermaid blocks — sharing, public link, access tokens, the read-only MCP endpoint, deletion (`D-70`…) |
 | [`db/schema.sql`](db/schema.sql) | Executable DDL — verified against PostgreSQL 18.4 |
-| [`db/tests.sql`](db/tests.sql) | Schema test suite, 13 groups, runs in a rolled-back transaction |
+| [`db/tests.sql`](db/tests.sql) | Schema test suite, 14 groups, runs in a rolled-back transaction |
 | [`tests/node-rules.test.ts`](tests/node-rules.test.ts) | 46 domain rule tests, each naming the `D-nn` it defends |
 | [`tests/e2e/api.test.ts`](tests/e2e/api.test.ts) | 29 end-to-end tests: auth, dates, capture, snapping, validation |
 | [`tests/e2e/tree.test.ts`](tests/e2e/tree.test.ts) | 26 end-to-end tests: create, move, place, archive, restore |
@@ -38,10 +39,27 @@ Project management for software delivery. Plan and reality are recorded separate
 | [`tests/e2e/notifications.test.ts`](tests/e2e/notifications.test.ts) | 21 end-to-end tests: the write on the one path that reaches it, and the read stopping at membership |
 | [`tests/doc-publish.test.ts`](tests/doc-publish.test.ts) | 18 tests: the published read-only link — token shape, what a stranger may follow, which files a token may read |
 | [`tests/file-columns.test.ts`](tests/file-columns.test.ts) | 5 tests: the file column — what an attachment must carry, the 20 MB ceiling, and every shape the cell refuses |
-| [`tests/default-columns.test.ts`](tests/default-columns.test.ts) | 15 tests: the four columns every project starts with, and the List arrangement that opens Assign and Side beside Status |
+| [`tests/option-colors.test.ts`](tests/option-colors.test.ts) | 4 tests: the eight-colour option palette — a colour index names its fill and ink, out-of-range wraps, the nth new option takes the nth colour |
+| [`tests/default-columns.test.ts`](tests/default-columns.test.ts) | 18 tests: the four columns every project starts with, the eight default statuses with their stages and colours, and the List arrangement that opens Assign and Side beside Status |
 | [`tests/e2e/default-columns.test.ts`](tests/e2e/default-columns.test.ts) | 6 end-to-end tests: the default columns, the designation, and the saved column order are really written |
+| [`tests/wiki-rules.test.ts`](tests/wiki-rules.test.ts) | 70 tests: who sees and writes a wiki, who may delete one, what a token reads, token and page input, Thai-safe search terms, the rate limiter, the breadcrumb |
+| [`tests/wiki-tree-order.test.ts`](tests/wiki-tree-order.test.ts) | 6 tests: the wiki page tree in reading order |
+| [`tests/e2e/wiki.test.ts`](tests/e2e/wiki.test.ts) | 70 end-to-end tests: the wiki role table, strangers' 404s, pages, search, assets, the public link, access tokens, deleting a wiki |
+| [`tests/e2e/wiki.browser.test.ts`](tests/e2e/wiki.browser.test.ts) | 1 browser test: create a wiki, write Thai and Mermaid, the read-only member, the stranger's 404, `.md` import, whole-wiki export in tree order |
+| [`tests/e2e/wiki-mcp.test.ts`](tests/e2e/wiki-mcp.test.ts) | 24 end-to-end tests: the MCP endpoint — Bearer only, the four read-only tools, ids in any case, scope decided per request, revoked/expired/deactivated → 401, injection, the rate limit |
+| [`tests/e2e/wiki-guide.test.ts`](tests/e2e/wiki-guide.test.ts) | 6 end-to-end tests: the in-app MCP guide names the real origin, is for signed-in people only, and its every example still parses and connects |
+| [`tests/mermaid-rules.test.ts`](tests/mermaid-rules.test.ts) | 13 tests: what counts as a Mermaid block, where a parse error points, the 50,000-character ceiling, and the locked config — strict, no HTML labels, no shadow, and the keys no diagram directive may override |
+| [`tests/markdown-block.test.ts`](tests/markdown-block.test.ts) | 5 tests: the Markdown block — `markdown`/`md` in any case, the export fence that outgrows the backticks inside, nested fences, Thai and hostile HTML round-tripping byte for byte |
+| [`tests/doc-mermaid-render.test.ts`](tests/doc-mermaid-render.test.ts) | 5 tests: a Mermaid fence survives Markdown, rich JSON and back byte for byte, hostile source included |
+| [`tests/e2e/doc-mermaid.browser.test.ts`](tests/e2e/doc-mermaid.browser.test.ts) | 1 browser test: diagrams draw in read mode and on the public link, a parse error is shown to the editor only, an `%%{init}%%` directive cannot override the house theme, live preview, HTML export and re-import |
+| [`tests/house-style.test.ts`](tests/house-style.test.ts) | 28 tests: the static guard for the house style — the token values, the frozen meaning tokens, vermilion only on misclosure and failed-write classes (and a test that the guard itself has no hole), the List's airy rows, mixed chips, the one badge shape on every badge, Thai restored to 13px inside the `.label` eyebrow, deactivation and money cautions in danger, the Timeline's bars and datum, the Calendar pinned, no retired token |
+| [`tests/e2e/house-style.browser.test.ts`](tests/e2e/house-style.browser.test.ts) | 4 browser tests: every restyled page — no sideways scroll at 390px, a white header and a visible focus ring at 1440px; deletion draws in danger; List rows hold their height while edited |
+| [`tests/e2e/calendar-look.browser.test.ts`](tests/e2e/calendar-look.browser.test.ts) | 1 browser test: the Calendar's computed look matches its pinned fixture — the scoped exception to the house style does not drift |
 | [`docs/TASKS.md`](docs/TASKS.md) | Build plan T0–T9 with per-task checklists |
 | [`docs/wireframes/index.html`](docs/wireframes/index.html) | Rendered wireframes for both views |
+| [`docs/guides/wiki-mcp.md`](docs/guides/wiki-mcp.md) | Connecting AI clients to the Wiki over MCP |
+| [`docs/guides/mermaid.md`](docs/guides/mermaid.md) | Writing Mermaid that renders — the in-app guide at `/wiki/mermaid-guide`, in Thai |
+| [`docs/guides/wiki-mcp-internals.md`](docs/guides/wiki-mcp-internals.md) | How the MCP endpoint works inside — request path, token scope, tools, errors, testing, adding a tool |
 
 ---
 
@@ -51,7 +69,7 @@ Credentials live in `.env` (git-ignored). With `PGHOST`/`PGUSER`/`PGPASSWORD` ex
 
 ```bash
 npm run db:build     # psql -f db/schema.sql
-npm run db:test      # psql -f db/tests.sql  — 13 groups, rolled back
+npm run db:test      # psql -f db/tests.sql  — 14 groups, rolled back
 npm run db:migrate   # apply db/migrations/*.sql once each
 npm run db:seed -- <email> <password>
 ```
@@ -66,10 +84,13 @@ npm run db:seed -- <email> <password>
 
 ```bash
 npm run check      # typecheck + domain tests — the pre-commit bar
-npm test           # 326 domain rule tests (nodes, admin, list, roster, notifications), no database needed
-npm run db:test    # 13 SQL groups, rolled back
+npm test           # 484 domain rule tests (nodes, admin, list, roster, notifications, docs, wiki, mermaid, markdown blocks), no database needed
+npm run db:test    # 14 SQL groups, rolled back
 npm run test:e2e   # 147 API tests — REQUIRES `npm run dev` in another terminal
+npm run test:wiki  # 101 wiki tests: REST, browser, MCP, guide — same requirement (7 skip without E2E_INSTALL_ADMIN_PASSWORD)
+npm run test:docs  # 15 Docs API tests — same requirement
 npm run test:acceptance  # 15 acceptance criteria, same requirement
+npm run test:calendar-look  # 1 browser test: the Calendar still renders as pinned — same requirement
 ```
 
 Three layers, each covering what the one below cannot:
@@ -91,6 +112,10 @@ Node runs the TypeScript tests directly by stripping types, so there is no build
 ## Stack
 
 Next.js · PostgreSQL · Drizzle · TypeScript end to end. TanStack Table for the grid. `date-fns` with `Asia/Bangkok`. Auth.js for sessions.
+
+### Implementation skill
+
+**Always invoke the `ouan-react-best-practice` skill before implementing any work in this project** — new features, components, pages, hooks, API routes, refactors, and bug fixes alike — and follow its rules (S1–S11, R1–R14, X1–X8) while writing the code. Use it again when reviewing changes. Where it conflicts with a rule in this file (naming, colour law, the plan/actual separation, no triggers), this file wins.
 
 ---
 
@@ -121,11 +146,15 @@ Business rules live in TypeScript. PostgreSQL supplies aggregate computation onl
 
 ### Colour law
 
-Vermilion (`#A82A17`) means **out of closure** and nothing else. It is not a brand colour, not a primary button, not a hover state. Graphite means a human entered the value; blue-black means the system derived it — the ink is the audit trail.
+Vermilion (`#A82A17`) means **out of closure** and nothing else. A misclosure is out of closure; so is a write that did not land — a failed save in the List, profile or `/people` is an errata, and it is vermilion. It is not a brand colour, not a primary button, not a hover state, not deletion and not a validation hint: those take danger red (`#C4362F`). In CSS, a rule that uses `--color-vermilion` must have every selector in its list name a misclosure or failed-write state as a class — a class ending in `slip`, `failed`, `errata` or `late` (`.slip`, `td.failed`, `.people-errata`, `.rs-late`), or the Timeline's `.brk.over` and `.over-fig` (a bare `over` would let `:hover` through); `tests/house-style.test.ts` enforces it. A deactivated account, a money column in a report and every other caution are states, not misclosures: danger red. Graphite means a human entered the value; blue-black means the system derived it — the ink is the audit trail.
 
-The six `tab-` hues say **whose** work it is — module identity — and never how it is going. They carry the fore-edge tabs, the module chip and indent hairline in the List, the option chips, and both Timeline bars. **Always mixed into the page or the ink, never used raw**: a raw `tab-1` fill lands close enough to vermilion to be misread, and acceptance test A8 computes that distance and fails if the mix is removed.
+The six `tab-` hues say **whose** work it is — module identity — and never how it is going. They carry the fore-edge tabs, the module chip and indent hairline in the List, and both Timeline bars. Status and select option chips do **not** use them: they take the eight-colour option palette (`option-1`…`option-8` — red, yellow, sky, green, grey, dark grey, orange, pink, decided 2026-11-05), drawn as solid chips in each colour's `option-n-ink`, with every fill kept 0.10 or more from vermilion in OKLab. **Always mixed into the page or the ink, never used raw**: a raw `tab-1` fill lands close enough to vermilion to be misread, and acceptance test A8 computes that distance and fails if the mix is removed.
 
-No cards, no rounded corners, no blurred shadows, no dark theme, no zebra striping. Status draws as a square-cornered chip washed into the paper — **not** a pastel pill with a radius and a shadow. See `DESIGN.md` § Colors rules 3 and 3b before adding any UI.
+**The house style is Notion's, on every surface** (decided 2026-11-05): warm paper (`#F6F5F4`) behind white panels and fields, near-black Inter with Anuphan for Thai, one blue (`#0075DE`) for action, links, focus and "you are here", hairlines and layered near-transparent shadows, radii of 4 / 5 / 8 / 12 / 16px and a full pill for the primary action. `DESIGN.md` is the one source: its frontmatter generates `src/app/tokens.css` (`node scripts/tokens.mjs` — never edit the CSS by hand), and its body says how each surface draws. The meaning laws above are drawn inside that style, not instead of it: Timeline bars keep the hatched estimate above the solid actual, every badge (option chips, module tags, the misclosure slip, flags, account states) is one shape: a vivid wash of its colour re-lit in OKLCH (`oklch(from <hue> 0.92 calc(c * 0.62) h)`), a 1px border re-lit to L 0.76, a deep label at L 0.43, 6px corners (`--radius-badge`), never a raw hue — except that a status or select option chip is drawn solid in its option colour and ink, so it never looks like a light module tag, and figures are Inter with `tabular-nums`.
+
+**One exception: the Calendar view** (`src/app/(signed-in)/p/[slug]/calendar/`) keeps its Google-Calendar look, by the owner's decision on 2026-11-05. `calendar.css` may only gain pins inside `.cal-page`, and `npm run test:calendar-look` fails if its rendering moves. The bell and the task modal it opens follow the house style.
+
+No dark theme, no zebra striping, no status tint on rows. See `DESIGN.md` § 2 and § 9 before adding any UI.
 
 ### Language
 

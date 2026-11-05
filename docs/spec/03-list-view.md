@@ -53,7 +53,7 @@ It is a word, not a house glyph — every icon here is drawn in the same 1px han
 
 **Module colour reaches into the run.** A module row carries a 3px chip of its hue before its name; every row beneath it carries the same hue as a 2px hairline in the gutter its indent already reserves. The hue is assigned by the module's filed position and is **the same number the Timeline uses**, so a module keeps its colour across both views — otherwise it is decoration rather than an index.
 
-**A chosen option draws as a chip**, not as plain text with a swatch beside it: the option's hue mixed 17% into the page, a 2px bar of the full hue on the leading edge, square corners, and a label darkened toward graphite until it clears 4.5:1 on its own ground. Every option in the imported workspace was measured; the worst is 5.25:1. See DESIGN.md § Colors rule 3b for why this is not the pastel pill it superficially resembles.
+**A chosen option draws as a chip**, not as plain text with a swatch beside it: the house badge (DESIGN.md § 7) — the option's hue mixed 30% into the page in OKLCH, a 1px border of the hue mixed 65% (never the raw hue), 6px corners, and a label darkened toward graphite until it clears 4.5:1 on its own ground. On the six module hues the worst is the orange at 4.8:1. It is the same badge every surface uses: one shape, coloured by what it means.
 
 ---
 

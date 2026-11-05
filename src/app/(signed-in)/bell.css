@@ -1,18 +1,13 @@
 /*
- * The bell, its leaf, and the slip (spec 11 §6).
+ * The bell, its leaf, and the slip (spec 11 §6) — in the house (Notion) style.
  *
- * Written in the language the signed-in pages actually speak today, not the
- * one DESIGN.md describes. `list.css`, `shelf.css` and `people.css` all
- * departed to the ClickUp/dashboard restyle by explicit instruction on
- * 2026-09-08 — white grounds, cool grey hairlines, 4–6px radii, a soft hover
- * ground, and indigo `--brand` as the base pair. The bell is drawn on every
- * one of those pages, so it follows them; a cream paper leaf hinged off a
- * white toolbar was the first version of this file and read as a control from
- * a different product.
+ * The bell is drawn on every signed-in page, so it follows the same shell
+ * those pages now use: white panels and hairlines on paper, 8px utility
+ * buttons, 12px panels, and a layered shadow rather than a hard drop.
  *
- * Like `people.css`, the palette is redeclared locally rather than reached for
- * across sheets, so this file has no dependency on `list.css` loading first.
- * `tokens.css` is generated from DESIGN.md and stays untouched.
+ * Like `shelf.css`, the palette is redeclared locally as `--nb-*` rather than
+ * reached for across sheets, so this file has no dependency on another one
+ * loading first. `tokens.css` is generated from DESIGN.md and stays untouched.
  *
  * What the restyle does NOT get to change, and what this file therefore still
  * obeys:
@@ -23,21 +18,20 @@
  *   - hue says *whose*, never how it is going. Nothing here is tinted by a
  *     verdict.
  *   - figures are set in the figure face, like every other number.
- *   - Thai is never letter-spaced, never upper-cased, never below 13px. The
- *     small caps below are on English chrome only.
+ *   - Thai is never letter-spaced, never upper-cased, never below 13px.
  */
 
 .noti,
 .noti-slip {
-  --nb-panel: #ffffff;
-  --nb-line: #e4e7f0;
-  --nb-line-soft: #edeff6;
-  --nb-ink: #292d34;
-  --nb-ink-soft: #7c828d;
-  --nb-ink-faint: #a5abb5;
-  --nb-hover: #f6f7fc;
-  --nb-r: 4px;
-  --nb-r-lg: 6px;
+  --nb-panel: var(--color-canvas);
+  --nb-line: var(--color-hairline);
+  --nb-line-soft: var(--color-hairline);
+  --nb-ink: var(--color-ink);
+  --nb-ink-soft: var(--color-ink-muted);
+  --nb-ink-faint: var(--color-ink-faint);
+  --nb-hover: rgb(0 0 0 / 4%);
+  --nb-r: var(--radius-sm);
+  --nb-r-lg: var(--radius-lg);
 }
 
 /*
@@ -87,9 +81,9 @@
 
 /* ------------------------------------------------------------------ bell */
 
-/* The toolbar button of the restyle: transparent until touched, a hairline
-   border, quiet ink. Same shape as the List's own Sort and Columns buttons so
-   it reads as one more control on that bar rather than an applique. */
+/* The toolbar button: transparent until touched, a hairline border, quiet
+   ink. Same shape as the List's own Sort and Columns buttons so it reads as
+   one more control on that bar rather than an applique. */
 .noti-bell {
   display: inline-flex;
   align-items: center;
@@ -101,13 +95,14 @@
   background: var(--nb-panel);
   color: var(--nb-ink-soft);
   cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
 }
 
 .noti-bell:hover,
 .noti-bell[aria-expanded='true'] {
   background: var(--nb-hover);
   color: var(--nb-ink);
-  border-color: #dcdfe4;
+  border-color: var(--color-field-line);
 }
 
 .noti-bell:focus-visible {
@@ -115,17 +110,18 @@
   outline-offset: 2px;
 }
 
-/* Indigo, because indigo is this product's base pair and carries its primary
-   actions everywhere else. Deliberately not a red dot: red here would be the
-   one colour that already means something. */
+/* Blue, because blue is this product's one structural accent and carries its
+   primary actions everywhere else. Deliberately not a red dot: red here would
+   be the one colour that already means something. */
 .noti-count {
   min-width: 16px;
   height: 16px;
   padding: 0 4px;
-  border-radius: 8px;
+  border-radius: var(--radius-full);
   background: var(--brand);
   color: #fff;
-  font-family: var(--font-figure), monospace;
+  font-family: var(--type-figure-family);
+  font-variant-numeric: tabular-nums;
   font-size: 10px;
   font-weight: 500;
   line-height: 16px;
@@ -149,7 +145,7 @@
 .prof-out .noti-bell {
   height: 34px;
   padding: 0 11px;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
 }
 
 /* ------------------------------------------------------------------ leaf */
@@ -167,21 +163,22 @@
   border: 1px solid var(--nb-line);
   border-radius: var(--nb-r-lg);
   background: var(--nb-panel);
-  /* The lifted-sheet shadow `people.css` uses for its floating sheet, tinted
-     toward the base rather than left neutral grey. */
-  box-shadow: 0 1px 2px rgba(43, 58, 143, 0.06), 0 12px 32px -12px rgba(43, 58, 143, 0.22);
+  /* The house's own layered elevation (DESIGN.md § 1), not the lifted-sheet
+     shadow the field-book dashboard used. */
+  box-shadow: var(--shadow-2);
   overflow: hidden auto;
 }
 
-/* Opens in two frames from the edge it is hinged to. Nothing in this product
-   eases or fades, and the restyle did not change that. */
+/* Opens in one easing step from the edge it is hinged to — the house's own
+   180ms curve for a panel appearing, not the two-frame snap the field book
+   used. */
 @keyframes noti-hinge {
-  from { transform: scaleY(0.6); opacity: 0; }
-  to { transform: scaleY(1); opacity: 1; }
+  from { transform: scaleY(0.96) translateY(-4px); opacity: 0; }
+  to { transform: scaleY(1) translateY(0); opacity: 1; }
 }
 .noti-leaf {
   transform-origin: top left;
-  animation: noti-hinge 90ms steps(2) both;
+  animation: noti-hinge 160ms cubic-bezier(.16, 1, .3, 1) both;
 }
 @media (prefers-reduced-motion: reduce) {
   .noti-leaf { animation: none; }
@@ -198,11 +195,10 @@
   padding: 10px 14px 8px;
   background: var(--nb-panel);
   border-bottom: 1px solid var(--nb-line);
-  font-family: var(--font-struct), sans-serif;
-  font-size: 11px;
+  font-family: var(--type-label-family);
+  font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   color: var(--nb-ink-faint);
 }
 
@@ -240,8 +236,7 @@
   text-decoration: none;
 }
 
-/* A soft hover ground — the one thing the field-book sheet refused and every
-   restyled sheet now uses. */
+/* A soft hover ground, in the house's hover tint rather than a tinted grey. */
 .noti-item a:hover { background: var(--nb-hover); }
 
 .noti-item a:focus-visible {
@@ -283,7 +278,7 @@
 }
 
 .noti-project { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.noti-when { flex: none; font-family: var(--font-figure), monospace; }
+.noti-when { flex: none; font-family: var(--type-figure-family); font-variant-numeric: tabular-nums; }
 
 /* ------------------------------------------------------------------ slip */
 
@@ -293,7 +288,7 @@
  * controls, and a bar floating over them would eventually cover one on a
  * screen nobody looked at.
  *
- * A washed indigo band, not a toast and not a red alert: it is telling you
+ * A washed blue band, not a toast and not a red alert: it is telling you
  * something arrived, which is information, not a fault.
  */
 .noti-slip {
@@ -306,7 +301,7 @@
   font-family: var(--font-read), system-ui, sans-serif;
   font-size: 13px;
   color: var(--nb-ink);
-  animation: noti-drop 90ms steps(2) both;
+  animation: noti-drop 160ms cubic-bezier(.16, 1, .3, 1) both;
 }
 
 @keyframes noti-drop {
@@ -331,19 +326,21 @@
   font-weight: 500;
   color: var(--nb-ink-soft);
   cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
 }
 .noti-slip button:hover { background: var(--nb-hover); color: var(--nb-ink); }
 
-/* The primary of the pair takes the base fill, as every primary action on the
-   restyled pages does. */
+/* The primary of the pair takes the house's full pill, as every primary
+   action on the restyled pages does. */
 .noti-slip-open {
+  border-radius: var(--radius-full);
   background: var(--brand);
   border-color: var(--brand);
   color: #fff;
   font-weight: 600;
 }
 .noti-slip-open:hover {
-  background: color-mix(in srgb, var(--brand) 88%, #000);
-  border-color: color-mix(in srgb, var(--brand) 88%, #000);
+  background: var(--brand-deep);
+  border-color: var(--brand-deep);
   color: #fff;
 }

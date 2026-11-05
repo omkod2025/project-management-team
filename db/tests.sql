@@ -368,6 +368,94 @@ BEGIN
     RAISE NOTICE 'PASS  N  progress counted from status';
 END $$;
 
+-- ---------------------------------------------------------------------
+-- O. Wiki tree and tokens                                   (wiki spec §4a)
+-- ---------------------------------------------------------------------
+DO $$
+DECLARE
+    v_owner      uuid;
+    v_wiki_a     uuid;
+    v_wiki_b     uuid;
+    v_page1      uuid;
+    v_page2      uuid;
+    v_page3      uuid;
+    v_token      uuid;
+    n            integer;
+BEGIN
+    INSERT INTO pmt_users (user_email, user_full_name)
+    VALUES ('wiki-test@example.com', 'Wiki Tester')
+    RETURNING user_id INTO v_owner;
+
+    INSERT INTO pmt_wikis (wiki_title, wiki_owner_id)
+    VALUES ('Wiki A', v_owner) RETURNING wiki_id INTO v_wiki_a;
+    INSERT INTO pmt_wikis (wiki_title, wiki_owner_id)
+    VALUES ('Wiki B', v_owner) RETURNING wiki_id INTO v_wiki_b;
+
+    -- a three-level chain in wiki A
+    INSERT INTO pmt_wiki_pages (wiki_page_wiki_id, wiki_page_parent_id, wiki_page_depth, wiki_page_title, wiki_page_slug)
+    VALUES (v_wiki_a, NULL, 1, 'Root', 'root') RETURNING wiki_page_id INTO v_page1;
+    INSERT INTO pmt_wiki_pages (wiki_page_wiki_id, wiki_page_parent_id, wiki_page_depth, wiki_page_title, wiki_page_slug)
+    VALUES (v_wiki_a, v_page1, 2, 'Child', 'child') RETURNING wiki_page_id INTO v_page2;
+    INSERT INTO pmt_wiki_pages (wiki_page_wiki_id, wiki_page_parent_id, wiki_page_depth, wiki_page_title, wiki_page_slug)
+    VALUES (v_wiki_a, v_page2, 3, 'Grandchild', 'grandchild') RETURNING wiki_page_id INTO v_page3;
+
+    -- depth 4 must be rejected
+    BEGIN
+        INSERT INTO pmt_wiki_pages (wiki_page_wiki_id, wiki_page_parent_id, wiki_page_depth, wiki_page_title, wiki_page_slug)
+        VALUES (v_wiki_a, v_page3, 4, 'Too deep', 'too-deep');
+        ASSERT false, 'depth 4 must be rejected by the CHECK';
+    EXCEPTION WHEN check_violation THEN NULL;
+    END;
+
+    -- a page cannot be its own parent
+    BEGIN
+        UPDATE pmt_wiki_pages SET wiki_page_parent_id = wiki_page_id WHERE wiki_page_id = v_page1;
+        ASSERT false, 'a page cannot be its own parent';
+    EXCEPTION WHEN check_violation THEN NULL;
+    END;
+
+    -- the same slug in one wiki fails ...
+    BEGIN
+        INSERT INTO pmt_wiki_pages (wiki_page_wiki_id, wiki_page_parent_id, wiki_page_depth, wiki_page_title, wiki_page_slug)
+        VALUES (v_wiki_a, v_page1, 2, 'Dup', 'child');
+        ASSERT false, 'the same slug twice in one wiki must be rejected';
+    EXCEPTION WHEN unique_violation THEN NULL;
+    END;
+
+    -- ... but works in a second wiki
+    INSERT INTO pmt_wiki_pages (wiki_page_wiki_id, wiki_page_parent_id, wiki_page_depth, wiki_page_title, wiki_page_slug)
+    VALUES (v_wiki_b, NULL, 1, 'Root', 'root');
+    SELECT count(*) INTO n FROM pmt_wiki_pages WHERE wiki_page_slug = 'root';
+    ASSERT n = 2, format('the same slug exists once per wiki, got %s', n);
+
+    -- deleting a token cascades its scopes
+    INSERT INTO pmt_wiki_tokens (wiki_token_owner_id, wiki_token_label, wiki_token_hash, wiki_token_prefix)
+    VALUES (v_owner, 'My token', 'hash-o-group', 'pmw_abcd')
+    RETURNING wiki_token_id INTO v_token;
+    INSERT INTO pmt_wiki_token_scopes (wiki_token_scope_token_id, wiki_token_scope_wiki_id)
+    VALUES (v_token, v_wiki_a), (v_token, v_wiki_b);
+
+    SELECT count(*) INTO n FROM pmt_wiki_token_scopes WHERE wiki_token_scope_token_id = v_token;
+    ASSERT n = 2, 'both scopes were recorded';
+
+    DELETE FROM pmt_wiki_tokens WHERE wiki_token_id = v_token;
+    SELECT count(*) INTO n FROM pmt_wiki_token_scopes WHERE wiki_token_scope_token_id = v_token;
+    ASSERT n = 0, 'deleting a token cascades its scopes';
+
+    -- pg_trgm is installed
+    SELECT count(*) INTO n FROM pg_extension WHERE extname = 'pg_trgm';
+    ASSERT n = 1, 'pg_trgm must be installed';
+
+    -- Thai-safe substring search on the search text column
+    UPDATE pmt_wiki_pages SET wiki_page_search_text = 'วันนี้ต้องเปลี่ยนปลั๊กไฟในห้องประชุม'
+     WHERE wiki_page_id = v_page2;
+    SELECT count(*) INTO n FROM pmt_wiki_pages
+     WHERE wiki_page_id = v_page2 AND wiki_page_search_text ILIKE '%ปลั๊ก%';
+    ASSERT n = 1, 'ILIKE finds a Thai substring with no surrounding spaces';
+
+    RAISE NOTICE 'PASS  O  wiki tree and tokens';
+END $$;
+
 ROLLBACK;
 
 \echo ''

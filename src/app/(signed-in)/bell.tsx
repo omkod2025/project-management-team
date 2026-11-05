@@ -242,9 +242,9 @@ export default function Bell() {
         }}
       >
         <BellMark />
-        {/* Indigo, the product's base pair — never vermilion. Vermilion means
-            out of closure and nothing else (DESIGN.md § Colors rule 1) and an
-            unread count is not a variance. */}
+        {/* Blue, the product's one structural accent — never vermilion.
+            Vermilion means out of closure and nothing else (DESIGN.md § 2)
+            and an unread count is not a variance. */}
         {unread > 0 && <span className="noti-count figure">{unread > 99 ? '99+' : unread}</span>}
       </button>
 
