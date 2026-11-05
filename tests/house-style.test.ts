@@ -131,12 +131,22 @@ test('globals: brand is the house blue, focus is visible, motion respects the us
   assert.equal(controlReset, undefined, 'form controls are still reset to square corners');
 });
 
-test('root layout loads Inter once', () => {
+test('root layout loads Inter and Anuphan once, self-hosted', () => {
+  // The faces come from npm (@fontsource), not next/font/google: a build that
+  // fetches from Google depends on how Google answers that machine, and the
+  // v1.1.0 release failed in CI on Anuphan URLs Turbopack could not parse.
   const rootLayout = read('src/app/layout.tsx');
-  assert.match(rootLayout, /import\s*\{[^}]*\bInter\b[^}]*\}\s*from\s*'next\/font\/google'/);
-  assert.match(rootLayout, /variable:\s*'--font-sans'/);
+  assert.doesNotMatch(rootLayout, /from\s+'next\/font\//, 'the root layout still loads fonts through next/font');
+  assert.match(rootLayout, /import\s+'@fontsource-variable\/inter\/wght\.css'/);
+  for (const weight of ['400', '500', '600']) {
+    assert.match(rootLayout, new RegExp(`import\\s+'@fontsource/anuphan/thai-${weight}\\.css'`), `Anuphan Thai ${weight} is not loaded`);
+    assert.match(rootLayout, new RegExp(`import\\s+'@fontsource/anuphan/latin-${weight}\\.css'`), `Anuphan Latin ${weight} is not loaded`);
+  }
+  const globals = read('src/app/globals.css');
+  assert.match(globals, /--font-sans:\s*'Inter Variable'/, 'globals.css does not name Inter for --font-sans');
+  assert.match(globals, /--font-read:\s*'Anuphan'/, 'globals.css does not name Anuphan for --font-read');
   const wikiLayout = read('src/app/(signed-in)/wiki/layout.tsx');
-  assert.doesNotMatch(wikiLayout, /import\s*\{[^}]*\bInter\b[^}]*\}\s*from/);
+  assert.doesNotMatch(wikiLayout, /from\s+'next\/font\/|import\s+'@fontsource/);
 });
 
 test('migrated files keep the house rules', () => {

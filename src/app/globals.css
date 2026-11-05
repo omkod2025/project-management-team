@@ -44,9 +44,11 @@
   --shadow-2: rgb(0 0 0 / 1%) 0 1px 3px, rgb(0 0 0 / 2%) 0 3px 7px,
     rgb(0 0 0 / 2%) 0 7px 15px, rgb(0 0 0 / 4%) 0 14px 28px, rgb(0 0 0 / 5%) 0 23px 52px;
 
-  /* `--font-sans` (Inter) and `--font-read` (Anuphan) are set by next/font in
-     the root layout. Inter has no Thai, so the `--type-*-family` stacks fall
-     through to Anuphan for Thai glyphs. Code takes the system mono. */
+  /* Inter and Anuphan, self-hosted from npm and loaded once in the root
+     layout. Inter has no Thai, so the `--type-*-family` stacks fall through
+     to Anuphan for Thai glyphs. Code takes the system mono. */
+  --font-sans: 'Inter Variable';
+  --font-read: 'Anuphan';
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
