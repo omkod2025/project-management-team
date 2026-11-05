@@ -16,6 +16,9 @@ import { fileURLToPath } from 'node:url';
 /** Stylesheets already on the house style. Paths are relative to the repo root. */
 const MIGRATED: string[] = [
   'src/app/globals.css',
+  'src/app/(signed-in)/shelf.css',
+  'src/app/(signed-in)/bell.css',
+  'src/app/(signed-in)/invite-link.css',
 ];
 
 const root = fileURLToPath(new URL('..', import.meta.url));
@@ -108,6 +111,13 @@ test('migrated files keep the house rules', () => {
         `${path}: \`${selector}\` uses vermilion but is not a misclosure or failed-write state`);
     }
   }
+});
+
+test('shelf primary is a pill', () => {
+  const css = read('src/app/(signed-in)/shelf.css');
+  const primary = ruleBlocks(css).find((b) => b.selector.split(',').some((s) => s.trim() === '.sh-btn-primary'));
+  assert.ok(primary, 'shelf.css has no `.sh-btn-primary` rule');
+  assert.match(primary!.body, /border-radius:\s*var\(--radius-full\)/);
 });
 
 test('calendar is pinned', () => {

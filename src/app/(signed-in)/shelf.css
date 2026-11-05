@@ -1,57 +1,47 @@
 /*
- * The shelf.
+ * The shelf, in the house (Notion) style — DESIGN.md § 1–2.
  *
- * Laid out to the dashboard reference the user pinned on 2026-09-08
- * (`download (2).jpg`): a soft grey ground, one white shell, a fixed index rail
- * on the left, and the run broken into headed blocks with a count beside each
- * heading. It continues the departure `list.css` already made on the project
- * sheet by instruction — the two pages either side of one link now speak the
- * same language — and the departures are named here rather than discovered:
+ * A warm paper ground, a white rail and a white work pane on it, hairlines
+ * instead of heavy borders, and exactly one accent: the house blue, for the
+ * primary action, the current nav item and focus. Panels round at 12px
+ * (`--radius-lg`), the outer shell at 16px (`--radius-xl`), utility controls
+ * at 8px (`--radius-md`), nav rows at 5px (`--radius-sm`) and fields at 4px
+ * (`--radius-xs`) — the Notion radius ladder, not the flatter one the
+ * ClickUp-reference dashboard used before this restyle.
  *
- *   - grey ground and a rounded white shell, not paper edge to edge
- *   - 6–14px radii on the shell, the blocks, the tiles and the chips
- *   - a soft hover ground on rows, which the field-book sheet refused
- *   - generous space; the density law belongs to the run of 174 tasks, not to
- *     a shelf of six projects, and applying it here only made the page small
+ * What the restyle does NOT get to change, because they are product law
+ * rather than a look (DESIGN.md § 1):
  *
- * What is NOT imported from the reference, because it would cost something the
- * product owns:
+ *   - vermilion still means out of closure and nothing else. It never
+ *     appears on this page; the one red state here (`.sh-write-failed`,
+ *     below) is a failed write, which the house style treats as the
+ *     other condition vermilion may draw (DESIGN.md says "misclosure and
+ *     failed-write states" — see the note on that rule).
+ *   - hue still says *whose*, never how it is going: the project tile and
+ *     the lit meter segments carry the project's own identity, mixed into
+ *     the ground rather than laid on raw, which keeps `tab-1` clear of
+ *     vermilion.
+ *   - figures stay in the figure face. They are counts of rows, never a
+ *     percentage anyone typed (PRODUCT.md).
  *
- *   - vermilion still means out of closure and nothing else. It appears on this
- *     page only when a project cannot be created, and never as an accent.
- *   - hue still says *whose*, never how it is going: the tile and the lit
- *     segments carry the project's identity, and no row is ever tinted by a
- *     verdict. As in `list.css` the hue is mixed into the ground rather than
- *     laid on raw, which keeps `tab-1` clear of vermilion.
- *   - figures stay in Martian Mono. They are counts of rows, and the reference's
- *     percentage badge is the one thing on it that states a claim nobody made.
- *
- * `tokens.css` is generated from DESIGN.md and is untouched, so the Timeline,
- * Report and Settings still read as the field book.
+ * `tokens.css` is generated from DESIGN.md and is untouched.
  */
 
-/*
- * The greys are tinted toward the base (#2B3A8F on white, pinned 2026-09-08)
- * rather than left neutral. A blue button dropped onto neutral grey reads as an
- * accent bolted on; the same button over grounds that carry a few percent of
- * its own hue reads as the page being made of one colour. The text inks stay
- * near-black — indigo body text at 13px reads as a run of links.
- */
 .sh {
-  --sh-ground: #eef0f6;
-  --sh-panel: #ffffff;
-  --sh-panel-soft: #fafbfd;
-  --sh-line: #e4e7f0;
-  --sh-line-soft: #edeff6;
-  --sh-ink: #1e2229;
-  --sh-ink-soft: #6a717c;
-  --sh-ink-faint: #9aa1ac;
-  --sh-hover: #f6f7fc;
-  --sh-chip: #ebeef8;
+  --sh-ground: var(--color-paper);
+  --sh-panel: var(--color-canvas);
+  --sh-panel-soft: var(--color-paper);
+  --sh-line: var(--color-hairline);
+  --sh-line-soft: var(--color-hairline);
+  --sh-ink: var(--color-ink);
+  --sh-ink-soft: var(--color-ink-muted);
+  --sh-ink-faint: var(--color-ink-faint);
+  --sh-hover: rgb(0 0 0 / 4%);
+  --sh-chip: var(--color-paper);
 
-  --sh-r-shell: 14px;
-  --sh-r-block: 10px;
-  --sh-r: 6px;
+  --sh-r-shell: var(--radius-xl);
+  --sh-r-block: var(--radius-lg);
+  --sh-r: var(--radius-md);
 
   /* One gutter, obeyed by the head, the block heads and every cell, so the
      title, the block names and the first project name sit on one line. */
@@ -72,7 +62,7 @@
 }
 
 /* One shell, two halves: the rail draws the left rounding, the work the right,
-   and the seam between them is a single rule. */
+   and the seam between them is a single hairline. */
 .sh-rail,
 .sh-work {
   border: 1px solid var(--sh-line);
@@ -100,7 +90,7 @@
 .sh-brand { display: flex; align-items: center; gap: 10px; padding: 4px 8px 0; }
 
 /* The one mark in the system: the punched hole from the field book's selected
-   row, at brand size. DESIGN.md allows exactly one curve and this is it. */
+   row, at brand size. */
 .sh-mark {
   width: 26px;
   height: 26px;
@@ -113,7 +103,7 @@
   font-family: var(--font-struct), sans-serif;
   font-size: 15.5px;
   font-weight: 600;
-  letter-spacing: -0.005em;
+  letter-spacing: normal;
 }
 
 .sh-account {
@@ -124,22 +114,22 @@
   min-width: 0;
   background: var(--sh-panel-soft);
   border: 1px solid var(--sh-line);
-  border-radius: var(--sh-r-block);
+  border-radius: var(--sh-r);
   /* It became a link to /profile. It stays drawn as the identity block it
      already was — an underline here would make the rail's one statement of
      fact look like navigation. The border answers on approach instead. */
   color: inherit;
   text-decoration: none;
+  transition: background-color 120ms ease, border-color 120ms ease;
 }
 .sh-account:hover { border-color: var(--brand); background: var(--brand-wash); }
 .sh-account:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 .sh-account-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .sh-account-label {
   font-family: var(--font-struct), sans-serif;
-  font-size: 9.5px;
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  letter-spacing: 0.04em;
   color: var(--sh-ink-faint);
 }
 .sh-account-name {
@@ -157,19 +147,20 @@
   gap: 10px;
   height: 36px;
   padding: 0 10px;
-  border-radius: var(--sh-r);
+  border-radius: var(--radius-sm);
   color: var(--sh-ink-soft);
   text-decoration: none;
   font-size: 13.5px;
   font-weight: 500;
-  transition: background 120ms ease, color 120ms ease;
+  transition: background-color 120ms ease, color 120ms ease;
 }
 .sh-nav-item svg { flex: 0 0 16px; color: var(--sh-ink-faint); }
 .sh-nav-item:hover { background: var(--sh-hover); color: var(--sh-ink); }
 .sh-nav-item:hover svg { color: var(--sh-ink-soft); }
+.sh-nav-item:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
 
 /* Current is stated by ground and weight, not by a coloured left border — the
-   reference's own move, and the one this system would have refused anyway. */
+   house style's own move, and one this system would have kept either way. */
 .sh-nav-item[aria-current='page'] {
   background: var(--brand-wash);
   color: var(--brand);
@@ -205,17 +196,17 @@
   font-weight: 500;
   letter-spacing: normal;
   text-transform: none;
-  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+  transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
 }
-.sh-btn:hover { background: var(--sh-hover); color: var(--sh-ink); border-color: #dcdfe4; }
+.sh-btn:hover { background: var(--sh-panel-soft); color: var(--sh-ink); border-color: var(--color-field-line); }
+.sh-btn:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 .sh-btn:disabled { color: var(--sh-ink-faint); background: var(--sh-panel); cursor: default; }
 
-/* The primary action takes the base fill. This overrides what this file used to
-   say — that there is no filled accent button in the system — at the user's
-   instruction on 2026-09-08, which made indigo on white the product's base
-   pair. The rule it does not override: the fill is the base, never a hue that
-   already means something. */
+/* The one primary action on the shelf takes the house's full pill, the same
+   shape the Wiki's `.docs-primary` and every other restyled primary button
+   takes (DESIGN.md § 1). */
 .sh-btn-primary {
+  border-radius: var(--radius-full);
   background: var(--brand);
   border-color: var(--brand);
   color: var(--brand-ink);
@@ -234,7 +225,10 @@
 
 .sh-btn-quiet { background: transparent; }
 
-/* ---- the work head ---- */
+/* ---- the work head ----
+
+   A white bar over the paper the rest of the pane sits on, with a hairline
+   seam below it — the same head every other restyled project page draws. */
 
 .sh-work-head {
   display: flex;
@@ -252,8 +246,9 @@
   margin: 0;
   font-family: var(--font-struct), sans-serif;
   font-size: 22px;
-  font-weight: 600;
-  letter-spacing: -0.015em;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: 0;
 }
 .sh-work-sub { margin: 5px 0 0; color: var(--sh-ink-soft); font-size: 13px; }
 .sh-work-sub .figure { color: var(--color-ink-blue); font-size: 12.5px; font-weight: 400; }
@@ -276,12 +271,12 @@
   font-family: var(--font-struct), sans-serif;
   font-size: 14px;
   font-weight: 600;
-  letter-spacing: -0.005em;
+  letter-spacing: 0;
 }
 
-/* The reference's coloured block marker. Role, not module: these three are the
-   only fixed vocabulary on the page, so they take three greys of increasing
-   quiet rather than three of the six hues, which are spoken for. */
+/* The role marker. Role, not module: these three are the only fixed
+   vocabulary on the page, so they take three greys of increasing quiet
+   rather than three of the six tab hues, which are spoken for. */
 .sh-block-bar { width: 3px; height: 15px; border-radius: 2px; background: var(--sh-ink-faint); }
 .sh-role-admin { background: var(--brand); }
 .sh-role-member { background: color-mix(in srgb, var(--brand) 55%, #fff); }
@@ -294,7 +289,7 @@
   min-width: 20px;
   height: 20px;
   padding: 0 6px;
-  border-radius: var(--sh-r);
+  border-radius: var(--radius-sm);
   background: var(--sh-chip);
   color: var(--sh-ink-soft);
   font-size: 11px;
@@ -375,19 +370,20 @@ table.sh-run {
   white-space: nowrap;
 }
 .sh-project:hover .sh-project-name { text-decoration: underline; text-underline-offset: 2px; }
+.sh-project:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: var(--radius-xs); }
 .sh-project-slug {
   color: var(--sh-ink-faint);
   font-family: var(--font-figure), monospace;
   font-size: 10.5px;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/* The reference's app tile, carrying the project's own hue — mixed into the
-   ground, never laid on raw, and identical to the hue that project takes on the
-   roster, so one project is one colour across the shelf. */
+/* The project tile, carrying the project's own hue — mixed into the ground,
+   never laid on raw, and identical to the hue that project takes on the
+   roster, so one project is one colour everywhere it appears. */
 .sh-tile {
   display: inline-flex;
   align-items: center;
@@ -395,7 +391,7 @@ table.sh-run {
   width: 32px;
   height: 32px;
   flex: 0 0 32px;
-  border-radius: 9px;
+  border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--hue) 15%, #fff);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--hue) 26%, #fff);
   color: color-mix(in srgb, var(--hue) 72%, var(--color-ink-graphite));
@@ -434,7 +430,7 @@ table.sh-run {
   border-radius: var(--sh-r);
   box-shadow: none;
   /* You, at brand size, beside the brand mark. The small crew monograms stay
-     grey — one indigo tile in the rail is identity, twelve of them in a table
+     grey — one blue tile in the rail is identity, twelve of them in a table
      cell is a decoration. */
   background: var(--brand);
   color: var(--brand-ink);
@@ -469,22 +465,32 @@ table.sh-run {
   min-width: 260px;
   padding: 0 12px;
   background: var(--sh-panel);
-  border: 1px solid var(--sh-line);
-  border-radius: var(--sh-r);
+  border: 1px solid var(--color-field-line);
+  border-radius: var(--radius-xs);
   color: var(--sh-ink);
   font-family: var(--font-read), sans-serif;
   font-size: 13.5px;
   letter-spacing: normal;
   text-transform: none;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
 }
 .sh-field::placeholder { color: var(--sh-ink-faint); }
-.sh-field:focus { border-color: var(--color-ink-blue); outline: none; }
+.sh-field:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-glow);
+  outline: none;
+}
 
-/* The errata slip from the sheet, in line: same wash, same ink, still the only
-   red on the page and still only ever a failure. */
-.sh-error {
+/*
+ * A failed write, in line: project creation did not save. DESIGN.md keeps
+ * vermilion for "misclosure and failed-write states" — this is the second of
+ * those, not the first, so the selector names the condition it actually is
+ * rather than reusing the field book's `.sh-error`, which said nothing about
+ * which of the two it was.
+ */
+.sh-write-failed {
   padding: 5px 10px;
-  border-radius: var(--sh-r);
+  border-radius: var(--radius-sm);
   background: var(--color-vermilion-wash);
   color: var(--color-vermilion);
   font-family: var(--font-figure), monospace;
@@ -514,7 +520,7 @@ table.sh-run {
 .sh input:focus-visible {
   outline: 2px solid var(--brand);
   outline-offset: 2px;
-  border-radius: var(--sh-r);
+  border-radius: var(--radius-xs);
 }
 
 .sh-sr {

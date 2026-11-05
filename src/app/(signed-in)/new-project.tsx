@@ -81,8 +81,10 @@ export default function NewProject() {
       <button type="button" className="sh-btn" onClick={() => setOpen(false)}>
         Cancel
       </button>
-      {/* The errata band from the sheet, in line: same wash, same ink. */}
-      {error && <span className="sh-error" role="alert">{error}</span>}
+      {/* A failed write, in line: same wash, same ink — vermilion's other
+          allowed use besides misclosure (DESIGN.md, and shelf.css's note on
+          `.sh-write-failed`). */}
+      {error && <span className="sh-write-failed" role="alert">{error}</span>}
     </form>
   );
 }
