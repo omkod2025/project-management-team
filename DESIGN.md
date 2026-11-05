@@ -353,7 +353,7 @@ Headings, labels and body copy that nobody entered as a value use the house ink,
 - **An airy table.** Rows are 40px, cells pad `8px 12px`, rows part on hairlines, and no rule is drawn between columns. Row text is 14–15px. Column heads are 13px on paper, because a column's name is user-written and can be Thai.
 - **The Estimate / Actual / Variance band** stays above the column heads as a grouped header. It is the only thing on the page that says which dates are the plan and which are the record.
 - **Estimate and actual are separate columns**, in the two inks.
-- **The misclosure** is a vermilion slip with a signed figure, in the badge shape: vermilion mixed 30% for the wash, 65% for the 1px border, 6px corners.
+- **The misclosure** is a vermilion slip with a signed figure, in the badge shape: vermilion mixed 20% for the wash and 55% for the 1px border, 6px corners — deliberately lighter than the 30% module tags, so a tab-1 (brick) module tag is never mistaken for a misclosure.
 - **Module identity** is the badge on the module row (the hue mixed 30%, a 1px border mixed 65%, both in OKLCH) and a 2px hairline of the mixed hue down the indent, never a row tint.
 - **No zebra striping, and no row tint by status.** Hover is the house hover ground; selection is the blue wash.
 

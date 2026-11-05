@@ -828,10 +828,13 @@ tr[aria-selected='true'] .hole { background: var(--brand); box-shadow: none; }
 .slip {
   display: inline-block;
   padding: 1px 7px;
-  border: 1px solid color-mix(in oklch, var(--color-vermilion) 65%, var(--color-canvas));
+  border: 1px solid color-mix(in oklch, var(--color-vermilion) 55%, var(--color-canvas));
   border-radius: var(--radius-badge);
   line-height: 1.3;
-  background: color-mix(in oklch, var(--color-vermilion) 30%, var(--color-canvas));
+  /* Lighter than the module tags' 30% on purpose: at 30% a tab-1 module tag and
+     the vermilion slip come out the same pink, and the slip must never be
+     mistaken for a module. */
+  background: color-mix(in oklch, var(--color-vermilion) 20%, var(--color-canvas));
   color: color-mix(in oklch, var(--color-vermilion) 50%, var(--color-ink-secondary));
   font-family: var(--list-font);
   font-size: 12px;
