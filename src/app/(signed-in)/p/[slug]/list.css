@@ -31,7 +31,7 @@
   --cu-ink-faint: var(--color-ink-faint);
   --cu-hover: color-mix(in srgb, var(--color-paper) 70%, var(--color-canvas));
   --cu-chip: var(--color-paper);
-  /* The header rows: a cool slate, apart from the warm paper the table sits
+  /* The header rows: a pale blue, apart from the warm paper the table sits
      on, so the heads never read as part of the page around them. */
   --cu-head: var(--color-table-head);
   --cu-head-line: var(--color-table-head-line);
@@ -521,7 +521,7 @@ table.run {
   table-layout: fixed;
 }
 
-/* The eyebrow style on the slate head (the page around the table is paper, so
+/* The eyebrow style on the table head (the page around the table is paper, so
    paper heads vanished into it). Column
    names are user-defined and may be Thai, so they take 13px — Thai never goes
    below it — and no tracking. Only the band's fixed English captions drop to

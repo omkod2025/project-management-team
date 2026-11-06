@@ -159,7 +159,7 @@ export async function loadRoster(userId: string): Promise<Roster> {
       // Depth 1 is the project's own root node — it is the project, not work
       // inside it, and it carries no assignee.
       if (row.led_depth <= 1) continue;
-      const module = moduleOf(row, byId);
+      const moduleRow = moduleOf(row, byId);
 
       const assigned = new Set<string>();
       const fieldNames: string[] = [];
@@ -178,7 +178,7 @@ export async function loadRoster(userId: string): Promise<Roster> {
         const l = lane(personId);
         if (!dated) {
           l.undatedCount += 1;
-          l.undatedItems.push({ projectSlug: project.slug, moduleId: module?.led_node_id ?? null });
+          l.undatedItems.push({ projectSlug: project.slug, moduleId: moduleRow?.led_node_id ?? null });
           continue;
         }
         l.items.push({
@@ -187,8 +187,8 @@ export async function loadRoster(userId: string): Promise<Roster> {
           projectSlug: project.slug,
           projectName: project.name,
           projectIndex: rosterProject.index,
-          moduleName: module && module.led_node_id !== row.led_node_id ? module.led_name : null,
-          moduleId: module?.led_node_id ?? null,
+          moduleName: moduleRow && moduleRow.led_node_id !== row.led_node_id ? moduleRow.led_name : null,
+          moduleId: moduleRow?.led_node_id ?? null,
           estimateStart: row.led_estimate_start,
           estimateEnd: row.led_estimate_end,
           actualStart: row.led_actual_start,

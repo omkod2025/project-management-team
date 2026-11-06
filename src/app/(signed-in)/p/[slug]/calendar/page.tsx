@@ -8,12 +8,14 @@ export default async function ProjectCalendar({ params }: { params: Promise<{ sl
   const userId = await currentUserId();
   if (!userId) redirect('/sign-in');
   const { slug } = await params;
+  let ledger: Awaited<ReturnType<typeof loadLedger>>;
   try {
-    const { project, rows, holidays } = await loadLedger(userId, slug);
-    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
-    return <CalendarView projectName={project.name} slug={slug} rows={rows} holidays={holidays} today={today} />;
+    ledger = await loadLedger(userId, slug);
   } catch (error) {
     if (error instanceof DomainError && error.code === 'E_NOT_FOUND') notFound();
     throw error;
   }
+  const { project, rows, holidays } = ledger;
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+  return <CalendarView projectName={project.name} slug={slug} rows={rows} holidays={holidays} today={today} />;
 }

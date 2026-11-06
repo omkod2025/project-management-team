@@ -104,7 +104,7 @@ export async function exportPages(
     exportBody
       .querySelectorAll<HTMLElement>(".doc-mermaid-copy")
       .forEach((button) => button.remove());
-    source = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>body{max-width:760px;margin:48px auto;font:16px/1.5 system-ui}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccc;padding:8px}img{max-width:100%}.doc-columns{display:grid;grid-template-columns:1fr 1fr;gap:20px}.doc-banner{padding:12px;background:#e8f0ff}.tone-success{background:#d8f3e0}.tone-warning{background:#fff0b3}.tone-danger{background:#ffe2e2}.doc-embed{width:100%;height:360px;border:0}.doc-link-button{display:inline-block;background:#2b3a8f;color:white;padding:8px 16px;border-radius:6px}body>div>section{break-before:page}</style></head><body>${exportBody.innerHTML}</body></html>`;
+    source = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>body{max-width:760px;margin:48px auto;font:16px/1.5 system-ui}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccc;padding:8px}th{background:#e7f1fb}img{max-width:100%}.doc-columns{display:grid;grid-template-columns:1fr 1fr;gap:20px}.doc-banner{padding:12px;background:#e8f0ff}.tone-success{background:#d8f3e0}.tone-warning{background:#fff0b3}.tone-danger{background:#ffe2e2}.doc-embed{width:100%;height:360px;border:0}.doc-link-button{display:inline-block;background:#2b3a8f;color:white;padding:8px 16px;border-radius:6px}body>div>section{break-before:page}</style></head><body>${exportBody.innerHTML}</body></html>`;
     mime = "text/html";
   }
   return { source, mime };

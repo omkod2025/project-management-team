@@ -144,8 +144,12 @@
   text-align: left;
   padding: 6px 8px;
   color: var(--color-ink-muted);
-  border-bottom: 1px solid var(--color-hairline);
+  background: var(--color-table-head);
+  border-bottom: 1px solid var(--color-table-head-line);
   white-space: nowrap;
+  /* The table head is the house's one table head; keep it on paper too. */
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
 }
 .report-table td {
   padding: 6px 8px;

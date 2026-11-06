@@ -483,7 +483,7 @@ describe('search', () => {
 describe('takeRateSlot', () => {
   test('the 60th hit is allowed, the 61st is refused', () => {
     const now = 1_000_000;
-    let hits: number[] = Array.from({ length: 59 }, (_, i) => now - i);
+    const hits: number[] = Array.from({ length: 59 }, (_, i) => now - i);
     const sixtieth = takeRateSlot(hits, now);
     assert.equal(sixtieth.allowed, true);
     assert.equal(sixtieth.hits.length, 60);

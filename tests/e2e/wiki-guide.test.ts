@@ -48,6 +48,12 @@ after(async () => {
 });
 
 /** Every fenced block in the guide, with its info-string language. */
+/** One MCP server entry as the guide's JSON examples spell it. */
+type ServerConfig = {
+  command?: string; args?: string[]; env?: { WIKI_TOKEN: string };
+  type?: string; url?: string; headers?: Record<string, string>;
+};
+
 function fences(markdown: string): Array<{ lang: string; code: string }> {
   return [...markdown.matchAll(/^```([\w-]*)[^\n]*\n([\s\S]*?)^```\s*$/gm)]
     .map((m) => ({ lang: m[1]!.toLowerCase(), code: m[2]! }));
@@ -127,7 +133,7 @@ describe('the guide examples, against the real endpoint', () => {
 
   test('every JSON config connects: the Desktop bridge, VS Code and Cursor', async () => {
     const configs = fences(guide).filter((f) => f.lang === 'json' || f.lang === 'jsonc')
-      .map((f) => JSON.parse(fill(f.code)) as Record<string, Record<string, any>>);
+      .map((f) => JSON.parse(fill(f.code)) as Partial<Record<'servers' | 'mcpServers', Record<string, ServerConfig>>>);
     const seen = { bridge: 0, servers: 0, mcpServers: 0 };
     for (const config of configs) {
       for (const key of ['servers', 'mcpServers'] as const) {
@@ -143,14 +149,14 @@ describe('the guide examples, against the real endpoint', () => {
             const url = args.find((a) => a.startsWith('http'))!;
             const raw = args[args.indexOf('--header') + 1]!;
             assert.equal(raw, 'Authorization:${WIKI_TOKEN}');
-            assert.match(server.env.WIKI_TOKEN, /^Bearer pmw_/);
-            await initialize(url, splitHeader(raw.replace('${WIKI_TOKEN}', server.env.WIKI_TOKEN)));
+            assert.match(server.env!.WIKI_TOKEN, /^Bearer pmw_/);
+            await initialize(url, splitHeader(raw.replace('${WIKI_TOKEN}', server.env!.WIKI_TOKEN)));
           } else {
             assert.equal(server.type, 'http', 'a direct Streamable HTTP client says type "http"');
             const [name, value] = Object.entries(server.headers as Record<string, string>)[0]!;
             assert.equal(name, 'Authorization');
             assert.match(value, /^Bearer pmw_/);
-            await initialize(server.url, { name, value });
+            await initialize(server.url!, { name, value });
           }
         }
       }

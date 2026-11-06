@@ -265,7 +265,7 @@ test('inline page title saves atomically with content and preserves slug and per
 test('doc tools persist comments, settings, protection, templates and copies with role checks',async()=>{
   const doc=await(await call(admin,'POST',{title:'Tools test'})).json();
   const request=(jar:Jar,url:string,body?:unknown)=>fetch(`${BASE_URL}${url}`,{method:body?'POST':'GET',headers:{cookie:jar.header,'content-type':'application/json'},body:body?JSON.stringify(body):undefined});
-  let page=await(await request(admin,`/api/docs/${doc.id}/pages`,{title:'Tools page',content:{body:'Original content'}})).json();
+  const page=await(await request(admin,`/api/docs/${doc.id}/pages`,{title:'Tools page',content:{body:'Original content'}})).json();
   const endpoint=`/api/doc-pages/${page.id}/tools`;
   const act=(jar:Jar,body:Record<string,unknown>)=>request(jar,endpoint,{...body,updatedAt:page.updatedAt});
   assert.equal((await act(viewer,{action:'comment',body:'Forbidden'})).status,403);

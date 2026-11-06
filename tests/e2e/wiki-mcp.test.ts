@@ -78,7 +78,7 @@ async function call(jar: Jar | null, method: string, path: string, body?: unknow
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
-  return { status: res.status, body: (await res.json().catch(() => null)) as any };
+  return { status: res.status, body: await res.json().catch(() => null) };
 }
 
 async function createWiki(jar: Jar, title: string) {
@@ -116,8 +116,7 @@ async function rpc(auth: string | null, method: string, params?: unknown, extra:
     body: JSON.stringify({ jsonrpc: '2.0', id: ++rpcId, method, ...(params !== undefined ? { params } : {}) }),
   });
   const text = await res.text();
-  let body: any = null;
-  try { body = JSON.parse(text); } catch { body = text; }
+  const body = (() => { try { return JSON.parse(text); } catch { return text; } })();
   return { status: res.status, headers: res.headers, body, text };
 }
 

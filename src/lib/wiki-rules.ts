@@ -410,7 +410,7 @@ export function searchSnippet(text: string, terms: readonly string[], width = 20
 
   const center = matchIndex === -1 ? 0 : matchIndex;
   let start = Math.max(0, center - Math.floor(width / 2));
-  let end = Math.min(text.length, start + width);
+  const end = Math.min(text.length, start + width);
   start = Math.max(0, end - width);
 
   let snippet = text.slice(start, end);
