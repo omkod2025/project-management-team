@@ -4,6 +4,12 @@ Project management for software delivery. Plan and reality are recorded separate
 
 **Phase A (specification) is complete. No application code exists yet.** Read the documents before writing any.
 
+## Before any code: load `ouan-react-best-practice`
+
+**Every time you start coding, the first step is to invoke the `ouan-react-best-practice` skill (Skill tool) — before the first Edit or Write to any file under `src/`, `tests/`, `scripts/` or `db/`.** No exceptions for size or kind: new features, components, pages, hooks, API routes, CSS, refactors, bug fixes, one-line fixes and work driven by another skill (for example `/impeccable` polish — load both). Once per task is enough; a new task in the same session loads it again. Subagents that write code load it too, so say so in their prompt.
+
+Follow its rules (S1–S11, R1–R14, X1–X8) while writing, and use it again when reviewing changes. Where it conflicts with a rule in this file (naming, colour law, the plan/actual separation, no triggers), this file wins.
+
 | Document | What it owns |
 |---|---|
 | [`PRODUCT.md`](PRODUCT.md) | Durable product truth — users, purpose, positioning, constraints |
@@ -115,7 +121,7 @@ Next.js · PostgreSQL · Drizzle · TypeScript end to end. TanStack Table for th
 
 ### Implementation skill
 
-**Always invoke the `ouan-react-best-practice` skill before implementing any work in this project** — new features, components, pages, hooks, API routes, refactors, and bug fixes alike — and follow its rules (S1–S11, R1–R14, X1–X8) while writing the code. Use it again when reviewing changes. Where it conflicts with a rule in this file (naming, colour law, the plan/actual separation, no triggers), this file wins.
+`ouan-react-best-practice` is loaded before any code is written — see [Before any code](#before-any-code-load-ouan-react-best-practice) at the top of this file.
 
 ---
 
