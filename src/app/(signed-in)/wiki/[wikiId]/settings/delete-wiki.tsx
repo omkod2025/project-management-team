@@ -46,9 +46,9 @@ export default function DeleteWikiSection({ wiki }: { wiki: { id: string; title:
     } catch (err) { setError(problem(err, 'The wiki was not deleted. Reload and try again.')); setBusy(false); }
   }
 
-  return <section className="wiki-settings-section" aria-labelledby="wiki-delete-head">
-    <h2 id="wiki-delete-head">Delete</h2>
-    <p className="docs-muted">Deleting removes the wiki and everything in it for every member. Only the install admin can do this, and it cannot be undone.</p>
+  return <div className="wiki-settings-group" role="group" aria-labelledby="wiki-delete-head">
+    <h3 id="wiki-delete-head">Delete</h3>
+    <p className="aside">Deleting removes the wiki and everything in it for every member. Only the install admin can do this, and it cannot be undone.</p>
     <button ref={trigger} type="button" className="wiki-danger" aria-haspopup="dialog" onClick={open}>
       <DocIcon name="trash" />Delete wiki…
     </button>
@@ -76,5 +76,5 @@ export default function DeleteWikiSection({ wiki }: { wiki: { id: string; title:
         </footer>
       </form>
     </dialog>
-  </section>;
+  </div>;
 }

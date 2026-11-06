@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import DocIcon from '../../../p/[slug]/docs/doc-icon';
@@ -14,6 +14,7 @@ type Person = { userId: string; name: string; email: string };
 type MyToken = { id: string; label: string; prefix: string; allowed: boolean };
 /** `key` names the control that started the change, so only it reads busy. */
 type Run = (work: () => Promise<unknown>, done?: string, key?: string) => Promise<boolean>;
+type Busy = { wiki: Wiki; busy: boolean; working: string | null; run: Run };
 
 /**
  * One busy flag, one message line, and a refresh after every change, shared
@@ -42,67 +43,81 @@ function useRunner() {
 const patch = (wikiId: string, body: unknown) => wikiCall(`/api/wikis/${wikiId}`, 'PATCH', body);
 const label = (p: Person) => `${p.name} · ${p.email}`;
 
-function NameSection({ wiki, busy, working, run }: { wiki: Wiki; busy: boolean; working: string | null; run: Run }) {
+function GeneralSection({ wiki, busy, working, run }: Busy) {
   const [title, setTitle] = useState(wiki.title);
   const [description, setDescription] = useState(wiki.description);
-  return <section className="wiki-settings-section" aria-labelledby="wiki-name-head">
-    <h2 id="wiki-name-head">Name and description</h2>
-    <form onSubmit={(e) => { e.preventDefault(); void run(() => patch(wiki.id, { action: 'rename', title }), 'Renamed.', 'rename'); }}>
+  return <section aria-labelledby="wiki-name-head">
+    <header className="settings-head">
+      <h2 id="wiki-name-head">General</h2>
+      <p className="aside">The name and description members see on the wiki index.</p>
+    </header>
+    <form className="wiki-settings-field" onSubmit={(e) => { e.preventDefault(); void run(() => patch(wiki.id, { action: 'rename', title }), 'Renamed.', 'rename'); }}>
       <label>Wiki title<input value={title} required maxLength={200} disabled={busy} onChange={(e) => setTitle(e.target.value)} /></label>
       <button type="submit" disabled={busy || !title.trim() || title.trim() === wiki.title} aria-busy={working === 'rename'}><DocIcon name="save" />Rename</button>
     </form>
-    <form onSubmit={(e) => { e.preventDefault(); void run(() => patch(wiki.id, { action: 'describe', description }), 'Description saved.', 'describe'); }}>
+    <form className="wiki-settings-field stacked" onSubmit={(e) => { e.preventDefault(); void run(() => patch(wiki.id, { action: 'describe', description }), 'Description saved.', 'describe'); }}>
       <label>Description<textarea value={description} maxLength={1000} rows={3} disabled={busy} onChange={(e) => setDescription(e.target.value)} /></label>
       <button type="submit" disabled={busy || description.trim() === wiki.description} aria-busy={working === 'describe'}><DocIcon name="save" />Save description</button>
     </form>
   </section>;
 }
 
-function MembersSection({ wiki, members, people, busy, working, run }: { wiki: Wiki; members: Member[]; people: Person[]; busy: boolean; working: string | null; run: Run }) {
+/**
+ * Members as the project's People are drawn: one ruled row each — name,
+ * email, access, bin — with the owner first and the add row last. Transfer
+ * sits in the same panel, under a hairline, because it is about the same people.
+ */
+function MembersSection({ wiki, members, people, busy, working, run }: Busy & { members: Member[]; people: Person[] }) {
   const [userId, setUserId] = useState('');
   const [access, setAccess] = useState<'read' | 'write'>('read');
   const [leaving, setLeaving] = useState<Member | null>(null);
   const membersUrl = `/api/wikis/${wiki.id}/members`;
   const taken = new Set([...members.map((m) => m.userId), wiki.ownerId]);
   const choices = people.filter((p) => !taken.has(p.userId));
-  return <section className="wiki-settings-section" aria-labelledby="wiki-members-head">
-    <h2 id="wiki-members-head">Members</h2>
-    <p className="docs-muted">Owner: {wiki.ownerName ?? 'Former member'}. The owner always reads and writes, and is not listed here.</p>
-    {members.length ? <div className="docs-table-wrap"><table className="docs-table wiki-members">
-      <caption className="docs-sr-only">Members of {wiki.title}</caption>
-      <thead><tr><th scope="col">Person</th><th scope="col">Access</th><th scope="col"><span className="docs-sr-only">Delete</span></th></tr></thead>
-      <tbody>{members.map((m) => <tr key={m.userId}>
-        <th scope="row">{m.name}<span className="wiki-row-description">{m.email}</span></th>
-        <td><select aria-label={`Access for ${m.name}`} value={m.access} disabled={busy} aria-busy={working === `access:${m.userId}`}
+  return <section aria-labelledby="wiki-members-head">
+    <header className="settings-head">
+      <h2 id="wiki-members-head">Members</h2>
+      <p className="aside">Who can open this wiki, and whether they may change its pages.</p>
+    </header>
+    <ul className="wiki-member-list" aria-label={`Members of ${wiki.title}`}>
+      <li className="settings-row">
+        <span className="who">{wiki.ownerName ?? 'Former member'}</span>
+        <span className="kind wiki-member-note">Owner · always reads and writes</span>
+      </li>
+      {members.map((m) => <li className="settings-row" key={m.userId}>
+        <span className="who">{m.name}</span>
+        <span className="kind wiki-member-note">{m.email}</span>
+        <select aria-label={`Access for ${m.name}`} value={m.access} disabled={busy} aria-busy={working === `access:${m.userId}`}
           onChange={(e) => void run(() => wikiCall(membersUrl, 'PUT', { userId: m.userId, access: e.target.value }), 'Access changed.', `access:${m.userId}`)}>
           <option value="read">Read</option><option value="write">Read and write</option>
-        </select></td>
-        <td><button type="button" className="delete-control icon-only" aria-label={`Delete ${m.name}`} title="Delete member" disabled={busy} onClick={() => setLeaving(m)}><TrashIcon /></button></td>
-      </tr>)}</tbody>
-    </table></div> : <p>Nobody else can see this wiki yet.</p>}
+        </select>
+        <button type="button" className="delete-control icon-only" aria-label={`Delete ${m.name}`} title="Delete member" disabled={busy} onClick={() => setLeaving(m)}><TrashIcon /></button>
+      </li>)}
+    </ul>
+    {!members.length && <p className="aside">Nobody else can see this wiki yet.</p>}
     {leaving && <ConfirmDelete title="Delete member" name={leaving.name}
       note="Adding them again restores their access." onCancel={() => setLeaving(null)}
       onConfirm={async () => { await run(() => wikiCall(membersUrl, 'DELETE', { userId: leaving.userId }), 'Member removed.'); setLeaving(null); }}>
       <p>They can no longer see <strong>{wiki.title}</strong>.</p>
     </ConfirmDelete>}
-    <h3 id="wiki-member-add-head">Add a member</h3>
-    <form className="wiki-settings-row" aria-labelledby="wiki-member-add-head" onSubmit={(e) => {
+    <form className="settings-row add wiki-member-add" aria-label="Add a member" onSubmit={(e) => {
       e.preventDefault();
       void run(() => wikiCall(membersUrl, 'PUT', { userId, access }), 'Member added.', 'add').then((ok) => { if (ok) setUserId(''); });
     }}>
-      <label>Person<select value={userId} required disabled={busy || !choices.length} onChange={(e) => setUserId(e.target.value)}>
-        <option value="">{choices.length ? 'Choose a person' : 'Everyone active is already here'}</option>
+      <select aria-label="Person to add" value={userId} required disabled={busy || !choices.length} onChange={(e) => setUserId(e.target.value)}>
+        <option value="">{choices.length ? 'Add someone…' : 'Everyone active is already here'}</option>
         {choices.map((p) => <option key={p.userId} value={p.userId}>{label(p)}</option>)}
-      </select></label>
-      <label>Access<select value={access} disabled={busy} onChange={(e) => setAccess(e.target.value as 'read' | 'write')}>
+      </select>
+      <select aria-label="Access for the new member" value={access} disabled={busy} onChange={(e) => setAccess(e.target.value as 'read' | 'write')}>
         <option value="read">Read</option><option value="write">Read and write</option>
-      </select></label>
+      </select>
       <button type="submit" className="docs-primary" disabled={busy || !userId} aria-busy={working === 'add'}><DocIcon name="plus" />Add member</button>
     </form>
+    <TransferGroup wiki={wiki} people={people} busy={busy} working={working} run={run} />
   </section>;
 }
 
-function TransferSection({ wiki, people, busy, working, run }: { wiki: Wiki; people: Person[]; busy: boolean; working: string | null; run: Run }) {
+function TransferGroup({ wiki, people, busy, working, run }: Busy & { people: Person[] }) {
   const [userId, setUserId] = useState('');
   const [confirming, setConfirming] = useState(false);
   const choices = people.filter((p) => p.userId !== wiki.ownerId);
@@ -114,10 +129,10 @@ function TransferSection({ wiki, people, busy, working, run }: { wiki: Wiki; peo
     if (ok && role !== 'owner' && role !== 'install') window.location.assign(wiki.archived ? '/wiki' : `/wiki/${wiki.id}`);
     setConfirming(false);
   }
-  return <section className="wiki-settings-section" aria-labelledby="wiki-transfer-head">
-    <h2 id="wiki-transfer-head">Transfer ownership</h2>
-    <p className="docs-muted">The new owner manages members and settings. The current owner stays on as a write member.</p>
-    <div className="wiki-settings-row">
+  return <div className="wiki-settings-group" role="group" aria-labelledby="wiki-transfer-head">
+    <h3 id="wiki-transfer-head">Transfer ownership</h3>
+    <p className="aside">The new owner manages members and settings. The current owner stays on as a write member.</p>
+    <div className="wiki-settings-field">
       <label>New owner<select value={userId} disabled={busy} onChange={(e) => { setUserId(e.target.value); setConfirming(false); }}>
         <option value="">Choose a person</option>
         {choices.map((p) => <option key={p.userId} value={p.userId}>{label(p)}</option>)}
@@ -131,7 +146,7 @@ function TransferSection({ wiki, people, busy, working, run }: { wiki: Wiki; peo
         <button type="button" disabled={busy} onClick={() => setConfirming(false)}><DocIcon name="close" />Cancel</button>
       </div>
     </div>}
-  </section>;
+  </div>;
 }
 
 /**
@@ -139,14 +154,17 @@ function TransferSection({ wiki, people, busy, working, run }: { wiki: Wiki; peo
  * the screen opens: a wiki that is out there says so. Revoking deletes the
  * secret; publishing again gives a different link.
  */
-function PublicLinkSection({ wiki, busy, working, run }: { wiki: Wiki; busy: boolean; working: string | null; run: Run }) {
+function PublicLinkSection({ wiki, busy, working, run }: Busy) {
   const [copyState, setCopyState] = useState('');
   const href = wiki.publicToken ? `/w/${wiki.publicToken}` : null;
-  return <section className="wiki-settings-section" aria-labelledby="wiki-public-head">
-    <h2 id="wiki-public-head">Public link</h2>
-    {wiki.archived ? <p className="docs-muted">Private. An archived wiki cannot be published; restore it first.</p>
+  return <section aria-labelledby="wiki-public-head">
+    <header className="settings-head">
+      <h2 id="wiki-public-head">Public link</h2>
+      <p className="aside">A read-only link to the whole wiki that works without signing in.</p>
+    </header>
+    {wiki.archived ? <p className="wiki-settings-state">Private. An archived wiki cannot be published; restore it first.</p>
       : href ? <>
-        <p><strong>Published.</strong> Anyone with this link can read every page of this wiki. They see no members, authors or owner.</p>
+        <p className="wiki-settings-state"><strong>Published.</strong> Anyone with this link can read every page of this wiki. They see no members, authors or owner.</p>
         <p className="wiki-public-link"><code>{href}</code></p>
         <div className="docs-actions">
           <button type="button" disabled={busy} onClick={() => {
@@ -160,21 +178,24 @@ function PublicLinkSection({ wiki, busy, working, run }: { wiki: Wiki; busy: boo
         </div>
         <p className="docs-notice" role="status">{copyState}</p>
       </> : <>
-        <p><strong>Private.</strong> Only members can read this wiki. Publishing makes a read-only link to the whole wiki that works without signing in.</p>
-        <button type="button" disabled={busy} aria-busy={working === 'publish'} onClick={() => void run(() => patch(wiki.id, { action: 'publish' }), 'Published.', 'publish')}><DocIcon name="link" />Publish</button>
+        <p className="wiki-settings-state"><strong>Private.</strong> Only members can read this wiki.</p>
+        <button type="button" className="docs-primary" disabled={busy} aria-busy={working === 'publish'} onClick={() => void run(() => patch(wiki.id, { action: 'publish' }), 'Published.', 'publish')}><DocIcon name="link" />Publish</button>
       </>}
   </section>;
 }
 
-function ArchiveSection({ wiki, busy, working, run }: { wiki: Wiki; busy: boolean; working: string | null; run: Run }) {
+/** Archive, and under a hairline the install admin's delete (D-82). */
+function ArchiveSection({ wiki, canDelete, busy, working, run }: Busy & { canDelete: boolean }) {
   const [confirming, setConfirming] = useState(false);
-  return <section className="wiki-settings-section" aria-labelledby="wiki-archive-head">
-    <h2 id="wiki-archive-head">{wiki.archived ? 'Restore' : 'Archive'}</h2>
+  return <section aria-labelledby="wiki-archive-head">
+    <header className="settings-head">
+      <h2 id="wiki-archive-head">{wiki.archived ? 'Restore' : 'Archive'}</h2>
+    </header>
     {wiki.archived ? <>
-      <p>This wiki is archived: members cannot see it and nobody can change its pages.</p>
+      <p className="wiki-settings-state">This wiki is archived: members cannot see it and nobody can change its pages.</p>
       <button type="button" className="docs-primary" disabled={busy} aria-busy={working === 'restore'} onClick={() => void run(() => patch(wiki.id, { action: 'restore' }), 'Wiki restored.', 'restore')}><DocIcon name="history" />Restore wiki</button>
     </> : <>
-      <p className="docs-muted">Archiving hides the wiki from its members and stops all changes. You and the install admin can restore it.</p>
+      <p className="wiki-settings-state">Archiving hides the wiki from its members and stops all changes. You and the install admin can restore it.</p>
       {confirming ? <div className="wiki-confirm" role="group" aria-label="Confirm archive">
         <p>Archive “{wiki.title}”?</p>
         <div className="docs-actions">
@@ -184,6 +205,7 @@ function ArchiveSection({ wiki, busy, working, run }: { wiki: Wiki; busy: boolea
         </div>
       </div> : <button type="button" disabled={busy} onClick={() => setConfirming(true)}><DocIcon name="archive" />Archive…</button>}
     </>}
+    {canDelete && <DeleteWikiSection wiki={wiki} />}
   </section>;
 }
 
@@ -191,12 +213,15 @@ function ArchiveSection({ wiki, busy, working, run }: { wiki: Wiki; busy: boolea
  * "Allow my token" (spec §6a): the writer's own live tokens, ticked when they
  * already read this wiki. Saving sends the whole ticked set.
  */
-function AllowTokenSection({ wiki, tokens, busy, working, run }: { wiki: Wiki; tokens: MyToken[]; busy: boolean; working: string | null; run: Run }) {
+function AllowTokenSection({ wiki, tokens, busy, working, run }: Busy & { tokens: MyToken[] }) {
   const [chosen, setChosen] = useState(() => tokens.filter((t) => t.allowed).map((t) => t.id));
   const saved = tokens.filter((t) => t.allowed).map((t) => t.id);
   const changed = chosen.length !== saved.length || chosen.some((id) => !saved.includes(id));
-  return <section className="wiki-settings-section" aria-labelledby="wiki-tokens-head">
-    <h2 id="wiki-tokens-head">Allow my token</h2>
+  return <section aria-labelledby="wiki-tokens-head">
+    <header className="settings-head">
+      <h2 id="wiki-tokens-head">Allow my token</h2>
+      <p className="aside">Which of your access tokens may read this wiki over MCP.</p>
+    </header>
     {tokens.length ? <form onSubmit={(e) => {
       e.preventDefault();
       void run(() => wikiCall(`/api/wikis/${wiki.id}/tokens`, 'PUT', { tokenIds: chosen }), 'Your tokens were updated.', 'tokens');
@@ -209,33 +234,66 @@ function AllowTokenSection({ wiki, tokens, busy, working, run }: { wiki: Wiki; t
           <span>{t.label} <code className="wiki-token-prefix">pmw_{t.prefix}…</code></span>
         </label>)}
       </fieldset>
-      <button type="submit" disabled={busy || !changed} aria-busy={working === 'tokens'}><DocIcon name="save" />Save</button>
-    </form> : <p className="docs-muted">You have no active tokens. Make one on the <Link href="/wiki/tokens">Tokens / MCP</Link> page.</p>}
+      <button type="submit" className="wiki-settings-save" disabled={busy || !changed} aria-busy={working === 'tokens'}><DocIcon name="save" />Save</button>
+    </form> : <p className="wiki-settings-state">You have no active tokens. Make one on the <Link href="/wiki/tokens">Tokens / MCP</Link> page.</p>}
   </section>;
+}
+
+const TITLES = { general: 'General', members: 'Members', public: 'Public link', tokens: 'Tokens', archive: 'Archive' } as const;
+type Section = keyof typeof TITLES;
+
+/**
+ * The section named in the address (`#members`), followed as it changes —
+ * the project settings' rail, so a reload or a pasted link opens the same
+ * one. An address naming a section this viewer is not drawn opens the first.
+ */
+function useSection(sections: readonly Section[]): Section | undefined {
+  const [hash, setHash] = useState('');
+  useEffect(() => {
+    const read = () => setHash(window.location.hash.slice(1));
+    read();
+    window.addEventListener('hashchange', read);
+    return () => window.removeEventListener('hashchange', read);
+  }, []);
+  return sections.find((id) => id === hash) ?? sections[0];
 }
 
 /**
  * Rename and describe, members, transfer, the public link and archive are the
  * owner's or the install admin's; delete is the install admin's alone (D-82);
  * "Allow my token" is every writer's. Each viewer is drawn only the sections
- * they can use.
+ * they can use, one at a time, chosen from a rail on the left as the project
+ * settings are. A writer has a single section, so no rail.
  */
 export default function WikiSettings({ wiki, canManage, canDelete, members, people, tokens }: {
   wiki: Wiki; canManage: boolean; canDelete: boolean; members: Member[]; people: Person[]; tokens: MyToken[] | null;
 }) {
   const { busy, working, notice, error, run } = useRunner();
-  return <div className="wiki-settings">
-    <div className="docs-heading"><div><h1>Settings</h1><p>{wiki.title}</p></div></div>
-    <p className="docs-notice" role="status">{notice}</p>
-    {error && <p className="docs-error" role="alert">{error}</p>}
-    {canManage && <>
-      <NameSection wiki={wiki} busy={busy} working={working} run={run} />
-      <MembersSection wiki={wiki} members={members} people={people} busy={busy} working={working} run={run} />
-      <TransferSection wiki={wiki} people={people} busy={busy} working={working} run={run} />
-      <PublicLinkSection wiki={wiki} busy={busy} working={working} run={run} />
-    </>}
-    {tokens && <AllowTokenSection key={tokens.map((t) => `${t.id}:${t.allowed}`).join()} wiki={wiki} tokens={tokens} busy={busy} working={working} run={run} />}
-    {canManage && <ArchiveSection wiki={wiki} busy={busy} working={working} run={run} />}
-    {canDelete && <DeleteWikiSection wiki={wiki} />}
+  const sections: Section[] = [
+    ...(canManage ? ['general', 'members', 'public'] as const : []),
+    ...(tokens ? ['tokens'] as const : []),
+    ...(canManage ? ['archive'] as const : []),
+  ];
+  const section = useSection(sections);
+  const rail = sections.length > 1;
+  const busyProps = { wiki, busy, working, run };
+
+  return <div className={`wiki-settings${rail ? '' : ' single'}`} aria-busy={busy}>
+    {rail && <nav className="settings-rail" aria-label="Settings sections">
+      {sections.map((id) => <a key={id} href={`#${id}`} aria-current={section === id ? 'page' : undefined}>
+        {id === 'archive' && wiki.archived ? 'Restore' : TITLES[id]}
+        {id === 'members' && <span className="count">{members.length + 1}</span>}
+        {id === 'public' && wiki.publicToken && <span className="count">On</span>}
+      </a>)}
+    </nav>}
+    <div className="settings-panel">
+      {error && <p className="errata wiki-settings-message" role="alert">{error}</p>}
+      <p className="docs-notice wiki-settings-message" role="status">{notice}</p>
+      {section === 'general' && <GeneralSection {...busyProps} />}
+      {section === 'members' && <MembersSection {...busyProps} members={members} people={people} />}
+      {section === 'public' && <PublicLinkSection {...busyProps} />}
+      {section === 'tokens' && tokens && <AllowTokenSection key={tokens.map((t) => `${t.id}:${t.allowed}`).join()} {...busyProps} tokens={tokens} />}
+      {section === 'archive' && <ArchiveSection {...busyProps} canDelete={canDelete} />}
+    </div>
   </div>;
 }

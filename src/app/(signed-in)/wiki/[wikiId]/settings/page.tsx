@@ -7,6 +7,7 @@ import { orNotFound, requireReader } from '../../load-workspace';
 import WikiSettings from './wiki-settings';
 import '../../../p/[slug]/list.css';
 import '../../../p/[slug]/docs/docs.css';
+import '../../../p/[slug]/settings/settings.css';
 import '../../wiki.css';
 
 /**
