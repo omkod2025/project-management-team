@@ -11,7 +11,7 @@ import {
   assertColorIndex, assertEmail, assertFieldKind, assertFieldName, assertFullName,
   assertHolidayDate,
   assertCanDeleteUsers, assertHolidayName, assertKeepsADoneStage, assertKeepsAnAdmin,
-  assertKindUnchanged, assertNotProtectedAccount, assertNotSelf,
+  assertKindUnchanged, assertNotProtectedAccount, assertNotSelf, assertNotStatusField,
   assertNotProtectedReset, assertResetIsNotSelf, assertSharesAnAdministeredProject,
   assertNewPassword, assertOptionLabel, assertPassword, assertProjectName, assertRole,
   assertStage, assertStatusFieldKind, slugFromName,
@@ -320,6 +320,34 @@ export async function updateField(
   }
 
   await db.update(fieldDefinitions).set(set).where(eq(fieldDefinitions.id, fieldId));
+}
+
+/**
+ * Delete a column for good (D-34c, owner's decision 2026-11-06).
+ *
+ * The definition goes, and its options with it (`ON DELETE CASCADE`); a
+ * notification that named it keeps its row with the field cleared (`SET
+ * NULL`). **Values already stored on tasks are left exactly where they are**:
+ * `node_custom_values` has no foreign key, every read resolves a value through
+ * a live definition, so an orphaned key is never shown and never written
+ * again. The List's saved column order may still name the column; its read
+ * side drops keys it cannot resolve (see `setColumnOrder`).
+ *
+ * Columns archived before this decision stay archived and restorable.
+ */
+export async function deleteField(fieldId: string, kind: WorkKind = 'task'): Promise<void> {
+  const { fieldDefinitions, settings: projects } = workStorage(kind);
+  const [field] = await db.select().from(fieldDefinitions).where(eq(fieldDefinitions.id, fieldId)).limit(1);
+  if (!field) throw domainError('E_UNKNOWN_FIELD', 'No such column.');
+
+  const [project] = await db
+    .select({ statusFieldId: projects.statusFieldId })
+    .from(projects)
+    .where(eq(projects.id, field.projectId))
+    .limit(1);
+  assertNotStatusField(fieldId, project?.statusFieldId ?? null);
+
+  await db.delete(fieldDefinitions).where(eq(fieldDefinitions.id, fieldId));
 }
 
 export async function setStatusField(projectId: string, fieldId: string | null, kind: WorkKind = 'task'): Promise<void> {

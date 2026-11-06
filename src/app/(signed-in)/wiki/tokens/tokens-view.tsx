@@ -1,9 +1,11 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { TokenRow } from '@/lib/wiki-tokens';
 import DocIcon from '../../p/[slug]/docs/doc-icon';
+import ConfirmDelete, { TrashIcon } from '../../confirm-delete';
 import { problem, wikiCall } from '../wiki-api';
 
 type Wiki = { id: string; title: string };
@@ -79,8 +81,8 @@ function CopyBlock({ label, text }: { label: string; text: string }) {
  * secret it opens in a new tab, because leaving this page loses the secret.
  */
 export function GuideLink({ newTab = false }: { newTab?: boolean }) {
-  return <a className="wiki-guide-link" href="/wiki/tokens/guide"
-    {...(newTab ? { target: '_blank', rel: 'noopener noreferrer' } : {})}><DocIcon name="info" />How to connect</a>;
+  return <Link className="wiki-guide-link" href="/wiki/tokens/guide"
+    {...(newTab ? { target: '_blank', rel: 'noopener noreferrer' } : {})}><DocIcon name="info" />How to connect</Link>;
 }
 
 /** Shown once, straight after creation. Leaving or pressing Done loses it for good. */
@@ -134,16 +136,18 @@ function EditForm({ token, wikis, busy, run, onClose }: { token: TokenRow; wikis
   </form>;
 }
 
-/** Revoking cannot be undone, so it asks once. */
+/** Revoking cannot be undone, so it asks first, in the one delete dialog. */
 function RevokeButton({ token, busy, run }: { token: TokenRow; busy: boolean; run: Run }) {
   const [confirming, setConfirming] = useState(false);
   if (token.status === 'revoked') return null;
-  if (!confirming) return <button type="button" disabled={busy} onClick={() => setConfirming(true)}><DocIcon name="lock" />Revoke…</button>;
-  return <span className="wiki-token-confirm" role="group" aria-label={`Confirm revoking ${token.label}`}>
-    <button type="button" className="docs-primary" disabled={busy}
-      onClick={() => void run(() => wikiCall(`/api/wiki-tokens/${token.id}`, 'DELETE'), 'Token revoked. It stops working now.')}>Revoke for good</button>
-    <button type="button" disabled={busy} onClick={() => setConfirming(false)}>Cancel</button>
-  </span>;
+  return <>
+    <button type="button" className="delete-control icon-only" aria-label={`Delete token ${token.label}`} title="Delete token" disabled={busy} onClick={() => setConfirming(true)}><TrashIcon /></button>
+    {confirming && <ConfirmDelete title="Delete token" name={token.label}
+      note="This cannot be undone. Any client using it stops working now." onCancel={() => setConfirming(false)}
+      onConfirm={async () => { await run(() => wikiCall(`/api/wiki-tokens/${token.id}`, 'DELETE'), 'Token revoked. It stops working now.'); setConfirming(false); }}>
+      <p>{prefixOf(token)}</p>
+    </ConfirmDelete>}
+  </>;
 }
 
 const prefixOf = (t: TokenRow) => `pmw_${t.prefix}…`;

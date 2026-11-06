@@ -5,7 +5,8 @@ import { useRef, useState } from 'react';
 import type { DocSummary } from '@/lib/doc-rules';
 import '../list.css';
 import './docs.css';
-import Bell from '../../../bell';
+import AppHeader from '../../../app-header';
+import { projectViews } from '../project-views';
 
 type Props = {
   project: { id: string; name: string; slug: string };
@@ -65,19 +66,8 @@ export default function DocsView({ project, initialDocs, canCreate }: Props) {
   return (
     <div className="book docs-book">
       <main className="docs-main">
-        <header className="head">
-          <a className="shelf label" href="/">Projects</a>
-          <span className="docs-project">{project.name}</span>
-          {/* The bell stands immediately before the view nav, so notice and
-              navigation sit together in the one cluster this header already
-              uses for "where do I go from here" (spec 11 §6). */}
-          <Bell />
-          <nav className="views label" aria-label="Project views">
-            <a href={base}>List</a><a href={`${base}/timeline`}>Timeline</a>
-            <span aria-current="page">Docs</span>
-            {canCreate && <a href={`${base}/settings`}>Settings</a>}
-          </nav>
-        </header>
+        <AppHeader title={project.name} navLabel="Project views"
+          views={projectViews(project.slug, 'Docs', { canSettings: canCreate })} />
 
         <div className="docs-content">
           <div className="docs-heading">

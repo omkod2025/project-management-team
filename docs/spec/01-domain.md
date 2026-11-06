@@ -199,6 +199,9 @@ An archived option still resolves for display wherever it is already stored, mar
 **D-34. Archived definitions retain their values.**
 Archiving a field (`field_archived_at`) hides its column. The `jsonb` keys remain. Un-archiving restores the column with its data intact.
 
+**D-34c. A column may be deleted; its stored values are left alone.** *(owner, 2026-11-06)*
+Deleting a field removes its definition and its options. The `jsonb` keys already written on nodes stay where they are and are never read again, because every read resolves a value through a live definition. The status column cannot be deleted while it is the status column. Columns archived before this rule stay archived and restorable; options are still archived under D-33.
+
 **D-34b. A NULL stage has no effect.**
 An option whose `option_stage` is NULL never triggers automatic date capture. This is the correct setting for terminal-but-unfinished states such as *cancelled*: the work stopped, but it did not finish, and recording an end date for it would corrupt every estimate-accuracy figure computed from that node.
 

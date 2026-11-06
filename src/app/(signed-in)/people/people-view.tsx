@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { AccessBoard, PersonAccess } from '@/lib/people';
 import { MIN_PASSWORD_LENGTH, PROTECTED_EMAIL, type Role } from '@/lib/admin-rules';
 import InviteLink, { inviteUrl } from '../invite-link';
 import './people.css';
-import Bell from '../bell';
+import AppHeader, { crossViews } from '../app-header';
+import ConfirmDelete, { TrashIcon } from '../confirm-delete';
 
 /**
  * The access board.
@@ -59,12 +60,14 @@ function monogram(name: string, email: string): string {
   return THAI.test(marks) ? marks : marks.toUpperCase();
 }
 
-type Props = { board: AccessBoard; actingUserId: string; signOut: React.ReactNode };
+type Props = { board: AccessBoard; actingUserId: string };
 
-export default function PeopleView({ board, actingUserId, signOut }: Props) {
+export default function PeopleView({ board, actingUserId }: Props) {
   const router = useRouter();
   const [people, setPeople] = useState(board.people);
-  useEffect(() => setPeople(board.people), [board.people]);
+  // A refreshed board wins: adjusted while rendering, not in an effect.
+  const [seenPeople, setSeenPeople] = useState(board.people);
+  if (board.people !== seenPeople) { setSeenPeople(board.people); setPeople(board.people); }
   const [query, setQuery] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
@@ -105,11 +108,9 @@ export default function PeopleView({ board, actingUserId, signOut }: Props) {
   /**
    * Delete an account outright.
    *
-   * Armed rather than confirmed in a dialog: the question belongs beside the
-   * row it is about, and a modal that interrupts is a modal people learn to
-   * click through. There is no undo — the row goes, its memberships cascade,
-   * and every task it created loses its author — so the armed state says so
-   * before it is answered.
+   * Asked first in the one delete dialog every surface shares. There is no
+   * undo — the row goes, its memberships cascade, and every task it created
+   * loses its author — so the dialog says so before it is answered.
    */
   async function remove(person: PersonAccess) {
     setArming(null);
@@ -262,8 +263,9 @@ export default function PeopleView({ board, actingUserId, signOut }: Props) {
   if (board.projects.length === 0 && !board.canDeleteUsers) {
     return (
       <main className="people">
+        <AppHeader title="People and access" navLabel="Places" views={crossViews('People')} />
         <div className="people-sheet">
-          <Head signOut={signOut} />
+          <Intro />
           <p className="people-empty">
             You do not administer any project, so there is no access to hand out.
             Admin is granted per project — ask an admin of the project you need.
@@ -275,8 +277,9 @@ export default function PeopleView({ board, actingUserId, signOut }: Props) {
 
   return (
     <main className="people">
+     <AppHeader title="People and access" navLabel="Places" views={crossViews('People')} />
      <div className="people-sheet">
-      <Head signOut={signOut} />
+      <Intro />
 
       <div className="people-bar">
         <span className="people-count">
@@ -515,24 +518,32 @@ function DeleteCell({
   }
   if (busy) return <span className="acct-locked">deleting…</span>;
 
-  if (armed) {
-    return (
-      <span className="acct-armed">
-        <button className="acct-yes" onClick={onConfirm}>Delete for good</button>
-        <button className="acct-no" onClick={onCancel}>Cancel</button>
-      </span>
-    );
-  }
-
   return (
-    <button
-      className="acct-del"
-      onClick={onArm}
-      aria-label={`Delete ${person.name}'s account`}
-      title="Removes the account and its memberships. Projects where they are the last admin transfer to the install account."
-    >
-      Delete
-    </button>
+    <>
+      <button
+        className="acct-del"
+        onClick={onArm}
+        aria-label={`Delete ${person.name}'s account`}
+        title="Removes the account and its memberships. Projects where they are the last admin transfer to the install account."
+      >
+        <TrashIcon />Delete
+      </button>
+      {armed && (
+        <ConfirmDelete
+          title="Delete account"
+          name={person.name}
+          note="This cannot be undone."
+          onConfirm={onConfirm}
+          onCancel={onCancel}
+        >
+          <p>{person.email}</p>
+          <p>
+            The account and every project membership go. Projects where they are
+            the last admin transfer to the install account.
+          </p>
+        </ConfirmDelete>
+      )}
+    </>
   );
 }
 
@@ -587,24 +598,15 @@ function ResetCell({
   );
 }
 
-function Head({ signOut }: { signOut: React.ReactNode }) {
+/** What the page is for. Its title is in the shared header above the sheet. */
+function Intro() {
   return (
-    <header className="people-head">
-      <div>
-        <h1>People and access</h1>
-        <p className="people-sub">
-          Who can reach which project, and as what. Access is held per project —
-          there is no account-wide setting to get wrong.
-        </p>
-      </div>
-      {/* Both of these change what level you are on rather than what you are
-          looking at, so they share the head's edge. */}
-      <div className="people-out">
-        <Bell />
-        <a className="shelf-link" href="/">‹ Home</a>
-        {signOut}
-      </div>
-    </header>
+    <div className="people-head">
+      <p className="people-sub">
+        Who can reach which project, and as what. Access is held per project —
+        there is no account-wide setting to get wrong.
+      </p>
+    </div>
   );
 }
 

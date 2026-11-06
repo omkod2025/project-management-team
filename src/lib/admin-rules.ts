@@ -175,6 +175,22 @@ export function assertFieldKind(kind: unknown): FieldKind {
 }
 
 /**
+ * D-34c — the status column cannot be deleted while it is the status column.
+ *
+ * Deleting it would silently stop automatic actual dates for every task, so
+ * the designation is cleared deliberately first — on another column, or by
+ * choosing none.
+ */
+export function assertNotStatusField(fieldId: string, statusFieldId: string | null): void {
+  if (fieldId === statusFieldId) {
+    throw domainError(
+      'E_STATUS_FIELD_TYPE',
+      'This is the status column. Choose a different one before deleting it.',
+    );
+  }
+}
+
+/**
  * D-31 — a field's kind is immutable.
  *
  * Values already stored in `jsonb` are shaped for the original kind, and there

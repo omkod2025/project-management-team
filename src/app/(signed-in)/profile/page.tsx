@@ -1,7 +1,6 @@
 import { redirect } from 'next/navigation';
 import { currentUserId } from '@/auth';
 import { loadProfile } from '@/lib/admin';
-import SignOut from '../sign-out';
 import ProfileView from './profile-view';
 
 /**
@@ -26,7 +25,6 @@ export default async function ProfilePage() {
       profile={await loadProfile(userId)}
       /* Rendered on the server and passed down: signing out is a server action
          and `profile-view` is a client component, which cannot declare one. */
-      signOut={<SignOut className="label shelf-button" />}
     />
   );
 }

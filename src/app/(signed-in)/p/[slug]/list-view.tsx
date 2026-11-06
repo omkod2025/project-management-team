@@ -35,7 +35,7 @@ import LazyTableRow, { LazyRows } from './lazy-table-row';
 const DetailPanel = dynamic(() => import('./detail-panel'), {
   loading: () => <aside className="facing"><LoadingStatus label="กำลังโหลดรายละเอียด…" /></aside>,
 });
-const ConfirmArchive = dynamic(() => import('./confirm-archive'), {
+const ConfirmDeleteNode = dynamic(() => import('./confirm-delete-node'), {
   loading: () => <LoadingStatus label="กำลังโหลดหน้าต่างยืนยัน…" />,
 });
 
@@ -66,8 +66,6 @@ type Props = {
   canEdit: boolean;
   canArchive: boolean;
   isAdmin: boolean;
-  /** Rendered on the server: signing out is a server action. */
-  signOut: React.ReactNode;
 };
 
 type Column = {
@@ -107,7 +105,7 @@ function fmtDate(iso: string | null): string | null {
 
 export default function ListView({
   kind = 'task', projectId, projectName, slug, rows: initialRows, fields, people, statusFieldId,
-  columnOrder: savedColumnOrder, canEdit, canArchive, isAdmin, signOut,
+  columnOrder: savedColumnOrder, canEdit, canArchive, isAdmin,
 }: Props) {
   const stateKey = workStateKey(slug, kind);
   const api = useCallback((url: string) => workApi(url, kind), [kind]);
@@ -173,6 +171,7 @@ export default function ListView({
       // First visit: modules open, everything below closed (spec 03 §5).
       const s = new Set<string>();
       for (const r of initialRows) if (r.led_depth <= 2) s.add(r.led_node_id);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- restoring from localStorage, which the server render cannot read
       setExpanded(s);
     } else {
       setExpanded(stored);
@@ -219,6 +218,7 @@ export default function ListView({
     const row = rows.find((r) => r.led_node_id === target);
     if (!row) return;
     arrived.current = target;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- following a ?node= link in the URL, once, after the rows exist
     setSelected(target);
 
     setQuery('');
@@ -250,7 +250,8 @@ export default function ListView({
   useEffect(() => { if (ready) saveRecord(stateKey, 'filter', filterTerms); }, [ready, stateKey, filterTerms]);
   /* The project's own value is the truth. If somebody else moves a column and
      this page is refreshed, the server's order wins over what is in hand. */
-  useEffect(() => { setColumnOrder(savedColumnOrder); }, [savedColumnOrder]);
+  const [seenColumnOrder, setSeenColumnOrder] = useState(savedColumnOrder);
+  if (savedColumnOrder !== seenColumnOrder) { setSeenColumnOrder(savedColumnOrder); setColumnOrder(savedColumnOrder); }
   useEffect(() => { if (ready) writeSelectedToUrl(selected); }, [ready, selected]);
 
   /* ------------------------------------------------------------ columns */
@@ -456,7 +457,7 @@ export default function ListView({
   const byId = useMemo(() => new Map(rows.map((r) => [r.led_node_id, r])), [rows]);
 
   /** The modules as the run shows them: by name, or by whatever was sorted. */
-  const modules = byParent.get(root?.led_node_id ?? null) ?? [];
+  const modules = useMemo(() => byParent.get(root?.led_node_id ?? null) ?? [], [byParent, root]);
 
   /**
    * The same modules in *filed* order, which is what the hues are numbered by.
@@ -659,13 +660,10 @@ export default function ListView({
   }, [api]);
 
   /**
-   * Archiving takes the whole subtree (D-4), so the row says how many go with
-   * it and asks a second time when it is more than one. Not a modal: the
-   * question belongs beside the thing being archived, and a dialog that
-   * interrupts is a dialog people learn to click through.
-   *
-   * The undo is real — `POST /api/nodes/:id/restore` — not a delay before a
-   * delete.
+   * Deleting takes the whole subtree (D-4), so it always asks first, in the
+   * one delete dialog, and says how many go with it. Underneath it archives,
+   * so the undo is real — `POST /api/nodes/:id/restore` — not a delay before
+   * a delete.
    */
   const archive = useCallback(async (node: LedgerRow) => {
     setPendingArchive(null);
@@ -674,7 +672,7 @@ export default function ListView({
       const res = await fetch(api(`/api/nodes/${node.led_node_id}`), { method: 'DELETE' });
       if (!res.ok) {
         const err = (await res.json()) as { message?: string };
-        setFailure({ cell: '', message: err.message ?? 'The task was not archived.' });
+        setFailure({ cell: '', message: err.message ?? 'The task was not deleted.' });
         return;
       }
       const { archived } = (await res.json()) as { archived: number };
@@ -687,7 +685,7 @@ export default function ListView({
       setSelected(null);
       setUndo({ nodeId: node.led_node_id, name: node.led_name, count: archived });
     } catch {
-      setFailure({ cell: '', message: 'No connection. The task was not archived.' });
+      setFailure({ cell: '', message: 'No connection. The task was not deleted.' });
     }
   }, [api, byParent]);
 
@@ -867,6 +865,7 @@ export default function ListView({
     if (!pendingScroll) return;
     if (!visible.some((v) => v.kind === 'node' && v.row.led_node_id === pendingScroll)) return;
     const id = pendingScroll;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the scroll waits on the rendered row; clearing it is the effect's whole job
     setPendingScroll(null);
     requestAnimationFrame(() => {
       document.getElementById(`row-${id}`)?.scrollIntoView({ block: 'center' });
@@ -980,7 +979,7 @@ export default function ListView({
           break;
 
         case 'Delete':
-          // Both routes to archiving lead through the same question.
+          // Both routes to deleting lead through the same question.
           if (canArchive && node) { e.preventDefault(); setPendingArchive(node); }
           break;
 
@@ -1067,7 +1066,7 @@ export default function ListView({
       </nav>
 
       <div className="sheet">
-        <ListHeader {...{ projectId, projectName, slug, isAdmin, kind, selected, signOut }} />
+        <ListHeader {...{ projectId, projectName, slug, isAdmin, kind, selected }} />
 
         <nav className="list-kind-tabs label" aria-label="List type">
           <ListTabLink href={`/p/${slug}`} active={kind === 'task'} label="Task" onPending={setPendingTab} />
@@ -1275,7 +1274,7 @@ export default function ListView({
         {undo && (
           <div className="undo">
             <span>
-              Archived <strong>{undo.name}</strong>
+              Deleted <strong>{undo.name}</strong>
               {undo.count > 1 && ` and ${undo.count - 1} below it`}.
             </span>
             <button className="label" onClick={() => void restore()}>Undo</button>
@@ -1532,7 +1531,7 @@ export default function ListView({
           </div>
 
           {pendingArchive && (
-            <ConfirmArchive
+            <ConfirmDeleteNode
               node={pendingArchive}
               descendants={descendantCount(pendingArchive.led_node_id)}
               onConfirm={() => void archive(pendingArchive)}
@@ -1819,9 +1818,9 @@ function NameCell(p: CellProps) {
           )}
           {p.canArchive && (
             <button
-              className="rowact"
-              aria-label={`Archive ${r.led_name}`}
-              title="Archive  ·  Del"
+              className="rowact delete"
+              aria-label={`Delete ${r.led_name}`}
+              title="Delete  ·  Del"
               onClick={(e) => { e.stopPropagation(); p.onArchive(); }}
             >
               {/* a bin: lid, handle, body, two staves */}

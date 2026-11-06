@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { getWiki, listMembers, wikiPeopleChoices } from '@/lib/wiki';
 import { wikiAbilities } from '@/lib/wiki-rules';
 import { listMyTokens } from '@/lib/wiki-tokens';
-import Bell from '../../../bell';
+import AppHeader, { wikiViews } from '../../../app-header';
 import { orNotFound, requireReader } from '../../load-workspace';
 import WikiSettings from './wiki-settings';
 import '../../../p/[slug]/list.css';
@@ -32,16 +32,11 @@ export default async function WikiSettingsPage({ params }: { params: Promise<{ w
   }));
 
   return <div className="book docs-book wiki-book"><main className="docs-main">
-    <header className="head">
-      <a href="/wiki">Wiki</a>
-      <span className="docs-project">{wiki.title}</span>
-      {wiki.archived && <span className="wiki-flag">Archived</span>}
-      <Bell />
-      <nav className="views" aria-label="Wiki views">
-        <a href={`/wiki/${wiki.id}`}>Pages</a>
-        <span aria-current="page">Settings</span>
-      </nav>
-    </header>
+    <AppHeader
+      title={<><h1>{wiki.title}</h1>{wiki.archived && <span className="wiki-flag">Archived</span>}</>}
+      navLabel="Wiki views"
+      views={wikiViews('Settings', { id: wiki.id, canSettings: true })}
+    />
     <div className="docs-content">
       <WikiSettings
         wiki={{ id: wiki.id, title: wiki.title, description: wiki.description, archived: wiki.archived, ownerId: wiki.ownerId, ownerName: wiki.ownerName, publicToken: wiki.publicToken ?? null }}

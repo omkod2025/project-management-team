@@ -7,7 +7,7 @@
 
 import test, { before, after, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { setup, signIn, BASE_URL, type Fixture, type Jar } from '../helpers/harness.ts';
+import { setup, signIn, patchNode, BASE_URL, type Fixture, type Jar } from '../helpers/harness.ts';
 
 let fx: Fixture;
 let admin: Jar;
@@ -93,6 +93,44 @@ describe('columns', () => {
 
     assert.equal((await call(admin, 'PATCH', `/api/fields/${fieldId}`, { archived: false })).status, 200);
     assert.equal((await settings()).fields.find((f) => f.id === fieldId)?.archived, false);
+  });
+});
+
+describe('D-34c — deleting a column', () => {
+  let doomedId = '';
+
+  test('a column with a value on a task can be created', async () => {
+    const res = await call(admin, 'POST', `/api/projects/${fx.projectId}/fields`, { name: 'Doomed', kind: 'text' });
+    doomedId = String(res.body?.id);
+    assert.equal((await patchNode(admin, fx.nodes.task, { values: { [doomedId]: 'เก็บไว้' } })).status, 200);
+  });
+
+  test('a viewer cannot delete it', async () => {
+    assert.equal((await call(viewer, 'DELETE', `/api/fields/${doomedId}`)).status, 403);
+  });
+
+  test('an admin deletes it, and it is gone from settings rather than archived', async () => {
+    assert.equal((await call(admin, 'DELETE', `/api/fields/${doomedId}`)).status, 200);
+    assert.equal((await settings()).fields.find((f) => f.id === doomedId), undefined);
+  });
+
+  test('the value already on the task is left where it was', async () => {
+    const { rows } = await fx.client.query(
+      'SELECT node_custom_values ->> $2 AS v FROM pmt_nodes WHERE node_id = $1', [fx.nodes.task, doomedId],
+    );
+    assert.equal(rows[0]?.v, 'เก็บไว้');
+  });
+
+  test('a second delete finds nothing', async () => {
+    const res = await call(admin, 'DELETE', `/api/fields/${doomedId}`);
+    assert.equal(res.body?.code, 'E_UNKNOWN_FIELD');
+  });
+
+  test('the status column is refused while it holds the designation', async () => {
+    const res = await call(admin, 'DELETE', `/api/fields/${fx.statusFieldId}`);
+    assert.equal(res.status, 422);
+    assert.equal(res.body?.code, 'E_STATUS_FIELD_TYPE');
+    assert.ok((await settings()).fields.some((f) => f.id === fx.statusFieldId));
   });
 });
 

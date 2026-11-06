@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import DocContent from '../../p/[slug]/docs/doc-content';
-import Bell from '../../bell';
+import AppHeader, { wikiViews } from '../../app-header';
 import { requireReader } from '../load-workspace';
 import '../../p/[slug]/list.css';
 import '../../p/[slug]/docs/docs.css';
@@ -26,16 +26,7 @@ export default async function MermaidGuidePage() {
   const markdown = await readFile(/* turbopackIgnore: true */ guidePath(), 'utf8');
 
   return <div className="book docs-book wiki-book"><main className="docs-main">
-    <header className="head">
-      <a href="/">Projects</a>
-      <span className="docs-project">Wiki</span>
-      <Bell />
-      <nav className="views" aria-label="Wiki menu">
-        <a href="/wiki">Wikis</a>
-        <a href="/wiki/tokens">Tokens / MCP</a>
-        <span aria-current="page">Mermaid guide</span>
-      </nav>
-    </header>
+    <AppHeader title="Wiki" navLabel="Wiki menu" views={wikiViews('Mermaid guide')} />
     <div className="docs-content">
       <article className="doc-prose wiki-guide" lang="th">
         <DocContent value={markdown} />

@@ -6,6 +6,7 @@ import WikiPageActions from './wiki-page-actions';
 import WikiSearch from './wiki-search';
 import { problem, wikiCall } from './wiki-api';
 import { subtreeOf, treeOrder, type TreePage } from './wiki-tree-order';
+import { hardNavigate } from '@/lib/hard-navigate';
 
 type Props = {
   wiki: { id: string; title: string };
@@ -21,7 +22,7 @@ type Props = {
 
 /**
  * The wiki's left column: search, the page tree, and — for writers only —
- * New page, each page's actions, and the archived pages with Restore.
+ * New page, each page's actions, and the deleted pages with Restore.
  */
 export default function WikiTree({ wiki, pages, archivedPages, currentId, currentTitle, canWrite, locked, open }: Props) {
   const [menuFor, setMenuFor] = useState<string | null>(null);
@@ -35,7 +36,7 @@ export default function WikiTree({ wiki, pages, archivedPages, currentId, curren
     setBusy(true); setError('');
     try {
       const page = await wikiCall<{ slug: string }>(`/api/wikis/${wiki.id}/pages`, 'POST', { title: 'Untitled', ...(parentId ? { parentId } : {}) });
-      window.location.assign(`${base}/${page.slug}?edit=1`);
+      hardNavigate(`${base}/${page.slug}?edit=1`);
     } catch (err) { setError(problem(err, 'Could not create a page.')); setBusy(false); }
   }
 
@@ -43,7 +44,7 @@ export default function WikiTree({ wiki, pages, archivedPages, currentId, curren
     setBusy(true); setError('');
     try {
       const page = await wikiCall<{ slug: string }>(`/api/wikis/${wiki.id}/pages`, 'PATCH', { pageId });
-      window.location.assign(`${base}/${page.slug}`);
+      hardNavigate(`${base}/${page.slug}`);
     } catch (err) { setError(problem(err, 'Could not restore this page.')); setBusy(false); }
   }
 
@@ -64,7 +65,7 @@ export default function WikiTree({ wiki, pages, archivedPages, currentId, curren
     {!ordered.length && <p className="docs-muted">No pages yet.</p>}
     {canWrite && <div className="doc-add-actions"><button type="button" disabled={locked || busy} onClick={() => void addPage(null)}><DocIcon name="plus" />{busy ? 'Working…' : 'New page'}</button></div>}
     {error && <p role="alert" className="docs-error">{error}</p>}
-    {canWrite && !!archivedPages.length && <details className="doc-archived"><summary>Archived pages ({archivedPages.length})</summary>
+    {canWrite && !!archivedPages.length && <details className="doc-archived"><summary>Deleted pages ({archivedPages.length})</summary>
       {archivedPages.map((p) => <div key={p.id}><span>{p.title}</span>
         <button type="button" disabled={busy || locked} onClick={() => void restore(p.id)}><DocIcon name="history" />Restore</button></div>)}
     </details>}

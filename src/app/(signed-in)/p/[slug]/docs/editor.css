@@ -92,11 +92,6 @@
 .docs-book .doc-tree-row > .doc-tree-delete { flex: 0 0 28px; color: var(--color-danger); }
 .docs-book .doc-tree-row > .doc-tree-delete:hover:not(:disabled) { background: var(--color-danger-wash); color: var(--color-danger-active); }
 .doc-tree-delete:disabled { opacity: .4; cursor: not-allowed; }
-.doc-delete-confirm { margin-block: 12px; padding: 10px; border: 0; border-radius: var(--radius-md); background: var(--color-paper); overflow-wrap: anywhere; }
-.doc-delete-confirm p { margin-block: 8px; font-size: 13px; }
-.doc-delete-confirm .docs-actions { flex-wrap: wrap; }
-.docs-book .doc-delete-action { color: var(--color-danger); border-color: color-mix(in srgb, var(--color-danger) 35%, transparent); }
-.docs-book .doc-delete-action:hover:not(:disabled) { background: var(--color-danger-wash); }
 .doc-tree-row:hover .doc-tree-add, .doc-tree-row:focus-within .doc-tree-add { opacity: 1; }
 .doc-reading-tools { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .doc-reading-body > :is(.doc-page-heading, .docs-muted, .doc-prose, .page-editor) { max-width: 760px; margin-left: auto; margin-right: auto; }

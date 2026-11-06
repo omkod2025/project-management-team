@@ -1,7 +1,7 @@
 'use client';
 import DocIcon from "./doc-icon";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { useMemo, useRef, useState, useTransition } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import type { DocPage, PageTemplate } from '@/lib/doc-rules';
@@ -13,8 +13,11 @@ import DocContent from './doc-content';
 import '../list.css';
 import './docs.css';
 import './editor.css';
-import Bell from '../../../bell';
+import AppHeader from '../../../app-header';
+import ConfirmDelete, { TrashIcon } from '../../../confirm-delete';
+import { projectViews } from '../project-views';
 import { projectDocEndpoints } from '@/lib/doc-endpoints';
+import { hardNavigate } from '@/lib/hard-navigate';
 
 const PageEditor = dynamic(() => import('./page-editor'), { ssr: false, loading: () => <p role="status">Loading editor…</p> });
 type Props = {
@@ -26,6 +29,11 @@ type Props = {
   canCreate: boolean; canEdit: boolean; initialEditing?: boolean; children?: React.ReactNode;
 };
 
+function readingStyleOf(settings: DocPage['settings'] | undefined): ReadingStyle {
+  const s = settings ?? {};
+  return { font: (s.font ?? 'system') as ReadingStyle['font'], size: (s.size ?? 'default') as ReadingStyle['size'], wide: !!s.wide };
+}
+
 export default function DocWorkspace({ project, doc, pages, page: serverPage, archivedPages=[], bindableNodes, canCreate, canEdit, initialEditing, children }: Props) {
   const [savedPage, setSavedPage] = useState<Pick<DocPage, 'id' | 'content' | 'title' | 'updatedAt'> | null>(null);
   const page = serverPage && savedPage?.id === serverPage.id && savedPage.updatedAt > serverPage.updatedAt
@@ -36,8 +44,10 @@ export default function DocWorkspace({ project, doc, pages, page: serverPage, ar
   const [editing, setEditing] = useState(!!initialEditing && canEdit && !page?.protected);
   const [pageTitle, setPageTitle] = useState(page?.title ?? '');
   const [focusTitle, setFocusTitle] = useState(!!initialEditing && page?.title === 'Untitled');
-  const [readingStyle, setReadingStyle] = useState<ReadingStyle>({ font: 'system', size: 'default', wide: false });
-  useEffect(()=>{ const s=page?.settings ?? {}; setReadingStyle({font:(s.font ?? 'system') as ReadingStyle['font'],size:(s.size ?? 'default') as ReadingStyle['size'],wide:!!s.wide}); },[page?.settings]);
+  const [readingStyle, setReadingStyle] = useState<ReadingStyle>(() => readingStyleOf(page?.settings));
+  // The page's saved settings win when they change: adjusted while rendering, not in an effect.
+  const [seenSettings, setSeenSettings] = useState(page?.settings);
+  if (page?.settings !== seenSettings) { setSeenSettings(page?.settings); setReadingStyle(readingStyleOf(page?.settings)); }
   const reading = useRef<HTMLDivElement>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [adding, setAdding] = useState(false);
@@ -68,20 +78,20 @@ export default function DocWorkspace({ project, doc, pages, page: serverPage, ar
   let ancestor = page?.parentId;
   while (ancestor) { const p = pages.find((p) => p.id === ancestor); if (!p) break; crumbs.unshift(p); ancestor = p.parentId; }
 
+  /** Deleting a page archives it; it waits in Deleted pages for a Restore. */
   async function removePage() {
-    if (!removing || busy || editing) return;
-    setBusy(true); setError('');
+    if (!removing || editing) return;
+    let res: Response;
     try {
-      const res = await fetch(`/api/doc-pages/${removing.id}/tools`, {
+      res = await fetch(`/api/doc-pages/${removing.id}/tools`, {
         method: 'POST', headers: { 'content-type':'application/json' },
         body: JSON.stringify({ action:'archive', updatedAt:removing.updatedAt }),
       });
-      const result = await res.json();
-      if (!res.ok) throw new Error(result.message ?? 'Could not delete this page.');
-      // Return to the document index, including when its last page was removed.
-      window.location.assign(`${base}?doc=${doc.id}`);
-    } catch (e) { setError(e instanceof Error ? e.message : 'Could not confirm deletion. Reload before retrying.'); }
-    finally { setBusy(false); }
+    } catch { throw new Error('Could not confirm deletion. Reload before retrying.'); }
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.message ?? 'Could not delete this page.');
+    // Return to the document index, including when its last page was removed.
+    hardNavigate(`${base}?doc=${doc.id}`);
   }
 
   async function add(e?: React.FormEvent, quick = false) {
@@ -92,17 +102,15 @@ export default function DocWorkspace({ project, doc, pages, page: serverPage, ar
         body: JSON.stringify(quick ? { title: 'Untitled', template: 'free' } : { title, template, parentId: parentId || null, nodeId: template === 'module' ? nodeId || null : null }) });
       const body = await res.json();
       if (!res.ok) { setError(body.message ?? 'Could not create this page.'); return; }
-      window.location.assign(`${base}/${body.slug}?edit=1`);
+      hardNavigate(`${base}/${body.slug}?edit=1`);
     } catch { setError('Could not confirm creation. Reload the document before retrying.'); }
     finally { setBusy(false); }
   }
   const metadata = page && <div className="doc-page-meta">{page.settings?.subtitle && <p className="doc-subtitle">{String(page.settings.subtitle)}</p>}{page.ownerNames?.length ? <p>Owners: {page.ownerNames.join(', ')}</p> : null}<p className="docs-muted">{doc.version || 'No version stamp'}{page.settings?.showModified!==false && <> · Last updated {new Date(page.updatedAt).toLocaleString('en-GB', { timeZone: 'Asia/Bangkok', dateStyle: 'medium', timeStyle: 'short' })}</>}{page.nodeArchived ? ' · Module archived' : ''}{page.protected ? ' · Protected' : ''}</p></div>;
 
   return <div className="book docs-book"><main className="docs-main">
-    <header className="head"><a href={base}>Docs</a><span className="docs-project">{project.name}</span>
-      <Bell />
-      <nav className="views" aria-label="Project views"><a href={`/p/${project.slug}`}>List</a><a href={`/p/${project.slug}/timeline`}>Timeline</a><a href={base} aria-current="page">Docs</a></nav>
-    </header>
+    <AppHeader title={project.name} navLabel="Project views"
+      views={projectViews(project.slug, 'Docs', { canSettings: canCreate })} />
     <div className="doc-workspace">
       <button className="doc-sidebar-toggle" type="button" aria-expanded={showPages} aria-controls="doc-page-index" onClick={() => setShowPages(!showPages)}><DocIcon name="file" />Pages · {doc.title}</button>
       <aside id="doc-page-index" className={`doc-sidebar${showPages ? ' is-open' : ''}`} aria-label="Document pages">
@@ -115,18 +123,16 @@ export default function DocWorkspace({ project, doc, pages, page: serverPage, ar
           style={{ paddingLeft: 10 + (query ? 0 : p.depth - 1) * 16, ...(p.hue ? { borderLeft: `1px solid color-mix(in srgb, var(--color-tab-${p.hue}) 65%, white)` } : {}) }}>
           {p.id === page?.id ? pageTitle : p.title}{p.nodeArchived && <small>Module archived</small>}</a>
           {canCreate && p.depth < 3 && <button type="button" className="doc-tree-add" aria-label={`Add subpage to ${p.title}`} disabled={editing} onClick={() => { setParentId(p.id); setTitle(''); setAdding(true); }}>+</button>}
-          {canCreate && <button type="button" className="doc-tree-delete" aria-label={`Delete page ${p.title}`} title={p.protected ? 'Unlock this page before deleting' : editing ? 'Finish editing before deleting' : 'Delete page'} disabled={editing || busy || p.protected} onClick={() => { setRemoving(p); setError(''); setAdding(false); }}><DocIcon name="trash" /></button>}
+          {canCreate && <button type="button" className="doc-tree-delete" aria-label={`Delete page ${p.title}`} title={p.protected ? 'Unlock this page before deleting' : editing ? 'Finish editing before deleting' : 'Delete page'} disabled={editing || busy || p.protected} onClick={() => { setRemoving(p); setError(''); setAdding(false); }}><TrashIcon /></button>}
         </div>)}</nav>
         {!visible.length && <p className="docs-muted">{query ? 'No matching pages.' : 'No pages yet.'}</p>}
-        {removing && <section className="doc-delete-confirm" role="group" aria-label="Confirm page deletion">
-          <strong>Delete “{removing.title}”?</strong>
-          <p>This moves the page to Archived pages, where you can restore it.</p>
-          {pages.some(p => p.parentId === removing.id) && <p>Delete its subpages first.</p>}
-          <div className="docs-actions"><button type="button" autoFocus disabled={busy} onClick={() => { setRemoving(null); setError(''); }}>Cancel</button><button type="button" className="doc-delete-action" disabled={busy || editing || pages.some(p => p.parentId === removing.id)} onClick={() => void removePage()}><DocIcon name="trash" />{busy ? 'Deleting…' : 'Delete page'}</button></div>
-        </section>}
+        {removing && <ConfirmDelete title="Delete page" name={removing.title}
+          blocked={pages.some(p => p.parentId === removing.id) ? 'This page has subpages. Delete them first.' : undefined}
+          note="The page moves to Deleted pages, where you can restore it."
+          onConfirm={removePage} onCancel={() => setRemoving(null)} />}
         {canCreate && <div className="doc-add-actions"><button type="button" disabled={editing || busy} onClick={() => void add(undefined, true)}><DocIcon name="plus" />{busy ? 'Adding…' : 'Add page'}</button><button type="button" disabled={editing || busy} aria-label="New page options" onClick={() => { setParentId(''); setTitle(''); setAdding(!adding); }} aria-expanded={adding}><DocIcon name="chevron" /></button></div>}
         {error && !adding && <p role="alert">{error}</p>}
-        {canCreate&&!!archivedPages.length&&<details className="doc-archived"><summary>Archived pages ({archivedPages.length})</summary>{archivedPages.map(p=><div key={p.id}><span>{p.title}</span><button disabled={busy||editing} onClick={async()=>{setBusy(true);setError('');try{const res=await fetch(`/api/docs/${doc.id}/pages`,{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({pageId:p.id})});const body=await res.json();if(!res.ok)throw new Error(body.message);window.location.assign(`${base}/${body.slug}`);}catch(e){setError(e instanceof Error?e.message:'Restore failed.');}finally{setBusy(false);}}}><DocIcon name="history" />Restore</button></div>)}</details>}
+        {canCreate&&!!archivedPages.length&&<details className="doc-archived"><summary>Deleted pages ({archivedPages.length})</summary>{archivedPages.map(p=><div key={p.id}><span>{p.title}</span><button disabled={busy||editing} onClick={async()=>{setBusy(true);setError('');try{const res=await fetch(`/api/docs/${doc.id}/pages`,{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({pageId:p.id})});const body=await res.json();if(!res.ok)throw new Error(body.message);hardNavigate(`${base}/${body.slug}`);}catch(e){setError(e instanceof Error?e.message:'Restore failed.');}finally{setBusy(false);}}}><DocIcon name="history" />Restore</button></div>)}</details>}
       </aside>
       <div ref={reading} className={`doc-reading font-${readingStyle.font} size-${readingStyle.size} focus-${readingStyle.focus??'none'}${readingStyle.wide ? ' is-wide' : ''}`}>
         {editing && <div ref={setEditActions} className="doc-edit-actions" role="group" aria-label="Editing actions" />}
@@ -146,6 +152,7 @@ export default function DocWorkspace({ project, doc, pages, page: serverPage, ar
           {error && <p role="alert">{error}</p>}<div className="docs-actions"><button className="docs-primary" disabled={busy}><DocIcon name="plus" />{busy ? 'Creating…' : 'Create page'}</button><button type="button" disabled={busy} onClick={() => setAdding(false)}><DocIcon name="close" />Cancel</button></div>
         </form>}
         {page ? <>
+          {/* eslint-disable-next-line @next/next/no-img-element -- a user-uploaded cover of unknown size; next/image needs both dimensions */}
           {page.settings?.cover && <img className="doc-cover" alt="Page cover" src={String(page.settings.cover)} />}
           <div className="doc-reading-tools"><div className="doc-breadcrumb"><a href={`${base}?doc=${doc.id}`}>{doc.title}</a>{crumbs.map((p) => <span key={p.id}> / <a href={`${base}/${p.slug}`}>{p.title}</a></span>)}</div></div>
           {page.settings?.icon && <div className="doc-page-icon">{String(page.settings.icon)}</div>}

@@ -46,7 +46,7 @@ test('only the install admin deletes people across projects, including without p
     await page.getByRole('searchbox', { name: 'Find a person' }).fill(fx.viewer.email);
     await expect(page.getByRole('button', { name: "Delete E2E's account", exact: true })).toHaveCount(1);
     await page.getByRole('row').filter({ hasText: fx.viewer.email }).getByRole('button', { name: "Delete E2E's account", exact: true }).click();
-    await page.getByRole('button', { name: 'Delete for good', exact: true }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Delete', exact: true }).click();
     await expect(page.getByText(fx.viewer.email, { exact: true })).toHaveCount(0);
     assert.equal((await fx.client.query('SELECT user_id FROM pmt_users WHERE user_id=$1', [fx.viewer.id])).rowCount, 0);
     assert.equal((await fx.client.query('SELECT member_user_id FROM pmt_project_members WHERE member_user_id=$1', [fx.viewer.id])).rowCount, 0);

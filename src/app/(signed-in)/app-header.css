@@ -1,0 +1,122 @@
+/*
+ * The shared page header (app-header.tsx) — the List's head, in the house
+ * style, on every signed-in page but the shelf and the pinned Calendar.
+ *
+ * Every rule is `header.head.app-head …` so it outranks the older per-surface
+ * `.list-surface .head`, `.docs-book .head` and `.book .head` overrides
+ * without depending on which stylesheet happens to load last.
+ */
+header.head.app-head {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 14px;
+  height: auto;
+  min-height: 80px;
+  padding: 14px 20px;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  background: var(--color-canvas);
+  border-bottom: 1px solid var(--color-hairline);
+  font-family: var(--type-body-family);
+}
+
+header.head.app-head a { text-decoration: none; }
+
+header.head.app-head .app-head-home,
+header.head.app-head .app-head-out {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-ink-secondary);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+}
+header.head.app-head .app-head-out { color: var(--color-ink-muted); }
+header.head.app-head .app-head-home:hover,
+header.head.app-head .app-head-out:hover { background: var(--color-paper); color: var(--color-ink); }
+header.head.app-head form { display: contents; }
+
+header.head.app-head .app-head-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+header.head.app-head .app-head-title .title-holder { flex: 1; min-width: 0; }
+header.head.app-head h1 {
+  margin: 0;
+  font-family: var(--type-body-family);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: normal;
+  overflow-wrap: anywhere;
+}
+
+/* bell.css gives the bell the auto margin for heads whose title does not
+   grow; here the title already takes the slack. */
+header.head.app-head .noti { margin-left: 0; flex-shrink: 0; }
+/* One size on every page: Docs and the Wiki enlarge their buttons, and the
+   bell must not grow with them. 32px, the height of everything beside it. */
+header.head.app-head .noti-bell { box-sizing: border-box; height: 32px; min-height: 32px; min-width: 32px; padding: 0 8px; justify-content: center; }
+
+header.head.app-head .app-head-views {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  margin: 0;
+}
+header.head.app-head .app-head-views a {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: var(--radius-sm);
+  color: var(--color-ink-secondary);
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+header.head.app-head .app-head-views a:hover { background: var(--color-paper); color: var(--color-ink); }
+header.head.app-head .app-head-views a[aria-current='page'] {
+  background: var(--color-primary-wash);
+  color: var(--color-primary-active);
+  font-weight: 600;
+}
+
+header.head.app-head :focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+
+/* Narrower: the views take a row of their own under the title. */
+@media (max-width: 1100px) {
+  header.head.app-head { flex-wrap: wrap; gap: 10px; }
+  header.head.app-head h1 { font-size: 20px; }
+  header.head.app-head .app-head-views {
+    order: 5;
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 2px;
+    padding-top: 8px;
+    border-top: 1px solid var(--color-hairline);
+  }
+}
+
+@media (max-width: 600px) {
+  header.head.app-head { padding: 12px 16px; gap: 6px; }
+  header.head.app-head h1 { font-size: 18px; }
+  header.head.app-head .app-head-home,
+  header.head.app-head .app-head-out { height: 44px; padding: 0 6px; font-size: 13px; }
+  header.head.app-head .app-head-views a { height: 40px; padding: 0 10px; }
+}
+
+@media print { header.head.app-head { display: none; } }

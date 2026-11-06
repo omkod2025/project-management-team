@@ -1,5 +1,5 @@
 import { listWikis, type WikiSummary } from '@/lib/wiki';
-import Bell from '../bell';
+import AppHeader, { wikiViews } from '../app-header';
 import { requireReader } from './load-workspace';
 import NewWikiDialog from './new-wiki-dialog';
 import '../p/[slug]/list.css';
@@ -40,16 +40,7 @@ export default async function WikiIndex() {
   const archived = wikis.filter((w) => w.archived);
 
   return <div className="book docs-book wiki-book"><main className="docs-main">
-    <header className="head">
-      <a href="/">Projects</a>
-      <span className="docs-project">Wiki</span>
-      <Bell />
-      <nav className="views" aria-label="Wiki menu">
-        <span aria-current="page">Wikis</span>
-        <a href="/wiki/tokens">Tokens / MCP</a>
-        <a href="/wiki/mermaid-guide">Mermaid guide</a>
-      </nav>
-    </header>
+    <AppHeader title="Wiki" navLabel="Wiki menu" views={wikiViews('Wikis')} />
     <div className="docs-content">
       <div className="docs-heading">
         <div><h1>Wiki</h1><p lang="th">คลังความรู้ — knowledge that belongs to no single project.</p></div>

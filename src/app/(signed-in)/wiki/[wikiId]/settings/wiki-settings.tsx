@@ -1,9 +1,11 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import DocIcon from '../../../p/[slug]/docs/doc-icon';
 import { problem, wikiCall } from '../../wiki-api';
+import ConfirmDelete, { TrashIcon } from '../../../confirm-delete';
 import DeleteWikiSection from './delete-wiki';
 
 type Wiki = { id: string; title: string; description: string; archived: boolean; ownerId: string | null; ownerName: string | null; publicToken: string | null };
@@ -56,6 +58,7 @@ function NameSection({ wiki, busy, run }: { wiki: Wiki; busy: boolean; run: Run 
 function MembersSection({ wiki, members, people, busy, run }: { wiki: Wiki; members: Member[]; people: Person[]; busy: boolean; run: Run }) {
   const [userId, setUserId] = useState('');
   const [access, setAccess] = useState<'read' | 'write'>('read');
+  const [leaving, setLeaving] = useState<Member | null>(null);
   const membersUrl = `/api/wikis/${wiki.id}/members`;
   const taken = new Set([...members.map((m) => m.userId), wiki.ownerId]);
   const choices = people.filter((p) => !taken.has(p.userId));
@@ -64,16 +67,21 @@ function MembersSection({ wiki, members, people, busy, run }: { wiki: Wiki; memb
     <p className="docs-muted">Owner: {wiki.ownerName ?? 'Former member'}. The owner always reads and writes, and is not listed here.</p>
     {members.length ? <div className="docs-table-wrap"><table className="docs-table wiki-members">
       <caption className="docs-sr-only">Members of {wiki.title}</caption>
-      <thead><tr><th scope="col">Person</th><th scope="col">Access</th><th scope="col"><span className="docs-sr-only">Remove</span></th></tr></thead>
+      <thead><tr><th scope="col">Person</th><th scope="col">Access</th><th scope="col"><span className="docs-sr-only">Delete</span></th></tr></thead>
       <tbody>{members.map((m) => <tr key={m.userId}>
         <th scope="row">{m.name}<span className="wiki-row-description">{m.email}</span></th>
         <td><select aria-label={`Access for ${m.name}`} value={m.access} disabled={busy}
           onChange={(e) => void run(() => wikiCall(membersUrl, 'PUT', { userId: m.userId, access: e.target.value }), 'Access changed.')}>
           <option value="read">Read</option><option value="write">Read and write</option>
         </select></td>
-        <td><button type="button" disabled={busy} onClick={() => void run(() => wikiCall(membersUrl, 'DELETE', { userId: m.userId }), 'Member removed.')}><DocIcon name="close" />Remove</button></td>
+        <td><button type="button" className="delete-control icon-only" aria-label={`Delete ${m.name}`} title="Delete member" disabled={busy} onClick={() => setLeaving(m)}><TrashIcon /></button></td>
       </tr>)}</tbody>
     </table></div> : <p>Nobody else can see this wiki yet.</p>}
+    {leaving && <ConfirmDelete title="Delete member" name={leaving.name}
+      note="Adding them again restores their access." onCancel={() => setLeaving(null)}
+      onConfirm={async () => { await run(() => wikiCall(membersUrl, 'DELETE', { userId: leaving.userId }), 'Member removed.'); setLeaving(null); }}>
+      <p>They can no longer see <strong>{wiki.title}</strong>.</p>
+    </ConfirmDelete>}
     <h3 id="wiki-member-add-head">Add a member</h3>
     <form className="wiki-settings-row" aria-labelledby="wiki-member-add-head" onSubmit={(e) => {
       e.preventDefault();
@@ -199,7 +207,7 @@ function AllowTokenSection({ wiki, tokens, busy, run }: { wiki: Wiki; tokens: My
         </label>)}
       </fieldset>
       <button type="submit" disabled={busy || !changed}><DocIcon name="save" />Save</button>
-    </form> : <p className="docs-muted">You have no active tokens. Make one on the <a href="/wiki/tokens">Tokens / MCP</a> page.</p>}
+    </form> : <p className="docs-muted">You have no active tokens. Make one on the <Link href="/wiki/tokens">Tokens / MCP</Link> page.</p>}
   </section>;
 }
 

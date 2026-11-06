@@ -31,7 +31,7 @@
   --cu-r-sheet: var(--radius-lg);
 
   min-height: 100vh;
-  padding: 24px 24px 64px;
+  padding: 0 24px 64px;
   background: var(--cu-ground);
   color: var(--cu-ink);
   font-family: var(--cu-font);
@@ -74,7 +74,9 @@
   font-size: 13px;
   line-height: 1.5;
 }
-.prof-out { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+/* The shared page header runs edge to edge above the sheet. */
+.prof > header.head.app-head { margin: 0 -24px 24px; }
+.prof-head .prof-sub { margin: 0; }
 
 /* Overrides of `.shelf-button` (globals.css), rendered by `sign-out` which
    this stylesheet does not own. Same treatment as the access board's. */
@@ -313,7 +315,8 @@
 }
 
 @media (max-width: 720px) {
-  .prof { padding: 12px 12px 40px; }
+  .prof { padding: 0 12px 40px; }
+  .prof > header.head.app-head { margin: 0 -12px 12px; }
   .prof-head { flex-wrap: wrap; padding: 18px 16px 14px; }
   .prof-id, .prof-block { padding-inline: 16px; }
   .prof-errata { margin-inline: 16px; }

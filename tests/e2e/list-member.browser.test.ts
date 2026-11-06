@@ -40,14 +40,14 @@ test('Members manage List modules and tasks, while Viewer and membership boundar
     await page.reload();
     await expect(page.locator(`#row-${moduleId} .name-text`)).toHaveText('Member module');
     await expect(page.locator(`#row-${taskId} .name-text`)).toHaveText('Member task');
-    await page.getByRole('button', { name: 'Archive Member task', exact: true }).click();
-    await page.getByRole('dialog', { name: 'Archive', exact: true }).getByRole('button', { name: 'Archive it', exact: true }).click();
+    await page.getByRole('button', { name: 'Delete Member task', exact: true }).click();
+    await page.getByRole('dialog', { name: 'Delete task', exact: true }).getByRole('button', { name: 'Delete', exact: true }).click();
     await expect(page.locator(`#row-${taskId}`)).toHaveCount(0);
     await page.getByRole('button', { name: 'Undo', exact: true }).click();
     await expect(page.locator(`#row-${taskId}`)).toBeVisible();
     await page.locator(`#row-${moduleId} td.nm`).click();
     await page.keyboard.press('Delete');
-    await page.getByRole('dialog', { name: 'Archive', exact: true }).getByRole('button', { name: 'Archive 2 tasks', exact: true }).click();
+    await page.getByRole('dialog', { name: 'Delete task', exact: true }).getByRole('button', { name: 'Delete', exact: true }).click();
     await expect(page.locator(`#row-${moduleId}`)).toHaveCount(0);
     const archived = await fx.client.query('SELECT node_archived_at FROM pmt_nodes WHERE node_id=ANY($1)', [[moduleId, taskId]]);
     assert.ok(archived.rows.every(r => r.node_archived_at));
@@ -61,7 +61,7 @@ test('Members manage List modules and tasks, while Viewer and membership boundar
     await fx.client.query("UPDATE pmt_project_members SET member_role='viewer' WHERE member_project_id=$1 AND member_user_id=$2", [fx.projectId, fx.viewer.id]);
     await page.reload();
     await expect(page.getByRole('button', { name: '+ Module', exact: true })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: /^Archive / })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^Delete / })).toHaveCount(0);
     await expect(page.getByRole('button', { name: /^Rename / })).toHaveCount(0);
     for (const id of [moduleId, taskId]) {
       assert.equal((await archiveNode(member, id)).status, 403);

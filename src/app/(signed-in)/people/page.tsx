@@ -1,7 +1,6 @@
 import { redirect } from 'next/navigation';
 import { currentUserId } from '@/auth';
 import { loadAccessBoard } from '@/lib/people';
-import SignOut from '../sign-out';
 import PeopleView from './people-view';
 
 /**
@@ -23,7 +22,6 @@ export default async function People() {
       actingUserId={userId}
       /* Rendered on the server and passed down: signing out is a server action
          and `people-view` is a client component, which cannot declare one. */
-      signOut={<SignOut className="label shelf-button" />}
     />
   );
 }

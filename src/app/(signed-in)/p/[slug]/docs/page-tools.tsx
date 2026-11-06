@@ -1,12 +1,14 @@
 "use client";
 import { MAX_UPLOAD_BYTES } from '@/lib/upload-limits';
 import DocIcon from "./doc-icon";
+import ConfirmDelete, { TrashIcon } from "../../../confirm-delete";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { publishedHref } from "@/lib/doc-publish-rules";
 import type { DocPage } from "@/lib/doc-rules";
 import { projectDocEndpoints } from "@/lib/doc-endpoints";
 import { exportPages, readImportFile } from "./doc-transfer";
+import { hardNavigate } from "@/lib/hard-navigate";
 type ToolsData = {
   comments: {
     id: string;
@@ -32,7 +34,6 @@ export default function PageTools({
   canCreate,
   canEdit,
   editing,
-  container,
 }: {
   page: DocPage;
   pages: DocPage[];
@@ -68,7 +69,7 @@ export default function PageTools({
     [resolved, setResolved] = useState(false),
     [templateTitle, setTemplateTitle] = useState("");
   const [scope, setScope] = useState("page"),
-    [confirmArchive, setConfirmArchive] = useState(false);
+    [confirmDelete, setConfirmDelete] = useState(false);
   const [settings, setSettings] = useState(page.settings ?? {});
   const [filter, setFilter] = useState("");
   const [parentId, setParentId] = useState(page.parentId ?? "");
@@ -77,15 +78,40 @@ export default function PageTools({
     [assignedOnly, setAssignedOnly] = useState(false);
   const importFile = useRef<HTMLInputElement>(null),
     coverFile = useRef<HTMLInputElement>(null);
-  useEffect(() => setSettings(page.settings ?? {}), [page.settings]);
+  // The page's saved settings win when they change: adjusted while rendering, not in an effect.
+  const [seenSettings, setSeenSettings] = useState(page.settings);
+  if (page.settings !== seenSettings) { setSeenSettings(page.settings); setSettings(page.settings ?? {}); }
   async function load() {
     const res = await fetch(`/api/doc-pages/${page.id}/tools`);
     if (!res.ok) throw new Error("Could not load page tools.");
     setData(await res.json());
   }
   useEffect(() => {
-    if (panel) void load().catch((e) => setError(e.message));
+    if (!panel) return;
+    let live = true;
+    fetch(`/api/doc-pages/${page.id}/tools`)
+      .then(async (res) => {
+        if (!res.ok) throw new Error("Could not load page tools.");
+        const loaded = await res.json();
+        if (live) setData(loaded);
+      })
+      .catch((e: Error) => { if (live) setError(e.message); });
+    return () => { live = false; };
   }, [panel, page.id]);
+  /** Deleting archives the page; the dialog shows a refusal in place. */
+  async function deletePage() {
+    let res: Response;
+    try {
+      res = await fetch(`/api/doc-pages/${page.id}/tools`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "archive", updatedAt: page.updatedAt }),
+      });
+    } catch { throw new Error("No connection. The page was not deleted."); }
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.message ?? "The page was not deleted.");
+    hardNavigate(`${base}?doc=${page.docId}`);
+  }
   async function action(body: Record<string, unknown>) {
     if (busy) return;
     setBusy(true);
@@ -100,11 +126,11 @@ export default function PageTools({
       const result = await res.json();
       if (!res.ok) throw new Error(result.message ?? "Action failed.");
       if (result.slug) {
-        window.location.assign(`${base}/${result.slug}`);
+        hardNavigate(`${base}/${result.slug}`);
         return;
       }
       if (result.archived) {
-        window.location.assign(`${base}?doc=${page.docId}`);
+        hardNavigate(`${base}?doc=${page.docId}`);
         return;
       }
       setNotice("Saved");
@@ -729,27 +755,20 @@ export default function PageTools({
                     {page.protected ? "Unprotect page" : "Protect page"}
                   </button>
                   <button
+                    className="delete-control"
                     disabled={locked || page.protected}
-                    onClick={() => setConfirmArchive(!confirmArchive)}
-                  ><DocIcon name="archive" />
-                    Archive page…
+                    onClick={() => setConfirmDelete(true)}
+                  ><TrashIcon />
+                    Delete page…
                   </button>
-                  {confirmArchive && (
-                    <>
-                      <p>
-                        Archive “{page.title}”? Content is retained. Subpages
-                        must be archived first.
-                      </p>
-                      <button
-                        disabled={locked}
-                        onClick={() => void action({ action: "archive" })}
-                      ><DocIcon name="archive" />
-                        Confirm archive
-                      </button>
-                      <button onClick={() => setConfirmArchive(false)}><DocIcon name="close" />
-                        Cancel
-                      </button>
-                    </>
+                  {confirmDelete && (
+                    <ConfirmDelete
+                      title="Delete page"
+                      name={page.title}
+                      note="Content is kept: the page moves to Deleted pages, where you can restore it. Subpages must be deleted first."
+                      onConfirm={deletePage}
+                      onCancel={() => setConfirmDelete(false)}
+                    />
                   )}
                 </>
               )}
@@ -873,7 +892,7 @@ export default function PageTools({
           )}
           {panel === "Page actions" && canCreate && !!data.archived.length && (
             <>
-              <h3>Archived pages</h3>
+              <h3>Deleted pages</h3>
               {data.archived.map((p) => (
                 <div className="doc-comment" key={p.id}>
                   <span>{p.title}</span>

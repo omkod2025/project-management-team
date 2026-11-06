@@ -4,7 +4,7 @@ import { useState } from 'react';
 import type { Profile } from '@/lib/admin';
 import type { Role } from '@/lib/admin-rules';
 import './profile.css';
-import Bell from '../bell';
+import AppHeader, { crossViews } from '../app-header';
 
 /**
  * Your own account, in three blocks: who you are, how you sign in, and what you
@@ -46,9 +46,9 @@ function monogram(name: string, email: string): string {
   return THAI.test(marks) ? marks : marks.toUpperCase();
 }
 
-type Props = { profile: Profile; signOut: React.ReactNode };
+type Props = { profile: Profile };
 
-export default function ProfileView({ profile, signOut }: Props) {
+export default function ProfileView({ profile }: Props) {
   /** What the server holds. `draft` is what the field shows. */
   const [name, setName] = useState(profile.name);
   const [draft, setDraft] = useState(profile.name);
@@ -90,22 +90,15 @@ export default function ProfileView({ profile, signOut }: Props) {
 
   return (
     <main className="prof">
+      <AppHeader title="Your profile" navLabel="Places" views={crossViews(null)} />
       <div className="prof-sheet">
-        <header className="prof-head">
-          <div>
-            <h1>Your profile</h1>
-            <p className="prof-sub">
-              The name everybody else reads you by, and the password you sign in
-              with. Your access is listed below — it is held per project, and
-              granted there.
-            </p>
-          </div>
-          <div className="prof-out">
-            <Bell />
-            <a className="shelf-link" href="/">‹ Home</a>
-            {signOut}
-          </div>
-        </header>
+        <div className="prof-head">
+          <p className="prof-sub">
+            The name everybody else reads you by, and the password you sign in
+            with. Your access is listed below — it is held per project, and
+            granted there.
+          </p>
+        </div>
 
         <div className="prof-id">
           <span className="prof-mark" aria-hidden="true">{monogram(name, profile.email)}</span>

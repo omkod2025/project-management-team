@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import DocContent from '../../../p/[slug]/docs/doc-content';
-import Bell from '../../../bell';
+import AppHeader, { wikiViews } from '../../../app-header';
 import { requireReader } from '../../load-workspace';
 import { requestOrigin } from '../request-origin';
 import '../../../p/[slug]/list.css';
@@ -28,17 +28,7 @@ export default async function WikiGuidePage() {
   const [markdown, origin] = await Promise.all([readFile(/* turbopackIgnore: true */ guidePath(), 'utf8'), requestOrigin()]);
 
   return <div className="book docs-book wiki-book"><main className="docs-main">
-    <header className="head">
-      <a href="/">Projects</a>
-      <span className="docs-project">Wiki</span>
-      <Bell />
-      <nav className="views" aria-label="Wiki menu">
-        <a href="/wiki">Wikis</a>
-        <a href="/wiki/tokens">Tokens / MCP</a>
-        <span aria-current="page">How to connect</span>
-        <a href="/wiki/mermaid-guide">Mermaid guide</a>
-      </nav>
-    </header>
+    <AppHeader title="Wiki" navLabel="Wiki menu" views={wikiViews('Tokens / MCP')} />
     <div className="docs-content">
       <article className="doc-prose wiki-guide">
         <DocContent value={markdown.replaceAll('<origin>', origin)} />

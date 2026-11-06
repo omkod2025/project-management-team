@@ -1141,6 +1141,9 @@ td.failed { box-shadow: inset 0 0 0 2px var(--color-vermilion); }
   stroke-linejoin: round;
 }
 .rowact:hover { background: var(--cu-chip); color: var(--cu-ink); }
+/* Delete is a red bin — danger red, never vermilion. */
+.rowact.delete { color: var(--color-danger); }
+.rowact.delete:hover { background: var(--color-danger-wash); color: var(--color-danger-active); }
 .rowact:focus-visible { outline: 2px solid var(--brand); outline-offset: 0; }
 
 .rowacts { visibility: hidden; }
@@ -1170,56 +1173,7 @@ tr[aria-selected='true'] .rowacts,
 .undo button:hover { background: var(--cu-hover); }
 .undo .dismiss { margin-left: auto; border: 0; background: none; font-size: 15px; }
 
-/* ---- the archive dialog ---- */
-
-.sheetover {
-  position: fixed;
-  inset: 0;
-  z-index: 40;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgb(0 0 0 / 30%);
-}
-
-.overleaf {
-  width: 440px;
-  max-width: calc(100vw - 40px);
-  padding: 22px 24px 18px;
-  background: var(--color-canvas);
-  border: 0;
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-2);
-}
-
-.overleaf h2 {
-  margin: 0 0 10px;
-  padding-bottom: 10px;
-  color: var(--cu-ink);
-  font-size: 17px;
-  font-weight: 600;
-  border-bottom: 1px solid var(--cu-line);
-  box-shadow: none;
-}
-
-.overleaf-name {
-  margin: 12px 0 10px;
-  font-family: var(--list-font);
-  font-size: 15px;
-  font-weight: 600;
-  word-break: break-word;
-}
-
-.overleaf-body { margin: 0 0 10px; font-size: 14px; }
-.overleaf-body .figure { font-size: 14px; font-variant-numeric: tabular-nums; }
-
-.overleaf-note {
-  margin: 0;
-  padding-top: 10px;
-  border-top: 1px solid var(--cu-line-soft);
-  color: var(--cu-ink-soft);
-  font-size: 13px;
-}
+/* ---- dialog actions (the long-text editor) ---- */
 
 .overleaf-actions {
   display: flex;

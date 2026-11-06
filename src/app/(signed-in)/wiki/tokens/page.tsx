@@ -1,7 +1,7 @@
 import { listWikis, wikiViewer } from '@/lib/wiki';
 import { isInstallAdmin } from '@/lib/wiki-rules';
 import { listAllTokens, listMyTokens } from '@/lib/wiki-tokens';
-import Bell from '../../bell';
+import AppHeader, { wikiViews } from '../../app-header';
 import { requireReader } from '../load-workspace';
 import { requestOrigin } from './request-origin';
 import TokensView, { GuideLink } from './tokens-view';
@@ -22,16 +22,7 @@ export default async function WikiTokensPage() {
   const all = isInstallAdmin(viewer) ? await listAllTokens(userId) : null;
 
   return <div className="book docs-book wiki-book"><main className="docs-main">
-    <header className="head">
-      <a href="/">Projects</a>
-      <span className="docs-project">Wiki</span>
-      <Bell />
-      <nav className="views" aria-label="Wiki menu">
-        <a href="/wiki">Wikis</a>
-        <span aria-current="page">Tokens / MCP</span>
-        <a href="/wiki/mermaid-guide">Mermaid guide</a>
-      </nav>
-    </header>
+    <AppHeader title="Wiki" navLabel="Wiki menu" views={wikiViews('Tokens / MCP')} />
     <div className="docs-content">
       <div className="docs-heading">
         <div><h1>Tokens / MCP</h1><p>Let an AI assistant read the wikis you choose, as you, through MCP.</p></div>

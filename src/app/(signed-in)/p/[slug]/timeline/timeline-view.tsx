@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { LedgerRow } from '@/db/schema';
 import type { FieldDef, Person } from '@/lib/ledger';
-import { loadSet, saveSet, loadRecord, saveRecord, selectedFromUrl, writeSelectedToUrl, siblingHref } from '../view-state';
+import { loadSet, saveSet, loadRecord, saveRecord, selectedFromUrl, writeSelectedToUrl } from '../view-state';
 import { SORTS, DEFAULT_SORT, orderRows, type SortKey } from './sort';
 import {
   filterColumnsFrom, rowMatches, liveTerms, type FilterTerm,
@@ -12,7 +12,8 @@ import FilterMenu from '../filter-menu';
 import ProjectTitle from '../project-title';
 import '../list.css';
 import './timeline.css';
-import Bell from '../../../bell';
+import AppHeader from '../../../app-header';
+import { projectViews } from '../project-views';
 
 /**
  * The Timeline (spec 04).
@@ -79,9 +80,11 @@ export default function TimelineView({
   // write is worse than a missing feature (spec 04 §10).
   const [wideEnough, setWideEnough] = useState(true);
   const scrollerRef = useRef<HTMLDivElement>(null);
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const carried = selectedFromUrl();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- restoring from localStorage, which the server render cannot read
     if (carried) setSelected(carried);
     setCollapsed(loadSet(slug, 'collapsed'));
 
@@ -108,7 +111,8 @@ export default function TimelineView({
 
   const dayW = DAY_W[zoom];
   const holidaySet = useMemo(() => new Set(holidays), [holidays]);
-  const today = useMemo(() => toIso(new Date(Date.now() + 7 * 3600 * 1000)), []);
+  // Today in Bangkok, read once: a render must not ask the clock.
+  const [today] = useState(() => toIso(new Date(Date.now() + 7 * 3600 * 1000)));
 
   /* ------------------------------------------------------------- window */
 
@@ -193,7 +197,6 @@ export default function TimelineView({
   }, [live]);
 
   const root = live.find((r) => r.led_depth === 1) ?? null;
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   useEffect(() => { if (ready) saveSet(slug, 'collapsed', collapsed); }, [ready, slug, collapsed]);
   useEffect(() => {
@@ -436,26 +439,11 @@ export default function TimelineView({
   return (
     <div className="book">
       <div className="sheet">
-        <header className="head">
-          {/* Up a level, to the shelf. Deliberately not in the view nav
-              beside List / Timeline / Report: those are views *of this
-              project* and this is the way out of it — filing a level change
-              among sibling views because the two sit near each other is the
-              grouping-by-adjacency this page has been unpicking. */}
-          <a className="shelf label" href="/">‹ Home</a>
-          <ProjectTitle projectId={projectId} name={projectName} canRename={isAdmin} />
-          {/* The bell stands immediately before the view nav, so notice and
-              navigation sit together in the one cluster this header already
-              uses for "where do I go from here" (spec 11 §6). */}
-          <Bell />
-          <div className="views label">
-            <a href={siblingHref(`/p/${slug}`, selected)}>List</a>
-            <span style={{ color: 'var(--color-hairline)' }}>·</span>
-            <span aria-current="page">Timeline</span>
-            <a href={siblingHref(`/p/${slug}/calendar`, selected)}>Calendar</a>
-            <a href={`/p/${slug}/docs`}>Docs</a>
-          </div>
-        </header>
+        <AppHeader
+          title={<ProjectTitle projectId={projectId} name={projectName} canRename={isAdmin} />}
+          navLabel="Project views"
+          views={projectViews(slug, 'Timeline', { canSettings: isAdmin, selected })}
+        />
 
         <div className="toolbar label">
           {/* The field is a year either side of today — about 19,000px at day
