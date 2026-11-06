@@ -74,38 +74,41 @@ export default function LazyTableRow({ id, columns, estimatedHeight, pinned, chi
   children: () => ReactElement<ComponentPropsWithRef<'tr'>>;
 }) {
   const watch = useContext(RowVisibility);
-  const row = useRef<HTMLTableRowElement>(null);
-  const height = useRef(estimatedHeight);
+  // The row element is state, not a ref: it is handed through cloneElement
+  // during render, and effects re-run when the node itself changes.
+  const [row, setRow] = useState<HTMLTableRowElement | null>(null);
+  // The last measured height, which an offscreen placeholder holds.
+  const [height, setHeight] = useState(estimatedHeight);
   const [nearby, setNearby] = useState(false);
   const [hasFocus, setHasFocus] = useState(false);
   const active = nearby || pinned || hasFocus;
   useEffect(() => {
-    if (!row.current || !watch) return;
-    return watch(row.current, setNearby);
-  }, [watch]);
+    if (!row || !watch) return;
+    return watch(row, setNearby);
+  }, [watch, row]);
   useEffect(() => {
-    if (!active || !row.current) return;
-    const element = row.current;
+    if (!active || !row) return;
+    const element = row;
     const measure = () => {
       // Editors can temporarily make a row much taller. Keep the resting
       // height so closing an offscreen editor does not leave a large gap.
       if (element.querySelector('td.editing')) return;
-      height.current = element.getBoundingClientRect().height || estimatedHeight;
+      setHeight(element.getBoundingClientRect().height || estimatedHeight);
     };
-    measure();
+    // The observer reports the first size as soon as it starts watching.
     if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(measure);
     observer.observe(element);
     return () => observer.disconnect();
-  }, [active, estimatedHeight]);
+  }, [active, estimatedHeight, row]);
   // The factory avoids constructing every Cell element for offscreen rows.
   const content = useMemo(() => active ? children() : null, [active, children]);
-  if (!content) return <tr key="row" ref={row} id={id} className="lazy-row-placeholder" aria-hidden="true" data-row-mounted="false">
-    <td colSpan={columns} style={{ height: height.current }} />
+  if (!content) return <tr key="row" ref={setRow} id={id} className="lazy-row-placeholder" aria-hidden="true" data-row-mounted="false">
+    <td colSpan={columns} style={{ height }} />
   </tr>;
   return cloneElement(content, {
     key: 'row',
-    ref: row,
+    ref: setRow,
     'data-row-mounted': 'true',
     onFocusCapture: () => setHasFocus(true),
     onBlurCapture: event => setHasFocus(event.currentTarget.contains(event.relatedTarget as Node | null)),

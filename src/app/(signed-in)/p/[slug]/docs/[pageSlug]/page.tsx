@@ -11,17 +11,18 @@ export default async function DocumentPage({ params, searchParams }: { params: P
   const userId = await currentUserId();
   if (!userId) redirect('/sign-in');
   const { slug, pageSlug } = await params;
+  let data: Awaited<ReturnType<typeof loadPageBySlug>>;
   try {
-    const data = await loadPageBySlug(userId, slug, pageSlug);
-    return <DocWorkspace {...data} initialEditing={(await searchParams).edit === '1'} canCreate={can(data.role, 'doc.create')} canEdit={can(data.role, 'doc.edit')}>
-      {pageSections(data.page.template).map(([key, label]) => <section key={key} className="doc-section">
-        {data.page.template === 'module' && <h2>{label}</h2>}
-        {data.page.content[key] ? <DocContent value={data.page.content[key]} />
-          : <p className="docs-muted">Nothing written yet.</p>}
-      </section>)}
-    </DocWorkspace>;
+    data = await loadPageBySlug(userId, slug, pageSlug);
   } catch (err) {
     if (err instanceof DomainError && err.code === 'E_NOT_FOUND') notFound();
     throw err;
   }
+  return <DocWorkspace {...data} initialEditing={(await searchParams).edit === '1'} canCreate={can(data.role, 'doc.create')} canEdit={can(data.role, 'doc.edit')}>
+    {pageSections(data.page.template).map(([key, label]) => <section key={key} className="doc-section">
+      {data.page.template === 'module' && <h2>{label}</h2>}
+      {data.page.content[key] ? <DocContent value={data.page.content[key]} />
+        : <p className="docs-muted">Nothing written yet.</p>}
+    </section>)}
+  </DocWorkspace>;
 }

@@ -13,27 +13,27 @@ try {
   const report = [];
   if (process.argv.includes('--apply')) {
     if (modules.length !== 1) throw new Error('Expected one unambiguous Defect module.');
-    const module = modules[0];
+    const defectModule = modules[0];
     await client.query('BEGIN');
     try {
-      await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,571))', [module.project_id]);
-      await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,572))', [module.project_id]);
+      await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,571))', [defectModule.project_id]);
+      await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,572))', [defectModule.project_id]);
       const nodes = (await client.query(`WITH RECURSIVE tree AS (
         SELECT node_id FROM pmt_nodes WHERE node_id=$1
         UNION ALL SELECT n.node_id FROM pmt_nodes n JOIN tree t ON n.node_parent_id=t.node_id
       ) SELECT n.* FROM pmt_nodes n JOIN tree t USING(node_id)
-        ORDER BY node_depth,node_sort_order,node_id FOR SHARE OF n`, [module.node_id])).rows;
+        ORDER BY node_depth,node_sort_order,node_id FOR SHARE OF n`, [defectModule.node_id])).rows;
       const sourceSnapshot = JSON.stringify(nodes);
-      const target = (await client.query('SELECT * FROM pmt_defect_nodes WHERE node_project_id=$1 FOR UPDATE', [module.project_id])).rows;
+      const target = (await client.query('SELECT * FROM pmt_defect_nodes WHERE node_project_id=$1 FOR UPDATE', [defectModule.project_id])).rows;
       const root = target.find(n=>n.node_depth===1 && !n.node_archived_at);
       if (!root) throw new Error('Open the Defect tab to initialize its root before copying.');
       if (target.some(n=>nodes.some(s=>n.node_custom_values._copied_from_task_id===s.node_id))) {
         throw new Error('This module has already been copied; refusing duplicate copies.');
       }
-      const fields = (await client.query('SELECT * FROM pmt_field_definitions WHERE field_project_id=$1 FOR SHARE', [module.project_id])).rows;
-      const targetFields = (await client.query('SELECT * FROM pmt_defect_field_definitions WHERE field_project_id=$1 FOR SHARE', [module.project_id])).rows;
-      const options = (await client.query('SELECT o.* FROM pmt_field_options o JOIN pmt_field_definitions f ON f.field_id=o.option_field_id WHERE f.field_project_id=$1 FOR SHARE OF o', [module.project_id])).rows;
-      const targetOptions = (await client.query('SELECT o.* FROM pmt_defect_field_options o JOIN pmt_defect_field_definitions f ON f.field_id=o.option_field_id WHERE f.field_project_id=$1 FOR SHARE OF o', [module.project_id])).rows;
+      const fields = (await client.query('SELECT * FROM pmt_field_definitions WHERE field_project_id=$1 FOR SHARE', [defectModule.project_id])).rows;
+      const targetFields = (await client.query('SELECT * FROM pmt_defect_field_definitions WHERE field_project_id=$1 FOR SHARE', [defectModule.project_id])).rows;
+      const options = (await client.query('SELECT o.* FROM pmt_field_options o JOIN pmt_field_definitions f ON f.field_id=o.option_field_id WHERE f.field_project_id=$1 FOR SHARE OF o', [defectModule.project_id])).rows;
+      const targetOptions = (await client.query('SELECT o.* FROM pmt_defect_field_options o JOIN pmt_defect_field_definitions f ON f.field_id=o.option_field_id WHERE f.field_project_id=$1 FOR SHARE OF o', [defectModule.project_id])).rows;
       const fieldMap = new Map();
       const optionMap = new Map();
       for (const field of fields) {
@@ -63,12 +63,12 @@ try {
         'node_actual_start_raw','node_actual_end_raw','node_actual_source_start','node_actual_source_end',
         'node_custom_values','node_archived_at','node_created_by'];
       const copies = nodes.map(source=>({ ...source, node_id:nodeMap.get(source.node_id),
-        node_parent_id:source.node_id===module.node_id ? root.node_id : nodeMap.get(source.node_parent_id),
-        node_sort_order:source.node_id===module.node_id ? Math.max(-1,...target.filter(n=>n.node_depth===2).map(n=>n.node_sort_order))+1 : source.node_sort_order,
+        node_parent_id:source.node_id===defectModule.node_id ? root.node_id : nodeMap.get(source.node_parent_id),
+        node_sort_order:source.node_id===defectModule.node_id ? Math.max(-1,...target.filter(n=>n.node_depth===2).map(n=>n.node_sort_order))+1 : source.node_sort_order,
         node_custom_values:remapValues(source) }));
       const snapshotFile = `data/defect-copy-${Date.now()}.json`;
       mkdirSync('data',{recursive:true});
-      writeFileSync(snapshotFile,JSON.stringify({module,source:nodes,targetBefore:target,mapping:Object.fromEntries(nodeMap)},null,2));
+      writeFileSync(snapshotFile,JSON.stringify({module:defectModule,source:nodes,targetBefore:target,mapping:Object.fromEntries(nodeMap)},null,2));
       for (const copy of copies) {
         if (!copy.node_parent_id) throw new Error(`Missing copied parent for ${copy.node_name}`);
         await client.query(`INSERT INTO pmt_defect_nodes (${columns.join(',')}) VALUES (${columns.map((_,i)=>`$${i+1}`).join(',')})`,columns.map(c=>c==='node_custom_values'?JSON.stringify(copy[c]):copy[c]));
@@ -88,19 +88,19 @@ try {
       const unchanged = (await client.query('SELECT * FROM pmt_nodes WHERE node_id=ANY($1::uuid[]) ORDER BY node_depth,node_sort_order,node_id',[nodes.map(n=>n.node_id)])).rows;
       if (JSON.stringify(unchanged)!==sourceSnapshot) throw new Error('Source changed during copy.');
       await client.query('COMMIT');
-      console.log(JSON.stringify({project:module.project_name,url:`http://localhost:3010/p/${module.project_slug}/defects`,copiedModule:module.node_name,tasks:copies.length-1,activeTasks:copies.filter(n=>n.node_depth>2&&!n.node_archived_at).length,archivedTasks:copies.filter(n=>n.node_archived_at).length,sourceUnchanged:true,snapshotFile},null,2));
+      console.log(JSON.stringify({project:defectModule.project_name,url:`http://localhost:3010/p/${defectModule.project_slug}/defects`,copiedModule:defectModule.node_name,tasks:copies.length-1,activeTasks:copies.filter(n=>n.node_depth>2&&!n.node_archived_at).length,archivedTasks:copies.filter(n=>n.node_archived_at).length,sourceUnchanged:true,snapshotFile},null,2));
     } catch (error) { await client.query('ROLLBACK'); throw error; }
     process.exitCode=0;
   } else {
-  for (const module of modules) {
+  for (const defectModule of modules) {
     const nodes = (await client.query(`WITH RECURSIVE tree AS (
       SELECT * FROM pmt_nodes WHERE node_id=$1
       UNION ALL SELECT n.* FROM pmt_nodes n JOIN tree t ON n.node_parent_id=t.node_id
-    ) SELECT * FROM tree ORDER BY node_depth,node_sort_order,node_id`, [module.node_id])).rows;
-    const fields = (await client.query('SELECT * FROM pmt_field_definitions WHERE field_project_id=$1 ORDER BY field_position', [module.project_id])).rows;
-    const targetFields = (await client.query('SELECT * FROM pmt_defect_field_definitions WHERE field_project_id=$1 ORDER BY field_position', [module.project_id])).rows;
-    const target = (await client.query('SELECT node_id,node_name,node_depth,node_custom_values FROM pmt_defect_nodes WHERE node_project_id=$1 ORDER BY node_depth,node_sort_order', [module.project_id])).rows;
-    report.push({ ...module, count: nodes.length - 1, archived: nodes.filter(n=>n.node_archived_at).length,
+    ) SELECT * FROM tree ORDER BY node_depth,node_sort_order,node_id`, [defectModule.node_id])).rows;
+    const fields = (await client.query('SELECT * FROM pmt_field_definitions WHERE field_project_id=$1 ORDER BY field_position', [defectModule.project_id])).rows;
+    const targetFields = (await client.query('SELECT * FROM pmt_defect_field_definitions WHERE field_project_id=$1 ORDER BY field_position', [defectModule.project_id])).rows;
+    const target = (await client.query('SELECT node_id,node_name,node_depth,node_custom_values FROM pmt_defect_nodes WHERE node_project_id=$1 ORDER BY node_depth,node_sort_order', [defectModule.project_id])).rows;
+    report.push({ ...defectModule, count: nodes.length - 1, archived: nodes.filter(n=>n.node_archived_at).length,
       fields: fields.map(f=>({id:f.field_id,name:f.field_name,kind:f.field_kind})),
       targetFields: targetFields.map(f=>({id:f.field_id,name:f.field_name,kind:f.field_kind})), target,
       valueKeys: [...new Set(nodes.flatMap(n=>Object.keys(n.node_custom_values)))],

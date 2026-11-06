@@ -14,7 +14,7 @@ test('Defect lifecycle, settings, permissions and Task isolation', async t => {
     return { status: res.status, body: await res.json() };
   };
   const base = `defects/projects/${fx.projectId}`;
-  let root = '', module = '', defect = '', sub = '', other = '', status = '', done = '';
+  let root = '', moduleId = '', defect = '', sub = '', other = '', status = '', done = '';
   const taskBefore = (await fx.client.query('SELECT * FROM pmf_project_ledger($1)', [fx.projectId])).rows;
   try {
     await fx.client.query('UPDATE pmt_projects SET project_column_order = $2 WHERE project_id = $1', [fx.projectId, JSON.stringify([fx.budgetFieldId, fx.statusFieldId, 'estimate'])]);
@@ -47,9 +47,9 @@ test('Defect lifecycle, settings, permissions and Task isolation', async t => {
         assert.equal(res.status, 200, JSON.stringify(res.body));
         return res.body.led_node_id as string;
       };
-      module = await create(root, 'Defect module');
+      moduleId = await create(root, 'Defect module');
       other = await create(root, 'Other defect module');
-      defect = await create(module, 'Broken login');
+      defect = await create(moduleId, 'Broken login');
       sub = await create(defect, 'Nested defect');
       assert.equal((await fx.client.query('SELECT * FROM pmt_nodes WHERE node_id=$1', [defect])).rowCount, 0);
       assert.equal((await request(`nodes/${defect}`)).status, 404);
@@ -58,7 +58,7 @@ test('Defect lifecycle, settings, permissions and Task isolation', async t => {
     });
     await t.test('viewer reads but cannot create, edit, archive or configure', async () => {
       assert.equal((await request(`${base}/ledger`, 'GET', undefined, viewer)).status, 200);
-      assert.equal((await request('defects/nodes', 'POST', { parentId: module, name: 'Denied' }, viewer)).status, 403);
+      assert.equal((await request('defects/nodes', 'POST', { parentId: moduleId, name: 'Denied' }, viewer)).status, 403);
       assert.equal((await request(`defects/nodes/${defect}`, 'PATCH', {}, viewer)).status, 403);
       assert.equal((await request(`defects/nodes/${defect}`, 'DELETE', undefined, viewer)).status, 403);
       assert.equal((await request(`${base}/fields`, 'POST', { name: 'Denied', kind: 'text' }, viewer)).status, 403);

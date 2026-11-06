@@ -22,6 +22,8 @@ const INSTALL_EMAIL = 'admin@cit.com';
 
 let fx: Fixture;
 type U = { id: string; email: string; password: string };
+/** A row of an API listing — the tests read whichever field they assert on. */
+type Row = { id: string; wikis: { id: string }[]; [field: string]: unknown };
 let owner: U, writer: U, reader: U, stranger: U, removed: U, doomed: U;
 let ownerJar: Jar, writerJar: Jar, readerJar: Jar, strangerJar: Jar, removedJar: Jar, doomedJar: Jar;
 let projectAdminJar: Jar;
@@ -99,7 +101,7 @@ async function call(jar: Jar | null, method: string, path: string, body?: unknow
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
-  return { status: res.status, body: (await res.json().catch(() => null)) as any };
+  return { status: res.status, body: await res.json().catch(() => null) };
 }
 
 async function create(jar: Jar, title: string, description = '') {
@@ -120,7 +122,7 @@ describe('creating and seeing a wiki', () => {
 
     const list = await call(ownerJar, 'GET', '/api/wikis');
     assert.equal(list.status, 200);
-    const mine = (list.body as any[]).find((x) => x.id === wikiId);
+    const mine = (list.body as Row[]).find((x) => x.id === wikiId);
     assert.ok(mine, 'owner sees the wiki in the list');
     assert.equal(mine.description, 'สิ่งที่ทุกคนควรรู้');
     assert.equal(mine.ownerId, owner.id);
@@ -131,7 +133,7 @@ describe('creating and seeing a wiki', () => {
   test('a stranger neither lists it nor can read it', async () => {
     const list = await call(strangerJar, 'GET', '/api/wikis');
     assert.equal(list.status, 200);
-    assert.ok(!(list.body as any[]).some((x) => x.id === wikiId));
+    assert.ok(!(list.body as Row[]).some((x) => x.id === wikiId));
     assert.equal((await call(strangerJar, 'GET', `/api/wikis/${wikiId}`)).status, 404);
     assert.equal((await call(strangerJar, 'GET', `/api/wikis/${wikiId}/members`)).status, 404);
   });
@@ -151,7 +153,7 @@ describe('the role table', () => {
     assert.equal((await call(ownerJar, 'PUT', `/api/wikis/${wikiId}/members`, { userId: reader.id, access: 'read' })).status, 200);
     const members = await call(readerJar, 'GET', `/api/wikis/${wikiId}/members`);
     assert.equal(members.status, 200);
-    const byId = new Map((members.body as any[]).map((m) => [m.userId, m.access]));
+    const byId = new Map((members.body as Row[]).map((m) => [m.userId, m.access]));
     assert.equal(byId.get(writer.id), 'write');
     assert.equal(byId.get(reader.id), 'read');
   });
@@ -192,7 +194,7 @@ describe('the role table', () => {
   test('the install admin sees, renames and manages members', async (t) => {
     if (!installJar) return t.skip(SKIP_INSTALL);
     const list = await call(installJar, 'GET', '/api/wikis');
-    assert.ok((list.body as any[]).some((x) => x.id === wikiId));
+    assert.ok((list.body as Row[]).some((x) => x.id === wikiId));
     const r = await call(installJar, 'PATCH', `/api/wikis/${wikiId}`, { action: 'rename', title: 'คู่มือทีม (install)' });
     assert.equal(r.status, 200);
     assert.equal(r.body.role, 'install');
@@ -230,7 +232,7 @@ describe('removing a member', () => {
     assert.equal((await call(ownerJar, 'DELETE', `/api/wikis/${wikiId}/members`, { userId: removed.id })).status, 200);
     assert.equal((await call(removedJar, 'GET', `/api/wikis/${wikiId}`)).status, 404);
     const list = await call(removedJar, 'GET', '/api/wikis');
-    assert.ok(!(list.body as any[]).some((x) => x.id === wikiId));
+    assert.ok(!(list.body as Row[]).some((x) => x.id === wikiId));
   });
 });
 
@@ -244,7 +246,7 @@ describe('transferring ownership', () => {
     assert.equal(t.body.ownerId, writer.id);
 
     const members = await call(writerJar, 'GET', `/api/wikis/${w.id}/members`);
-    const byId = new Map((members.body as any[]).map((m) => [m.userId, m.access]));
+    const byId = new Map((members.body as Row[]).map((m) => [m.userId, m.access]));
     assert.equal(byId.get(owner.id), 'write');
     assert.equal(byId.has(writer.id), false, 'the new owner has no member row');
 
@@ -550,7 +552,7 @@ describe('search', () => {
   test('a term finds a page whose body contains it', async () => {
     const res = await search(readerJar, 'ปลั๊ก', sw);
     assert.equal(res.status, 200, JSON.stringify(res.body));
-    const ids = (res.body as any[]).map((r) => r.pageId);
+    const ids = (res.body as Row[]).map((r) => r.pageId);
     assert.ok(ids.includes(plugIron.id), 'finds เปลี่ยนปลั๊กไฟ');
     assert.ok(ids.includes(plugOnly.id));
   });
@@ -558,7 +560,7 @@ describe('search', () => {
   test('two terms are combined with AND', async () => {
     const res = await search(readerJar, 'ปลั๊ก ไฟ', sw);
     assert.equal(res.status, 200, JSON.stringify(res.body));
-    const ids = (res.body as any[]).map((r) => r.pageId);
+    const ids = (res.body as Row[]).map((r) => r.pageId);
     assert.ok(ids.includes(plugIron.id));
     assert.ok(!ids.includes(plugOnly.id), 'ปลั๊กเสีย has no ไฟ');
   });
@@ -566,11 +568,11 @@ describe('search', () => {
   test('a literal % or _ matches only the page that contains it literally', async () => {
     const pct = await search(readerJar, '%', sw);
     assert.equal(pct.status, 200, JSON.stringify(pct.body));
-    assert.deepEqual((pct.body as any[]).map((r) => r.pageId), [percentPage.id]);
+    assert.deepEqual((pct.body as Row[]).map((r) => r.pageId), [percentPage.id]);
 
     const us = await search(readerJar, '_', sw);
     assert.equal(us.status, 200, JSON.stringify(us.body));
-    assert.deepEqual((us.body as any[]).map((r) => r.pageId), [underscorePage.id]);
+    assert.deepEqual((us.body as Row[]).map((r) => r.pageId), [underscorePage.id]);
   });
 
   test('an injection attempt is just a query with no matches, and the table survives', async () => {
@@ -584,7 +586,7 @@ describe('search', () => {
   test("a stranger's search never returns a page from a wiki they cannot see", async () => {
     const res = await search(strangerJar, 'ปลั๊ก');
     assert.equal(res.status, 200, JSON.stringify(res.body));
-    const ids = (res.body as any[]).map((r) => r.pageId);
+    const ids = (res.body as Row[]).map((r) => r.pageId);
     assert.ok(!ids.includes(plugIron.id));
     assert.ok(!ids.includes(plugOnly.id));
   });
@@ -615,7 +617,7 @@ describe('wiki assets', () => {
     form.append('file', new File([png], 'รูป.png', { type: 'image/png' }));
     if (kind) form.append('kind', kind);
     const res = await fetch(`${BASE_URL}/api/wikis/${wiki}/assets`, { method: 'POST', headers: { cookie: jar.header }, body: form });
-    return { status: res.status, body: (await res.json().catch(() => null)) as any };
+    return { status: res.status, body: await res.json().catch(() => null) };
   }
 
   test('a writer uploads; a reader fetches it; a stranger gets 404', async () => {
@@ -869,7 +871,7 @@ describe('access tokens', () => {
     assert.equal(res.body.token.label, 'แล็ปท็อปของฉัน');
     assert.equal(res.body.token.prefix, writerSecret.slice(4, 12));
     assert.equal(res.body.token.status, 'active');
-    assert.deepEqual(res.body.token.wikis.map((w: any) => w.id), [tw]);
+    assert.deepEqual(res.body.token.wikis.map((w: { id: string }) => w.id), [tw]);
     assert.equal(res.body.token.hash, undefined);
 
     const list = await call(writerJar, 'GET', '/api/wiki-tokens');
@@ -879,7 +881,7 @@ describe('access tokens', () => {
     assert.ok(!raw.includes(writerSecret), 'the list never carries the secret');
     assert.ok(!raw.includes(rows[0].wiki_token_hash), 'the list never carries the hash');
     assert.ok(!raw.includes('"secret"'));
-    const mine = (list.body as any[]).find((t) => t.id === writerToken);
+    const mine = (list.body as Row[]).find((t) => t.id === writerToken);
     assert.ok(mine);
     assert.equal(mine.ownerId, writer.id);
   });
@@ -946,11 +948,11 @@ describe('access tokens', () => {
     const ok = await call(writerJar, 'PUT', `/api/wikis/${tw}/tokens`, { tokenIds: [writerToken] });
     assert.equal(ok.status, 200, JSON.stringify(ok.body));
     const list = await call(writerJar, 'GET', '/api/wiki-tokens');
-    const t = (list.body as any[]).find((x) => x.id === writerToken);
-    assert.deepEqual(t.wikis.map((w: any) => w.id), [tw]);
+    const t = (list.body as Row[]).find((x) => x.id === writerToken)!;
+    assert.deepEqual(t.wikis.map((w: { id: string }) => w.id), [tw]);
     // Unticking every token removes the wiki from all of them.
     assert.equal((await call(writerJar, 'PUT', `/api/wikis/${tw}/tokens`, { tokenIds: [] })).status, 200);
-    const cleared = (await call(writerJar, 'GET', '/api/wiki-tokens')).body.find((x: any) => x.id === writerToken);
+    const cleared = (await call(writerJar, 'GET', '/api/wiki-tokens')).body.find((x: Row) => x.id === writerToken);
     assert.deepEqual(cleared.wikis, []);
   });
 
@@ -959,7 +961,7 @@ describe('access tokens', () => {
     const r = await call(readerJar, 'POST', '/api/wiki-tokens', { label: 'scoped', wikiIds: [w] });
     assert.equal(r.status, 200);
     assert.equal((await call(ownerJar, 'DELETE', `/api/wikis/${w}/members`, { userId: reader.id })).status, 200);
-    const t = (await call(readerJar, 'GET', '/api/wiki-tokens')).body.find((x: any) => x.id === r.body.token.id);
+    const t = (await call(readerJar, 'GET', '/api/wiki-tokens')).body.find((x: Row) => x.id === r.body.token.id);
     assert.deepEqual(t.wikis, []);
   });
 
@@ -972,7 +974,7 @@ describe('access tokens', () => {
     if (!installJar) return t.skip(SKIP_INSTALL);
     const all = await call(installJar, 'GET', '/api/wiki-tokens?all=1');
     assert.equal(all.status, 200);
-    const row = (all.body as any[]).find((x) => x.id === ownerToken);
+    const row = (all.body as Row[]).find((x) => x.id === ownerToken);
     assert.ok(row);
     assert.equal(row.ownerEmail, owner.email);
     assert.ok(!JSON.stringify(all.body).includes('"secret"'));
@@ -991,7 +993,7 @@ describe('access tokens', () => {
     );
     assert.ok(rows[0].wiki_token_revoked_at);
     assert.equal(rows[0].wiki_token_revoked_by, writer.id);
-    const t = (await call(writerJar, 'GET', '/api/wiki-tokens')).body.find((x: any) => x.id === writerToken);
+    const t = (await call(writerJar, 'GET', '/api/wiki-tokens')).body.find((x: Row) => x.id === writerToken);
     assert.equal(t.status, 'revoked');
     assert.equal((await call(writerJar, 'PUT', `/api/wikis/${tw}/tokens`, { tokenIds: [writerToken] })).status, 404);
     assert.equal((await call(writerJar, 'PATCH', `/api/wiki-tokens/${writerToken}`, { label: 'back', wikiIds: [] })).status, 404);

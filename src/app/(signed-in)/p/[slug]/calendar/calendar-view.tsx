@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState, useTransition, type CSSProperties } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { LedgerRow } from '@/db/schema';
 import Bell from '../../../bell';
@@ -30,6 +31,7 @@ export default function CalendarView({ projectName, slug, rows, holidays, today 
   const [agenda, setAgenda] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- restoring from localStorage and the viewport, which the server render cannot read
     if (window.matchMedia('(max-width: 760px)').matches) setSidebar(false);
     const saved = loadRecord<{ mode?: CalendarMode; view?: 'month' | 'week' }>(slug, 'calendar', {});
     if (saved.mode && ['estimate', 'actual', 'both'].includes(saved.mode)) setMode(saved.mode);
@@ -103,7 +105,7 @@ export default function CalendarView({ projectName, slug, rows, holidays, today 
       <div className="cal-logo" aria-hidden="true"><span>CAL</span>{today.slice(8)}</div>
       <div className="cal-heading"><h1>Calendar</h1><span>{projectName}</span></div>
       <nav aria-label="Project views" className="cal-project-nav">
-        <a href="/">Home</a><a href={siblingHref(`/p/${slug}`, selected)}>List</a>
+        <Link href="/">Home</Link><a href={siblingHref(`/p/${slug}`, selected)}>List</a>
         <a href={siblingHref(`/p/${slug}/timeline`, selected)}>Timeline</a><span aria-current="page">Calendar</span>
         <a href={`/p/${slug}/docs`}>Docs</a>
       </nav><Bell />

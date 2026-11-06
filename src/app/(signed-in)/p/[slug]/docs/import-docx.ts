@@ -15,7 +15,8 @@ export async function importDocx(
       }, 20000);
       worker.onmessage = (e) => {
         clearTimeout(timer);
-        e.data.error ? reject(new Error(e.data.error)) : resolve(e.data);
+        if (e.data.error) reject(new Error(e.data.error));
+        else resolve(e.data);
       };
       worker.onerror = () => {
         clearTimeout(timer);

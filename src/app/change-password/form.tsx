@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useActionState, useId } from 'react';
 import { changePassword } from './actions';
 import { PasswordField, Errata } from '../auth-fields';
@@ -47,7 +48,7 @@ export default function ChangePasswordForm(
 
       {!forced && (
         <p className="auth-note">
-          <a href="/">‹ Back to Home</a>
+          <Link href="/">‹ Back to Home</Link>
         </p>
       )}
     </form>

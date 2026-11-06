@@ -69,9 +69,9 @@ export async function loadDoc(userId: string, docId: string) {
   const modules = projectNodes.filter((n) => n.depth === 2).sort((a, b) => a.sortOrder - b.sortOrder);
   const data: DocPage[] = pages.map((p) => {
     const node = p.nodeId ? byId.get(p.nodeId) : undefined;
-    let module = node;
-    while (module && module.depth > 2) module = module.parentId ? byId.get(module.parentId) : undefined;
-    const idx = module ? modules.findIndex((n) => n.id === module.id) : -1;
+    let moduleNode = node;
+    while (moduleNode && moduleNode.depth > 2) moduleNode = moduleNode.parentId ? byId.get(moduleNode.parentId) : undefined;
+    const idx = moduleNode ? modules.findIndex((n) => n.id === moduleNode.id) : -1;
     return { ...p, title: node?.name ?? p.title, updatedAt: p.updatedAt.toISOString(), ownerNames:members.filter(m=>String(p.settings.owners ?? '').split(',').includes(m.id)).map(m=>m.name),
       nodeArchived: Boolean(node?.archivedAt), hue: idx >= 0 ? idx % 6 + 1 : null };
   });
