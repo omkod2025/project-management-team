@@ -6,6 +6,7 @@ import {
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import './bell.css';
 import { workKindForPath, type WorkKind } from '@/lib/work-kind';
+import { quietHeaders } from '@/lib/api-activity-rules';
 
 /**
  * The notification bell (spec 11 §4, §6).
@@ -48,6 +49,7 @@ type Bag = {
   unread: number;
   items: Item[] | null;
   busy: boolean;
+  clearing: boolean;
   load: () => Promise<void>;
   follow: (item: Item) => Promise<void>;
   clearAll: () => Promise<void>;
@@ -72,6 +74,7 @@ function ScopedNotificationsProvider({ children, kind }: { children: React.React
   const [unread, setUnread] = useState(0);
   const [items, setItems] = useState<Item[] | null>(null);
   const [busy, setBusy] = useState(false);
+  const [clearing, setClearing] = useState(false);
   const [slip, setSlip] = useState(0);
 
   // What the last poll saw, so a rise can be told from a steady state. A ref
@@ -88,7 +91,7 @@ function ScopedNotificationsProvider({ children, kind }: { children: React.React
 
   const poll = useCallback(async () => {
     try {
-      const res = await fetch(endpoint('/api/notifications?count=1'), { cache: 'no-store', signal: lifetime.current?.signal });
+      const res = await fetch(endpoint('/api/notifications?count=1'), { cache: 'no-store', headers: quietHeaders, signal: lifetime.current?.signal });
       if (!res.ok) return;
       const { unread: n } = (await res.json()) as { unread: number };
       setUnread(n);
@@ -165,6 +168,7 @@ function ScopedNotificationsProvider({ children, kind }: { children: React.React
   }, [router, endpoint]);
 
   const clearAll = useCallback(async () => {
+    setClearing(true);
     try {
       const res = await fetch(endpoint(), { method: 'POST', signal: lifetime.current?.signal });
       if (!res.ok) return;
@@ -173,10 +177,12 @@ function ScopedNotificationsProvider({ children, kind }: { children: React.React
       setItems((list) => list?.map((i) => ({ ...i, read: true })) ?? null);
     } catch {
       // Keep the current unread state on failure or when navigation aborts.
+    } finally {
+      setClearing(false);
     }
   }, [endpoint]);
 
-  const bag: Bag = { unread, items, busy, load, follow, clearAll };
+  const bag: Bag = { unread, items, busy, clearing, load, follow, clearAll };
 
   return (
     <Notifications.Provider value={bag}>
@@ -226,7 +232,7 @@ export default function Bell() {
   }, [open]);
 
   if (!bag) return null;
-  const { unread, items, busy, load, follow, clearAll } = bag;
+  const { unread, items, busy, clearing, load, follow, clearAll } = bag;
 
   return (
     <div className="noti" ref={box}>
@@ -249,11 +255,11 @@ export default function Bell() {
       </button>
 
       {open && (
-        <div className="noti-leaf">
+        <div className="noti-leaf" aria-busy={busy}>
           <div className="noti-leaf-head">
             <span>Notifications</span>
             {unread > 0 && (
-              <button type="button" className="noti-clear" onClick={() => { void clearAll(); }}>
+              <button type="button" className="noti-clear" disabled={clearing} aria-busy={clearing} onClick={() => { void clearAll(); }}>
                 Mark all read
               </button>
             )}

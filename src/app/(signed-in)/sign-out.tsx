@@ -1,4 +1,7 @@
-import { signOut } from '@/auth';
+'use client';
+
+import { useFormStatus } from 'react-dom';
+import { signOutAction } from './sign-out-action';
 
 /**
  * Sign out.
@@ -13,20 +16,22 @@ import { signOut } from '@/auth';
  *     redirects, so there is no window in which the page has "signed out" but
  *     the cookie is still live.
  *
- * The button is styled by its caller: this component appears on the shelf, on
- * the access board and in the List's head, and those three surfaces do not
- * share a visual language any more (the List speaks the ClickUp restyle). It
- * takes a class name and nothing else.
+ * The button is styled by its caller — the shelf and the shared page header
+ * each draw it their own way. It takes a class name and nothing else.
+ *
+ * A client component only so the button can say it is in flight; the form
+ * still posts without JavaScript.
  */
 export default function SignOut({ className = '' }: { className?: string }) {
   return (
-    <form
-      action={async () => {
-        'use server';
-        await signOut({ redirectTo: '/sign-in' });
-      }}
-    >
-      <button type="submit" className={className}>Sign out</button>
+    <form action={signOutAction}>
+      <SignOutButton className={className} />
     </form>
   );
+}
+
+/** Its own component because the form's pending state is only readable inside it. */
+function SignOutButton({ className }: { className: string }) {
+  const { pending } = useFormStatus();
+  return <button type="submit" className={className} disabled={pending} aria-busy={pending}>Sign out</button>;
 }

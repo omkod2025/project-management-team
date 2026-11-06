@@ -10,7 +10,7 @@ import test, { describe } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  assertFieldKind, assertKindUnchanged, assertFieldName, assertStatusFieldKind,
+  assertFieldKind, assertKindUnchanged, assertFieldName, assertStatusFieldKind, assertNotStatusField,
   assertStage, assertOptionLabel, assertColorIndex, assertKeepsADoneStage,
   assertRole, assertKeepsAnAdmin, assertHolidayDate, assertHolidayName, assertEmail,
   assertPassword, assertNewPassword, MIN_PASSWORD_LENGTH,
@@ -38,6 +38,20 @@ function refuses(code: string, fn: () => unknown) {
     return true;
   });
 }
+
+describe('D-34c — a column may be deleted, but not while it is the status column', () => {
+  test('any other column may go', () => {
+    assert.doesNotThrow(() => assertNotStatusField('f-side', 'f-status'));
+  });
+
+  test('a project with no status column refuses nothing', () => {
+    assert.doesNotThrow(() => assertNotStatusField('f-status', null));
+  });
+
+  test('the status column is refused until another is chosen', () => {
+    refuses('E_STATUS_FIELD_TYPE', () => assertNotStatusField('f-status', 'f-status'));
+  });
+});
 
 describe('D-31 — a column keeps its type', () => {
   test('the same kind passes', () => {

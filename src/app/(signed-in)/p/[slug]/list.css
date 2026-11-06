@@ -31,6 +31,10 @@
   --cu-ink-faint: var(--color-ink-faint);
   --cu-hover: color-mix(in srgb, var(--color-paper) 70%, var(--color-canvas));
   --cu-chip: var(--color-paper);
+  /* The header rows: a cool slate, apart from the warm paper the table sits
+     on, so the heads never read as part of the page around them. */
+  --cu-head: var(--color-table-head);
+  --cu-head-line: var(--color-table-head-line);
   --cu-r: var(--radius-xs);
   --cu-r-lg: var(--radius-md);
   --list-font: var(--font-sans), var(--font-read), -apple-system, system-ui, 'Segoe UI', Helvetica, Arial, sans-serif;
@@ -143,6 +147,8 @@
 /* ---- the title, and the pencil that edits it ---- */
 
 .title-holder { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+/* The new name is on the page while its write is still in flight. */
+.title-holder h1[aria-busy='true'] { cursor: progress; opacity: 0.7; }
 
 /* Hidden until the pointer is in the head or the button itself has focus.
    `visibility` rather than `display`, so the title does not shift sideways
@@ -490,7 +496,7 @@
    a seam in the page, not as a floating box over it. */
 .run thead tr.heads th[draggable='true'] { cursor: grab; }
 .run thead tr.heads th[data-dragging] { opacity: .45; cursor: grabbing; }
-.run thead tr.heads th[data-drop] { box-shadow: inset 2px 0 0 var(--color-ink-graphite), inset 0 -1px 0 var(--cu-line); }
+.run thead tr.heads th[data-drop] { box-shadow: inset 2px 0 0 var(--color-ink-graphite), inset 0 -1px 0 var(--cu-head-line); }
 .head-mark { color: var(--cu-ink); }
 .head-mark .figure { font-family: var(--list-font); font-size: 11px; font-variant-numeric: tabular-nums; }
 
@@ -515,7 +521,8 @@ table.run {
   table-layout: fixed;
 }
 
-/* The eyebrow style on paper, as the Wiki's tables draw their heads. Column
+/* The eyebrow style on the slate head (the page around the table is paper, so
+   paper heads vanished into it). Column
    names are user-defined and may be Thai, so they take 13px — Thai never goes
    below it — and no tracking. Only the band's fixed English captions drop to
    the 12px eyebrow. */
@@ -525,7 +532,7 @@ table.run {
   padding: 0 12px;
   text-align: left;
   white-space: nowrap;
-  background: var(--color-paper);
+  background: var(--cu-head);
   color: var(--color-ink-muted);
   font-family: var(--list-font);
   font-size: 13px;
@@ -551,13 +558,13 @@ table.run {
 .run thead tr.band .band-estimate { color: var(--color-ink-graphite); }
 .run thead tr.band .band-actual { color: var(--color-ink-blue); }
 .run thead tr.band .band-variance,
-.run thead tr.band .band-progress { color: var(--cu-ink-faint); }
-.run thead tr.band th:not(.band-blank) { box-shadow: inset 0 -1px 0 var(--cu-line); }
+.run thead tr.band .band-progress { color: var(--color-ink-muted); }
+.run thead tr.band th:not(.band-blank) { box-shadow: inset 0 -1px 0 var(--cu-head-line); }
 
 .run thead tr.heads th {
   top: 24px;
   height: 36px;
-  box-shadow: inset 0 -1px 0 var(--cu-line);
+  box-shadow: inset 0 -1px 0 var(--cu-head-line);
 }
 .run th.num, .run td.num { text-align: right; }
 
@@ -572,9 +579,9 @@ table.run {
   min-width: 440px;
   box-shadow: 1px 0 0 var(--cu-line);
 }
-.run thead th.nm { z-index: 6; background: var(--color-paper); }
-.run thead tr.band th.nm { box-shadow: 1px 0 0 var(--cu-line); }
-.run thead tr.heads th.nm { box-shadow: inset 0 -1px 0 var(--cu-line), 1px 0 0 var(--cu-line); }
+.run thead th.nm { z-index: 6; background: var(--cu-head); }
+.run thead tr.band th.nm { box-shadow: 1px 0 0 var(--cu-head-line); }
+.run thead tr.heads th.nm { box-shadow: inset 0 -1px 0 var(--cu-head-line), 1px 0 0 var(--cu-head-line); }
 
 /* Airy rows: 40px, padded 8px 12px, parted by a hairline. No rule between
    columns — a column is held by its alignment, as in a Notion database. */
@@ -868,6 +875,12 @@ td.saving::after {
   border-radius: 50%;
   background: var(--cu-ink-faint);
 }
+/* A write in flight marks only its own cell (or the row it moves) — the rest of
+   the grid stays live, so triage never waits on the network. */
+.run tbody td[aria-busy='true'] { cursor: progress; }
+.run tbody tr[aria-busy='true'] td { cursor: progress; }
+.run tbody tr[aria-busy='true'] td.nm,
+.run tr.add-row td[aria-busy='true'] { opacity: 0.7; }
 td.failed { box-shadow: inset 0 0 0 2px var(--color-vermilion); }
 .run tbody td { position: relative; }
 
@@ -1136,6 +1149,9 @@ td.failed { box-shadow: inset 0 0 0 2px var(--color-vermilion); }
   stroke-linejoin: round;
 }
 .rowact:hover { background: var(--cu-chip); color: var(--cu-ink); }
+/* Delete is a red bin — danger red, never vermilion. */
+.rowact.delete { color: var(--color-danger); }
+.rowact.delete:hover { background: var(--color-danger-wash); color: var(--color-danger-active); }
 .rowact:focus-visible { outline: 2px solid var(--brand); outline-offset: 0; }
 
 .rowacts { visibility: hidden; }
@@ -1165,56 +1181,7 @@ tr[aria-selected='true'] .rowacts,
 .undo button:hover { background: var(--cu-hover); }
 .undo .dismiss { margin-left: auto; border: 0; background: none; font-size: 15px; }
 
-/* ---- the archive dialog ---- */
-
-.sheetover {
-  position: fixed;
-  inset: 0;
-  z-index: 40;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgb(0 0 0 / 30%);
-}
-
-.overleaf {
-  width: 440px;
-  max-width: calc(100vw - 40px);
-  padding: 22px 24px 18px;
-  background: var(--color-canvas);
-  border: 0;
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-2);
-}
-
-.overleaf h2 {
-  margin: 0 0 10px;
-  padding-bottom: 10px;
-  color: var(--cu-ink);
-  font-size: 17px;
-  font-weight: 600;
-  border-bottom: 1px solid var(--cu-line);
-  box-shadow: none;
-}
-
-.overleaf-name {
-  margin: 12px 0 10px;
-  font-family: var(--list-font);
-  font-size: 15px;
-  font-weight: 600;
-  word-break: break-word;
-}
-
-.overleaf-body { margin: 0 0 10px; font-size: 14px; }
-.overleaf-body .figure { font-size: 14px; font-variant-numeric: tabular-nums; }
-
-.overleaf-note {
-  margin: 0;
-  padding-top: 10px;
-  border-top: 1px solid var(--cu-line-soft);
-  color: var(--cu-ink-soft);
-  font-size: 13px;
-}
+/* ---- dialog actions (the long-text editor) ---- */
 
 .overleaf-actions {
   display: flex;

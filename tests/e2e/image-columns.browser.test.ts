@@ -58,7 +58,7 @@ test('image columns browse, paste, persist, remove and enforce access', async ()
     await page.reload();
     await expect(cell.locator('.image-links img')).toHaveCount(2);
     await cell.getByRole('button', { name: 'Edit Screenshots for Module' }).click();
-    await editor.getByRole('button', { name: 'Remove image 1', exact: true }).click();
+    await editor.getByRole('button', { name: 'Delete image 1', exact: true }).click();
     await editor.getByRole('button', { name: 'Save', exact: true }).click();
     await expect.poll(async () => (await fx.client.query('SELECT node_custom_values FROM pmt_nodes WHERE node_id = $1', [fx.nodes.module])).rows[0].node_custom_values[field.id]?.length).toBe(1);
   } finally { await browser?.close(); await fx.cleanup(); }

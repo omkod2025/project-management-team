@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 import DocIcon from '../../../p/[slug]/docs/doc-icon';
 import { problem, wikiCall } from '../../wiki-api';
+import { hardNavigate } from '@/lib/hard-navigate';
 
 /**
  * Deleting a wiki, for good (D-82). Drawn for the install admin only — the
@@ -41,7 +42,7 @@ export default function DeleteWikiSection({ wiki }: { wiki: { id: string; title:
     setBusy(true); setError('');
     try {
       await wikiCall(`/api/wikis/${wiki.id}`, 'DELETE');
-      window.location.assign('/wiki');
+      hardNavigate('/wiki');
     } catch (err) { setError(problem(err, 'The wiki was not deleted. Reload and try again.')); setBusy(false); }
   }
 
@@ -69,7 +70,7 @@ export default function DeleteWikiSection({ wiki }: { wiki: { id: string; title:
         </div>
         <footer className="wiki-dialog-actions">
           <button type="button" disabled={busy} onClick={close}>Cancel</button>
-          <button type="submit" className="wiki-danger wiki-danger-fill" disabled={busy || !matches}>
+          <button type="submit" className="wiki-danger wiki-danger-fill" disabled={busy || !matches} aria-busy={busy}>
             <DocIcon name="trash" />{busy ? 'Deleting…' : 'Delete for good'}
           </button>
         </footer>

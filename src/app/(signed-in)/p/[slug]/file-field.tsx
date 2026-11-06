@@ -6,6 +6,7 @@ import { MAX_FILE_FIELD_BYTES } from '@/lib/upload-limits';
 import { useEffect, useRef, useState } from 'react';
 import type { FileValue } from '@/lib/node-rules';
 import './file-field.css';
+import { TrashIcon } from '../../confirm-delete';
 
 const ASSET_URL = /^\/api\/doc-assets\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 
@@ -42,7 +43,14 @@ export function FileField({ nodeId, fieldId, label, value, editing, canEdit, onC
   const lock = useRef(false);
   const root = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
-  useEffect(() => { if (editing) { setDraft(files(value)); setError(''); root.current?.focus(); } }, [editing, value]);
+  // Opening the editor, or a new value arriving, starts the draft again —
+  // adjusted while rendering; only the focus is an effect.
+  const [seen, setSeen] = useState({ editing, value });
+  if (seen.editing !== editing || seen.value !== value) {
+    setSeen({ editing, value });
+    if (editing) { setDraft(files(value)); setError(''); }
+  }
+  useEffect(() => { if (editing) root.current?.focus(); }, [editing, value]);
 
   async function upload(chosen: File[]) {
     if (lock.current || !canEdit || !chosen.length) return;
@@ -79,7 +87,7 @@ export function FileField({ nodeId, fieldId, label, value, editing, canEdit, onC
     <div className="file-draft">{draft.map((f) => <div key={f.url}>
       <a href={f.url} download={f.name}>{f.name}</a>
       <span>{fileSize(f.bytes)}</span>
-      <button type="button" disabled={busy} aria-label={`Remove ${f.name}`} onClick={() => setDraft((current) => current.filter((v) => v.url !== f.url))}>Remove</button>
+      <button type="button" className="delete-control icon-only" disabled={busy} aria-label={`Delete ${f.name}`} title="Delete file" onClick={() => setDraft((current) => current.filter((v) => v.url !== f.url))}><TrashIcon /></button>
     </div>)}</div>
     <input ref={input} type="file" hidden multiple onChange={(e) => {
       void upload(Array.from(e.target.files || [])); e.target.value = '';
@@ -87,7 +95,7 @@ export function FileField({ nodeId, fieldId, label, value, editing, canEdit, onC
     {error && <p role="alert">{error}</p>}
     {busy && <p role="status">Uploading…</p>}
     <div className="file-actions">
-      <button type="button" disabled={busy} onClick={() => input.current?.click()}>Browse files</button>
+      <button type="button" disabled={busy} aria-busy={busy} onClick={() => input.current?.click()}>Browse files</button>
       <button type="button" disabled={busy} onClick={() => onCommit(draft)}>Save</button>
       <button type="button" disabled={busy} onClick={onCancel}>Cancel</button>
     </div>

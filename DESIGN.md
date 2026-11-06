@@ -17,6 +17,9 @@ colors:
   danger: "#C4362F"
   danger-active: "#A52C26"
   danger-wash: "#FBECEB"
+  # The List's header rows: a cool slate, so the heads stand apart from the warm paper around the table (owner, 2026-11-06).
+  table-head: "#E9EDF1"
+  table-head-line: "#D3DAE2"
   # Meaning tokens — frozen names; they say what a value is. The six tab hues were re-picked vivid on 2026-11-05 (owner).
   ink-graphite: "#2A2622"
   ink-blue: "#24384F"
@@ -137,6 +140,7 @@ Surfaces are defined by hairlines and the faintest layered shadows, never by hea
 |---|---|---|
 | Canvas | `#FFFFFF` | Documents, panels, fields, the header bar, dialogs. |
 | Paper | `#F6F5F4` | The page ground behind panels, sidebars, table header rows, code blocks. |
+| Table head | `#E9EDF1` | The List's header rows: the Estimate / Actual band and the column heads, ruled off in `#D3DAE2`. A cool slate, so the heads read apart from the warm paper the table sits on. It is chrome, not a meaning: not selection (the blue wash), not the derived ink. |
 | Hairline | `#E6E6E6` | 1px borders and dividers. |
 | Field line | `#DDDDDD` | Input borders at rest. |
 | Hover | `rgb(0 0 0 / 4%)` | The hover ground on quiet controls and rows. |
@@ -371,7 +375,7 @@ Headings, labels and body copy that nobody entered as a value use the house ink,
 
 ### 9.5 The List
 
-- **An airy table.** Rows are 40px, cells pad `8px 12px`, rows part on hairlines, and no rule is drawn between columns. Row text is 14–15px. Column heads are 13px on paper, because a column's name is user-written and can be Thai.
+- **An airy table.** Rows are 40px, cells pad `8px 12px`, rows part on hairlines, and no rule is drawn between columns. Row text is 14–15px. Column heads are 13px on the slate table head (`#E9EDF1`, ruled in `#D3DAE2`), which sets them apart from the paper around the table; 13px because a column's name is user-written and can be Thai.
 - **The Estimate / Actual / Variance band** stays above the column heads as a grouped header. It is the only thing on the page that says which dates are the plan and which are the record.
 - **Estimate and actual are separate columns**, in the two inks.
 - **The misclosure** is a vermilion slip with a signed figure, in the badge shape: a quiet wash (vermilion re-lit to L 0.94, chroma × 0.3), and a 1px border and a 600-weight figure in vermilion itself, 6px corners. It parts from the bright module tags by its ink, not its wash: a tag's border is its hue re-lit light, so a warm module tag is never mistaken for a misclosure, nor louder than one.

@@ -108,8 +108,8 @@ test('Task and Defect tabs, inline edits, attachments, settings and archive undo
     await expect(page.locator(`#row-${id}`)).toHaveCount(0);
     await page.getByRole('searchbox', { name: 'Search defects' }).fill('');
     await page.locator(`#row-${id}`).hover();
-    await page.getByRole('button', { name: 'Archive Defect only', exact: true }).click();
-    await page.getByRole('dialog').getByRole('button', { name: 'Archive it', exact: true }).click();
+    await page.getByRole('button', { name: 'Delete Defect only', exact: true }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Delete', exact: true }).click();
     await expect(page.locator(`#row-${id}`)).toHaveCount(0);
     await page.getByRole('button', { name: 'Undo', exact: true }).click();
     await expect(page.locator(`#row-${id}`)).toBeVisible();

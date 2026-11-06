@@ -198,7 +198,7 @@ const INSTALL_EMAIL = 'admin@cit.com';
  * throwaway `admin@cit.com` is made when none exists, or the real one is
  * used when its password is supplied; otherwise this case cannot run here.
  */
-test('the people Delete button draws in danger on hover, and the armed confirm fills with it', async (t) => {
+test('the people Delete button draws in danger on hover, and the confirm dialog fills with it', async (t) => {
   const fx = await setup();
   let browser: Browser | undefined;
   let createdInstallId = '';
@@ -244,12 +244,13 @@ test('the people Delete button draws in danger on hover, and the armed confirm f
     assert.equal(border, 'rgb(196, 54, 47)', 'the Delete button does not draw a --color-danger border on hover');
 
     await del.click();
-    const yes = row.getByRole('button', { name: 'Delete for good', exact: true });
+    const confirm = page.getByRole('dialog', { name: 'Delete account', exact: true });
+    const yes = confirm.getByRole('button', { name: 'Delete', exact: true });
     await yes.waitFor();
     const yesBg = await yes.evaluate((el) => getComputedStyle(el).backgroundColor);
     assert.equal(yesBg, 'rgb(196, 54, 47)', 'the armed confirm does not fill with --color-danger');
-    // Disarmed rather than confirmed: this test deletes nobody.
-    await row.getByRole('button', { name: 'Cancel', exact: true }).click();
+    // Cancelled rather than confirmed: this test deletes nobody.
+    await confirm.getByRole('button', { name: 'Cancel', exact: true }).click();
 
     await context.close();
   } finally {

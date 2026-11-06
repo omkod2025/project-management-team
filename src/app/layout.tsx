@@ -18,6 +18,7 @@ import '@fontsource/anuphan/thai-400.css';
 import '@fontsource/anuphan/thai-500.css';
 import '@fontsource/anuphan/thai-600.css';
 import './globals.css';
+import ApiActivity from './api-activity';
 
 export const metadata: Metadata = {
   title: 'T-Timeline',
@@ -28,7 +29,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     // There is no dark theme (DESIGN.md § Colors).
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <ApiActivity />
+        {children}
+      </body>
     </html>
   );
 }

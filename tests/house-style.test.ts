@@ -441,6 +441,17 @@ test('docs deletion is danger, not vermilion', () => {
   assert.ok(blocks.some((b) => /--color-danger/.test(b.body)), 'docs deletion does not use --color-danger');
 });
 
+const CONFIRM_DELETE = 'src/app/(signed-in)/confirm-delete.css';
+
+test('every delete asks in one dialog drawn in danger, never vermilion', () => {
+  const blocks = ruleBlocks(read(CONFIRM_DELETE));
+  assert.doesNotMatch(read(CONFIRM_DELETE), /--color-vermilion/, 'the delete dialog borrows vermilion');
+  const go = blocks.find((b) => /\.confirm-delete-go/.test(b.selector) && !/:hover|trash-icon/.test(b.selector));
+  assert.ok(go && /background:\s*var\(--color-danger\)/.test(go.body), 'the delete answer is not filled with --color-danger');
+  const control = blocks.find((b) => /(^|\s)\.delete-control$/.test(b.selector.trim()));
+  assert.ok(control && /--color-danger\b/.test(control.body), 'a delete control is not drawn in --color-danger');
+});
+
 const PEOPLE = 'src/app/(signed-in)/people/people.css';
 
 test('a deactivated account and a money column are danger, not vermilion', () => {

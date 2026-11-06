@@ -6,12 +6,14 @@ import { MAX_UPLOAD_BYTES } from '@/lib/upload-limits';
 import { useEffect, useRef, useState } from 'react';
 import { IMAGE_EXTENSIONS, isImageFile } from '@/lib/image-files';
 import './image-field.css';
+import { TrashIcon } from '../../confirm-delete';
 
 const urls = (value: unknown): string[] => Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string' && /^\/api\/doc-assets\/[0-9a-f-]{36}$/i.test(v)) : [];
 
 function ImageLink({ url, index }: { url: string; index: number }) {
   const [failed, setFailed] = useState(false);
   return <a href={url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} title={`Open image ${index + 1}`}>
+    {/* eslint-disable-next-line @next/next/no-img-element -- a user-uploaded image served by our own route; next/image adds nothing at 36px */}
     {failed ? <span>Download image {index + 1}</span> : <img src={url} loading="lazy" decoding="async" width={36} height={30} alt={`Image ${index + 1}`} onError={() => setFailed(true)} />}
   </a>;
 }
@@ -31,7 +33,14 @@ export function ImageField({ nodeId, fieldId, label, value, editing, canEdit, on
   const lock = useRef(false);
   const root = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
-  useEffect(() => { if (editing) { setDraft(urls(value)); setError(''); root.current?.focus(); } }, [editing, value]);
+  // Opening the editor, or a new value arriving, starts the draft again —
+  // adjusted while rendering; only the focus is an effect.
+  const [seen, setSeen] = useState({ editing, value });
+  if (seen.editing !== editing || seen.value !== value) {
+    setSeen({ editing, value });
+    if (editing) { setDraft(urls(value)); setError(''); }
+  }
+  useEffect(() => { if (editing) root.current?.focus(); }, [editing, value]);
 
   async function upload(files: File[]) {
     if (lock.current || !canEdit || !files.length) return;
@@ -64,7 +73,7 @@ export function ImageField({ nodeId, fieldId, label, value, editing, canEdit, on
     <small>Up to 20 images · 50 MB each. Some formats are download only.</small>
     <div className="image-draft">{draft.map((url, i) => <div key={url}>
       <ImageLink url={url} index={i} />
-      <button type="button" disabled={busy} aria-label={`Remove image ${i + 1}`} onClick={() => setDraft((current) => current.filter((v) => v !== url))}>Remove</button>
+      <button type="button" className="delete-control icon-only" disabled={busy} aria-label={`Delete image ${i + 1}`} title="Delete image" onClick={() => setDraft((current) => current.filter((v) => v !== url))}><TrashIcon /></button>
     </div>)}</div>
     <input ref={input} type="file" hidden multiple accept={`image/*,${IMAGE_EXTENSIONS}`} onChange={(e) => {
       void upload(Array.from(e.target.files || [])); e.target.value = '';
@@ -72,7 +81,7 @@ export function ImageField({ nodeId, fieldId, label, value, editing, canEdit, on
     {error && <p role="alert">{error}</p>}
     {busy && <p role="status">Uploading…</p>}
     <div className="image-actions">
-      <button type="button" disabled={busy} onClick={() => input.current?.click()}>Browse images</button>
+      <button type="button" disabled={busy} aria-busy={busy} onClick={() => input.current?.click()}>Browse images</button>
       <button type="button" disabled={busy} onClick={() => onCommit(draft)}>Save</button>
       <button type="button" disabled={busy} onClick={onCancel}>Cancel</button>
     </div>

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { LedgerRow } from '@/db/schema';
 import type { FieldDef, Person } from '@/lib/ledger';
-import { loadSet, saveSet, loadRecord, saveRecord, selectedFromUrl, writeSelectedToUrl, siblingHref } from '../view-state';
+import { loadSet, saveSet, loadRecord, saveRecord, selectedFromUrl, writeSelectedToUrl } from '../view-state';
 import { SORTS, DEFAULT_SORT, orderRows, type SortKey } from './sort';
 import {
   filterColumnsFrom, rowMatches, liveTerms, type FilterTerm,
@@ -12,7 +12,8 @@ import FilterMenu from '../filter-menu';
 import ProjectTitle from '../project-title';
 import '../list.css';
 import './timeline.css';
-import Bell from '../../../bell';
+import AppHeader from '../../../app-header';
+import { projectViews } from '../project-views';
 
 /**
  * The Timeline (spec 04).
@@ -79,9 +80,11 @@ export default function TimelineView({
   // write is worse than a missing feature (spec 04 §10).
   const [wideEnough, setWideEnough] = useState(true);
   const scrollerRef = useRef<HTMLDivElement>(null);
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const carried = selectedFromUrl();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- restoring from localStorage, which the server render cannot read
     if (carried) setSelected(carried);
     setCollapsed(loadSet(slug, 'collapsed'));
 
@@ -108,7 +111,8 @@ export default function TimelineView({
 
   const dayW = DAY_W[zoom];
   const holidaySet = useMemo(() => new Set(holidays), [holidays]);
-  const today = useMemo(() => toIso(new Date(Date.now() + 7 * 3600 * 1000)), []);
+  // Today in Bangkok, read once: a render must not ask the clock.
+  const [today] = useState(() => toIso(new Date(Date.now() + 7 * 3600 * 1000)));
 
   /* ------------------------------------------------------------- window */
 
@@ -193,7 +197,6 @@ export default function TimelineView({
   }, [live]);
 
   const root = live.find((r) => r.led_depth === 1) ?? null;
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   useEffect(() => { if (ready) saveSet(slug, 'collapsed', collapsed); }, [ready, slug, collapsed]);
   useEffect(() => {
@@ -320,6 +323,15 @@ export default function TimelineView({
     setDrag({ ...drag, offsetDays: dayAt - diffDays(start, anchor) });
   };
 
+  /** Bars whose write is in flight, as `nodeId:est|act` — marked, never blocked. */
+  const [savingBars, setSavingBars] = useState<Set<string>>(new Set());
+  const markSaving = useCallback((key: string, on: boolean) =>
+    setSavingBars((cur) => {
+      const next = new Set(cur);
+      if (on) next.add(key); else next.delete(key);
+      return next;
+    }), []);
+
   const onPointerUp = async () => {
     if (!drag) return;
     const d = drag;
@@ -335,7 +347,9 @@ export default function TimelineView({
         : { actualStart: shifted.s, actualEnd: shifted.e };
 
     const before = live;
+    const barKey = `${d.nodeId}:${d.kind}`;
     setFailure(null);
+    markSaving(barKey, true);
     try {
       const res = await fetch(`/api/nodes/${d.nodeId}`, {
         method: 'PATCH',
@@ -353,6 +367,8 @@ export default function TimelineView({
     } catch {
       setLive(before);
       setFailure('No connection. The change did not save.');
+    } finally {
+      markSaving(barKey, false);
     }
   };
 
@@ -415,6 +431,8 @@ export default function TimelineView({
       const next = shift(origin, e.key === '[' ? 'start' : 'end', step);
       if (!next) return;
 
+      const barKey = `${selected}:${onActual ? 'act' : 'est'}`;
+      markSaving(barKey, true);
       void fetch(`/api/nodes/${selected}`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
@@ -425,37 +443,23 @@ export default function TimelineView({
         .then((r) => (r.ok ? r.json() : null))
         .then((fresh: LedgerRow | null) => {
           if (fresh) setLive((rs) => rs.map((r) => (r.led_node_id === fresh.led_node_id ? fresh : r)));
-        });
+        })
+        .finally(() => markSaving(barKey, false));
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [selected, live, canEdit]);
+  }, [selected, live, canEdit, markSaving]);
 
   /* --------------------------------------------------------------- view */
 
   return (
     <div className="book">
       <div className="sheet">
-        <header className="head">
-          {/* Up a level, to the shelf. Deliberately not in the view nav
-              beside List / Timeline / Report: those are views *of this
-              project* and this is the way out of it — filing a level change
-              among sibling views because the two sit near each other is the
-              grouping-by-adjacency this page has been unpicking. */}
-          <a className="shelf label" href="/">‹ Home</a>
-          <ProjectTitle projectId={projectId} name={projectName} canRename={isAdmin} />
-          {/* The bell stands immediately before the view nav, so notice and
-              navigation sit together in the one cluster this header already
-              uses for "where do I go from here" (spec 11 §6). */}
-          <Bell />
-          <div className="views label">
-            <a href={siblingHref(`/p/${slug}`, selected)}>List</a>
-            <span style={{ color: 'var(--color-hairline)' }}>·</span>
-            <span aria-current="page">Timeline</span>
-            <a href={siblingHref(`/p/${slug}/calendar`, selected)}>Calendar</a>
-            <a href={`/p/${slug}/docs`}>Docs</a>
-          </div>
-        </header>
+        <AppHeader
+          title={<ProjectTitle projectId={projectId} name={projectName} canRename={isAdmin} />}
+          navLabel="Project views"
+          views={projectViews(slug, 'Timeline', { canSettings: isAdmin, selected })}
+        />
 
         <div className="toolbar label">
           {/* The field is a year either side of today — about 19,000px at day
@@ -658,6 +662,8 @@ export default function TimelineView({
                     hue={TAB_HUE(moduleIndex.get(r.led_node_id) ?? 1)}
                     canEdit={draggable}
                     drag={drag?.nodeId === r.led_node_id ? drag : null}
+                    savingEst={savingBars.has(`${r.led_node_id}:est`)}
+                    savingAct={savingBars.has(`${r.led_node_id}:act`)}
                     liveRollup={liveRollup}
                     onPointerDown={onPointerDown}
                     onSelect={() => setSelected(r.led_node_id)}
@@ -675,7 +681,7 @@ export default function TimelineView({
 /* ===================================================================== row */
 
 function Row({
-  row, mode, dayW, x, hue, canEdit, drag, liveRollup, onPointerDown, onSelect,
+  row, mode, dayW, x, hue, canEdit, drag, savingEst, savingAct, liveRollup, onPointerDown, onSelect,
 }: {
   row: LedgerRow;
   mode: Mode;
@@ -684,6 +690,8 @@ function Row({
   hue: string;
   canEdit: boolean;
   drag: { kind: 'est' | 'act'; edge: 'move' | 'start' | 'end'; offsetDays: number; origin: { s: string | null; e: string | null } } | null;
+  savingEst: boolean;
+  savingAct: boolean;
   liveRollup: (parent: LedgerRow) => { s: string | null; e: string | null };
   onPointerDown: (e: React.PointerEvent, row: LedgerRow, kind: 'est' | 'act', edge: 'move' | 'start' | 'end') => void;
   onSelect: () => void;
@@ -721,6 +729,7 @@ function Row({
             <div
               className={`bar est${canEdit ? ' draggable' : ''}${drag?.kind === 'est' ? ' dragging' : ''}`}
               style={estBox}
+              aria-busy={savingEst || undefined}
               onPointerDown={(e) => onPointerDown(e, row, 'est', 'move')}
             >
               <span className="lead" />
@@ -736,6 +745,7 @@ function Row({
             <div
               className={`bar act${canEdit ? ' draggable' : ''}${drag?.kind === 'act' ? ' dragging' : ''}`}
               style={actBox}
+              aria-busy={savingAct || undefined}
               onPointerDown={(e) => onPointerDown(e, row, 'act', 'move')}
             >
               <span className="lead" />

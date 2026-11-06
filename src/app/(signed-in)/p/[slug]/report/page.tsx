@@ -2,6 +2,7 @@ import { notFound, redirect } from 'next/navigation';
 import { currentUserId } from '@/auth';
 import { loadLedger } from '@/lib/ledger';
 import { DomainError } from '@/lib/errors';
+import { can } from '@/lib/permissions';
 import ReportView from './report-view';
 
 /**
@@ -15,20 +16,24 @@ export default async function ProjectReport({ params }: { params: Promise<{ slug
 
   const { slug } = await params;
 
+  // Only the load sits in the try: JSX built inside one is not caught by it.
+  let ledger: Awaited<ReturnType<typeof loadLedger>>;
   try {
-    const { project, rows, fields, people } = await loadLedger(userId, slug);
-    return (
-      <ReportView
-        projectName={project.name}
-        slug={project.slug}
-        rows={rows}
-        fields={fields}
-        people={people}
-        statusFieldId={project.statusFieldId}
-      />
-    );
+    ledger = await loadLedger(userId, slug);
   } catch (err) {
     if (err instanceof DomainError && err.code === 'E_NOT_FOUND') notFound();
     throw err;
   }
+  const { project, role, rows, fields, people } = ledger;
+  return (
+    <ReportView
+      projectName={project.name}
+      slug={project.slug}
+      rows={rows}
+      fields={fields}
+      people={people}
+      statusFieldId={project.statusFieldId}
+      canSettings={can(role, 'field.define')}
+    />
+  );
 }

@@ -3,40 +3,86 @@
  *
  * The header, the view nav and the error band are `.book`/`.sheet`/`.head`/
  * `.errata` from `list.css`, already on the house style — this file only
- * shapes what sits under them: a settings page is a stack of white panels on
- * paper, one per section, exactly as the Wiki's settings screens already draw
- * them (`wiki.css` `.wiki-settings-section`). Rows inside a panel stay ruled
- * rather than boxed — a settings row is a line in a form, not a card of its
- * own — and fields keep the house's 4px radius throughout.
+ * shapes what sits under them: a rail of sections on the left (the Wiki's
+ * navigation-tree rows: 5px radius, the current one in the blue wash) and one
+ * white panel on paper beside it, holding the section that is open. Rows
+ * inside a panel stay ruled rather than boxed — a settings row is a line in a
+ * form, not a card of its own — and fields keep the house's 4px radius.
  */
 
 .settings {
   flex: 1;
   overflow: auto;
-  padding: 16px 20px 60px;
-  max-width: 900px;
+  display: grid;
+  grid-template-columns: 184px minmax(0, 780px);
+  align-items: start;
+  gap: 32px;
+  padding: 24px 24px 64px;
 }
+.settings.single { grid-template-columns: minmax(0, 780px); }
 
 /* The shared `.head` (list.css) assumes a short Latin title; a project name
    here can be long or Thai, so it wraps rather than pushing the phone wide. */
 .book .head { flex-wrap: wrap; height: auto; min-height: 56px; }
 
-.settings section {
-  margin-top: 16px;
+/* ---- the rail ---- */
+
+.settings-rail {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.settings-rail a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 32px;
+  padding: 0 10px;
+  border-radius: var(--radius-sm);
+  color: var(--color-ink-secondary);
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+.settings-rail a:hover { background: var(--color-canvas); color: var(--color-ink); }
+.settings-rail a[aria-current='page'] {
+  background: var(--color-primary-wash);
+  color: var(--color-primary);
+  font-weight: 600;
+}
+.settings-rail a:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.settings-rail .count,
+.settings .count {
+  color: var(--color-ink-faint);
+  font-size: 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.settings-rail a[aria-current='page'] .count { color: var(--color-primary); }
+
+/* ---- the panel ---- */
+
+.settings-panel > section {
   padding: 24px;
   border: 1px solid var(--color-hairline);
   border-radius: var(--radius-lg);
   background: var(--color-canvas);
 }
-.settings section:first-child { margin-top: 0; }
 
+.settings-head { margin-bottom: 16px; }
 .settings h2 {
-  margin: 0 0 14px;
+  margin: 0;
   color: var(--color-ink);
-  font-size: 17px;
+  font-size: 20px;
   font-weight: 600;
+  line-height: 1.4;
   box-shadow: none;
 }
+.settings-head .aside { margin-top: 4px; }
 
 .settings-row {
   display: flex;
@@ -51,11 +97,202 @@
 .settings-row button { margin-left: 0; }
 .settings-row button:last-child { margin-left: auto; }
 
-.field-block { margin-bottom: 14px; }
-.field-block:last-child { margin-bottom: 0; }
-.options { padding-left: 26px; border-left: 1px solid var(--color-hairline); }
-.option .swatch { width: 8px; height: 8px; }
+.option .swatch { width: 10px; height: 10px; }
 .option.is-archived .field-input { text-decoration: line-through; color: var(--color-ink-muted); }
+
+/* ---- the column list ---- */
+
+.column-list { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--color-hairline); }
+.column-list li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-bottom: 1px solid var(--color-hairline);
+}
+.column-list li > .column-row { flex: 1; min-width: 0; }
+
+/* The bin: danger red, never vermilion — removing a column is not a misclosure. */
+.settings button.column-bin {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-danger);
+}
+.settings button.column-bin:hover:not(:disabled) { background: var(--color-danger-wash); color: var(--color-danger-active); }
+/* The same red bin on each option in the column editor. */
+.column-dialog button.option-bin {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+}
+.settings button.label.delete-control,
+.column-dialog button.label.delete-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-color: color-mix(in srgb, var(--color-danger) 35%, transparent);
+}
+.settings button.label.delete-control .trash-icon,
+.column-dialog button.label.delete-control .trash-icon { width: 14px; height: 14px; }
+
+/* A whole row is the button: icon, name, kind, the first few options, Edit. */
+.settings button.column-row {
+  display: grid;
+  grid-template-columns: 28px minmax(96px, 1fr) 120px minmax(0, 1.6fr) auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  height: auto;
+  min-height: 48px;
+  padding: 8px 8px 8px 4px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-ink);
+  text-align: left;
+  font-weight: 400;
+}
+.settings button.column-row:hover:not(:disabled) { background: var(--color-paper); }
+.settings button.column-row:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -2px; }
+
+.kind-icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  background: var(--color-paper);
+  color: var(--color-ink-muted);
+  flex: none;
+}
+
+.column-name {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.column-row .kind { font-size: 13px; white-space: nowrap; }
+.column-status { color: var(--color-ink-secondary); font-weight: 600; }
+
+.column-chips {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  overflow: hidden;
+}
+.column-chips .pill { flex: 0 1 auto; min-width: 36px; max-width: 120px; }
+.column-chips .pill > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.column-chips .more { flex: none; color: var(--color-ink-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+
+.column-edit {
+  color: var(--color-ink-muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+.column-row:hover .column-edit { color: var(--color-primary); }
+
+.column-add { margin-top: 12px; border-bottom: 0; }
+
+/* ---- the column dialog (DESIGN.md § 7 Dialogs, § 5 motion) ---- */
+
+.column-dialog {
+  width: min(600px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-xl);
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  box-shadow: var(--shadow-2), 0 0 0 1px rgb(0 0 0 / 6%);
+}
+.column-dialog::backdrop { background: rgb(0 0 0 / 40%); }
+.column-dialog[open] { animation: column-dialog-in 180ms cubic-bezier(.16, 1, .3, 1); }
+.column-dialog[open]::backdrop { animation: column-backdrop-in 180ms ease-out; }
+@keyframes column-dialog-in { from { opacity: 0; transform: translateY(6px) scale(.98); } }
+@keyframes column-backdrop-in { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .column-dialog[open], .column-dialog[open]::backdrop { animation: none; }
+}
+
+.column-dialog-sheet { display: flex; flex-direction: column; max-height: inherit; }
+.column-dialog-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 16px 4px 24px;
+}
+.column-dialog-head h2 { flex: 1; margin: 0; font-size: 20px; font-weight: 600; line-height: 1.4; }
+.settings button.column-dialog-close {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  color: var(--color-ink-muted);
+}
+.column-dialog .errata { margin: 12px 24px 0; border-radius: var(--radius-xs); }
+
+.column-dialog-body { flex: 1; overflow: auto; padding: 16px 24px 8px; }
+
+.column-dialog-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+}
+.column-dialog-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.column-dialog-field > span { color: var(--color-ink-secondary); font-size: 13px; font-weight: 600; }
+.column-dialog-fixed {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 32px;
+  margin: 0;
+  font-size: 14px;
+}
+.column-dialog-fixed small { color: var(--color-ink-muted); font-size: 12px; }
+
+.column-dialog-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: var(--color-paper);
+}
+.column-dialog-status p { margin: 0; color: var(--color-ink-secondary); font-size: 13px; }
+.column-dialog-status button { flex: none; }
+
+.column-dialog-options { margin-top: 20px; }
+.column-dialog-options h3 {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.column-dialog-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 24px 20px;
+  border-top: 1px solid var(--color-hairline);
+}
+
 
 /* ---- fields: 4px, a hairline border, the house's own focus ring ---- */
 
@@ -77,6 +314,8 @@
   box-shadow: 0 0 0 3px var(--brand-glow);
 }
 .field-input.name { flex: 1; }
+/* A box whose own write is in flight: marked, not locked. */
+.field-input[aria-busy='true'] { cursor: progress; opacity: 0.7; }
 .field-input.figure { font-variant-numeric: tabular-nums; font-size: 13px; }
 .stage-select { width: 130px; }
 
@@ -97,6 +336,7 @@
 }
 .settings button:hover:not(:disabled) { background: var(--color-paper); }
 .settings button:disabled { opacity: 0.55; cursor: default; }
+.settings button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 .settings button.primary {
   border-color: var(--color-primary);
   border-radius: var(--radius-full);
@@ -108,7 +348,8 @@
   background: var(--color-primary-active);
   border-color: var(--color-primary-active);
 }
-.settings [aria-busy='true'] { opacity: 0.6; }
+.settings[aria-busy='true'] .settings-panel,
+.column-dialog[aria-busy='true'] .column-dialog-body { opacity: 0.6; }
 
 .kind { color: var(--color-ink-muted); }
 .who { min-width: 160px; }
@@ -117,7 +358,8 @@
 .aside {
   margin: 10px 0 0;
   color: var(--color-ink-muted);
-  font-size: 12.5px;
+  font-size: 13px;
+  line-height: 1.5;
   max-width: 62ch;
 }
 .aside code {
@@ -132,5 +374,46 @@
 }
 .aside.token { color: var(--color-ink); }
 
-.archived { margin-top: 12px; }
+.archived { margin-top: 16px; }
 .archived summary { cursor: pointer; color: var(--color-ink-muted); padding: 6px 0; }
+.archived .settings-row .kind-icon { width: 24px; height: 24px; opacity: 0.7; }
+
+/* ---- narrow screens: the rail becomes a row of tabs above the panel ---- */
+
+@media (max-width: 760px) {
+  .settings {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+    padding: 16px 16px 48px;
+  }
+  .settings-rail {
+    position: static;
+    flex-direction: row;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .settings-rail a { flex: none; }
+  .settings-panel > section { padding: 16px; }
+
+  .settings button.column-row {
+    grid-template-columns: 28px minmax(0, 1fr) auto;
+    grid-template-areas: 'icon name edit' 'icon kind edit' 'icon chips chips';
+    row-gap: 4px;
+  }
+  .column-row .kind-icon { grid-area: icon; align-self: start; }
+  .column-name { grid-area: name; }
+  .column-row .kind { grid-area: kind; }
+  .column-chips { grid-area: chips; }
+  .column-edit { grid-area: edit; }
+
+  .settings-row { flex-wrap: wrap; }
+  .who { min-width: 0; }
+  /* A holiday row is date, name, bin: with the bin only an icon there is
+     room to keep it on one line, the name taking what is left. */
+  .settings-row:has(> .figure + .who + .icon-only) { flex-wrap: nowrap; }
+  .settings-row:has(> .figure + .who + .icon-only) .who { flex: 1; overflow-wrap: anywhere; }
+  .column-dialog-grid { grid-template-columns: minmax(0, 1fr); }
+  .column-dialog-status { flex-direction: column; align-items: stretch; }
+  .column-dialog-actions { flex-direction: column-reverse; }
+  .column-dialog-actions button { width: 100%; }
+}

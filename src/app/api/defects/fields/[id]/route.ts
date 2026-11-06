@@ -2,15 +2,15 @@ import { eq } from 'drizzle-orm';
 import { db } from '@/db/client';
 import { defectFieldDefinitions as fieldDefinitions } from '@/db/schema';
 import { authorize } from '@/lib/permissions';
-import { updateField } from '@/lib/admin';
+import { deleteField, updateField } from '@/lib/admin';
 import { domainError } from '@/lib/errors';
 import { handle } from '@/lib/api';
 
 /**
- * Rename, reorder, archive or restore a column.
+ * Rename, reorder, archive or restore a column — or delete it (D-34c).
  *
- * There is no DELETE here, deliberately: a stored value has no foreign key
- * protecting it, so archiving is the only removal (D-34).
+ * DELETE removes the definition and its options. Values already stored on
+ * tasks stay where they are, unread: see `deleteField`.
  */
 export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
@@ -24,6 +24,22 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
 
     await authorize(userId, field.projectId, 'field.archive');
     await updateField(id, (await req.json()) as Record<string, unknown>, 'defect');
+    return { ok: true };
+  });
+}
+
+export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string }> }) {
+  const { id } = await ctx.params;
+  return handle(`DELETE /api/defects/fields/${id}`, async (userId) => {
+    const [field] = await db
+      .select({ projectId: fieldDefinitions.projectId })
+      .from(fieldDefinitions)
+      .where(eq(fieldDefinitions.id, id))
+      .limit(1);
+    if (!field) throw domainError('E_UNKNOWN_FIELD', 'No such column.');
+
+    await authorize(userId, field.projectId, 'field.archive');
+    await deleteField(id, 'defect');
     return { ok: true };
   });
 }

@@ -34,12 +34,13 @@ export default function NewProject() {
       const out = (await res.json()) as { slug?: string; message?: string };
       if (!res.ok) {
         setError(out.message ?? 'That did not save.');
+        setBusy(false);
         return;
       }
+      // Stays busy until the List replaces this page.
       router.push(`/p/${out.slug}`);
     } catch {
       setError('No connection. Nothing was saved.');
-    } finally {
       setBusy(false);
     }
   };
@@ -75,10 +76,10 @@ export default function NewProject() {
         aria-label="Project name"
         maxLength={120}
       />
-      <button type="submit" className="sh-btn sh-btn-primary" disabled={busy || !name.trim()}>
+      <button type="submit" className="sh-btn sh-btn-primary" disabled={busy || !name.trim()} aria-busy={busy}>
         {busy ? 'Creating…' : 'Create'}
       </button>
-      <button type="button" className="sh-btn" onClick={() => setOpen(false)}>
+      <button type="button" className="sh-btn" disabled={busy} onClick={() => setOpen(false)}>
         Cancel
       </button>
       {/* A failed write, in line: same wash, same ink — vermilion's other

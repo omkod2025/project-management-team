@@ -136,6 +136,28 @@ button, input, select, textarea {
   color: inherit;
 }
 
+/* A button whose call is in flight says so in place: a ring in its own ink
+   takes the place of its icon (a button without one grows by the ring).
+   Set `aria-busy` with `disabled` on the button that
+   started the call; screen readers hear the busy state, and the page-wide
+   bar (api-activity.css) covers actions that have no button. */
+button[aria-busy='true'] { cursor: progress; }
+button[aria-busy='true'] > svg:first-child { display: none; }
+button[aria-busy='true']::before {
+  content: '';
+  display: inline-block;
+  flex: none;
+  width: .9em;
+  height: .9em;
+  margin-inline-end: .45em;
+  vertical-align: -.125em;
+  border: 1.5px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: button-busy-spin .7s linear infinite;
+}
+@keyframes button-busy-spin { to { transform: rotate(360deg); } }
+
 input, select, textarea { border-radius: var(--radius-xs); }
 
 /* Always visible, and offset so it never sits on a field's own border. The

@@ -33,7 +33,6 @@ export default function TaskModal({ nodeId, onClose, onSaved }: {
 
   useEffect(() => {
     const controller = new AbortController();
-    setError('');
     fetch(`/api/nodes/${nodeId}`, { signal: controller.signal, cache: 'no-store' })
       .then(async (response) => {
         const body = await response.json();
@@ -75,7 +74,7 @@ export default function TaskModal({ nodeId, onClose, onSaved }: {
         would not load is an ordinary error. */}
     {error && <p role="alert" className={detail ? 'rs-task-errata' : undefined}>{error}</p>}
     {!detail ? error
-      ? <button type="button" onClick={() => setAttempt((n) => n + 1)}>Try again</button>
+      ? <button type="button" onClick={() => { setError(''); setAttempt((n) => n + 1); }}>Try again</button>
       : <p role="status">Loading task…</p>
       : <form onSubmit={(e) => { e.preventDefault(); void save(); }}>
         {!editable && <p>You have read-only access to this project.</p>}
@@ -123,7 +122,7 @@ export default function TaskModal({ nodeId, onClose, onSaved }: {
           })}
         </fieldset>
         <div className="rs-task-actions"><button type="button" disabled={saving} onClick={onClose}>Cancel</button>
-          {editable && <button type="submit" disabled={saving || Object.keys(patch).length === 0 || (patch.name !== undefined && !patch.name.trim())}>
+          {editable && <button type="submit" aria-busy={saving} disabled={saving || Object.keys(patch).length === 0 || (patch.name !== undefined && !patch.name.trim())}>
             {saving ? 'Saving…' : 'Save changes'}
           </button>}
         </div>

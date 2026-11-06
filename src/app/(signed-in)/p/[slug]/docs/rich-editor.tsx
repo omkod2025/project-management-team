@@ -4,9 +4,10 @@ import DocIcon from "./doc-icon";
 import { EditorContent, useEditor, useEditorState } from '@tiptap/react';
 import { BubbleMenu } from '@tiptap/react/menus';
 import { createPortal } from 'react-dom';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { ChainedCommands } from '@tiptap/core';
 import {TextSelection} from '@tiptap/pm/state';
+import type { EditorView } from '@tiptap/pm/view';
 import { docEditorExtensions } from '@/lib/doc-editor-extensions';
 import { MermaidCodeBlock } from '@/lib/doc-mermaid-extension';
 import EditorToolbar from './editor-toolbar';
@@ -17,6 +18,9 @@ import { pasteSpreadsheetText, sliceHasTable } from '@/lib/doc-table-paste';
 import { pastedMarkdown, sliceIsPlainCode, vscodeClipboardMode } from '@/lib/doc-markdown-paste';
 import { colorTableBand } from '@/lib/doc-table-color';
 import { selectedRect } from '@tiptap/pm/tables';
+
+/** ProseMirror takes a block drag from `view.dragging`; assigning it is how a drag handle starts one. */
+function setDragging(view: EditorView, dragging: EditorView['dragging']) { view.dragging = dragging; }
 
 export default function RichEditor({ value, label, onChange, endpoints, onProblem, onUploadChange, onAssetUploaded, autoFocus = false }: {
   value: string; label: string; onChange: (value: string) => void; endpoints: DocEndpoints; onProblem: (message: string) => void; onUploadChange: (delta: number) => void; autoFocus?: boolean;
@@ -30,7 +34,9 @@ export default function RichEditor({ value, label, onChange, endpoints, onProble
   const [anchor, setAnchor] = useState({ left: 0, top: 0, gutterTop: 0 });
   const menuRoot = useRef<HTMLDivElement>(null);
   const imageInput = useRef<HTMLInputElement>(null);
-  const attachmentInput = useRef<HTMLInputElement>(null);
+  // State rather than a ref: the slash-command list is built during render and
+  // names it, and render must not read a ref.
+  const [attachmentInput, setAttachmentInput] = useState<HTMLInputElement | null>(null);
   const [uploading, setUploading] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const downloadPending = useRef(false);
@@ -82,10 +88,18 @@ export default function RichEditor({ value, label, onChange, endpoints, onProble
     onUpdate: ({ editor }) => { const json=editor.getJSON(); try {onChange(encodeRich(json));}catch{onChange(RICH_PREFIX+JSON.stringify(json));onProblem('This draft contains unsupported formatting. Download the complete draft before reloading; it has not been saved.');} },
   });
   useEditorState({ editor, selector: ({ editor }) => editor?.state });
-  pasteMarkdown.current = (markdown) => !!editor?.chain().focus().insertContent(markdown, { contentType: 'markdown' }).run();
-  useEffect(() => {
-    setTableControlsSlot(editor?.view.dom.querySelector<HTMLElement>('.doc-table-config-anchor') ?? null);
+  useLayoutEffect(() => {
+    pasteMarkdown.current = (markdown) => !!editor?.chain().focus().insertContent(markdown, { contentType: 'markdown' }).run();
   });
+  // The table's control slot is a decoration (doc-table-controls.ts), so it
+  // can only appear or move with a transaction: look for it after each one.
+  useEffect(() => {
+    if (!editor) return;
+    const find = () => setTableControlsSlot(editor.view.dom.querySelector<HTMLElement>('.doc-table-config-anchor'));
+    const first = requestAnimationFrame(find);
+    editor.on('transaction', find);
+    return () => { cancelAnimationFrame(first); editor.off('transaction', find); };
+  }, [editor]);
   const selection = editor?.state.selection;
   const textBefore = selection?.empty && selection.$from.parent.type.name === 'paragraph'
     ? selection.$from.parent.textBetween(0, selection.$from.parentOffset, '', '') : '';
@@ -112,7 +126,7 @@ export default function RichEditor({ value, label, onChange, endpoints, onProble
     { label:'Table of contents',hint:'Links to headings on this page',apply:c=>c.insertContent({type:'tableOfContents'}) },
     { label:'Button',hint:'A labelled link button',apply:c=>{setLinkBlock('button');setBlockUrl('');return c;} },
     { label:'Embed',hint:'YouTube, Vimeo, Figma, Google Docs, Loom or Miro embed URL',apply:c=>{setLinkBlock('embed');setBlockUrl('');return c;} },
-    { label: 'Attachment', hint: 'Upload a file · PDF, Office, ZIP and more · 50 MB max', apply: (c) => { attachmentInput.current?.click(); return c; } },
+    { label: 'Attachment', hint: 'Upload a file · PDF, Office, ZIP and more · 50 MB max', apply: (c) => { attachmentInput?.click(); return c; } },
   ];
   const filtered = commands.filter((item) => `${item.label} ${item.hint}`.toLowerCase().includes((inserting ? insertQuery : match?.[1] ?? '').toLowerCase()));
   const showCommands = inserting || (!!match && dismissed !== commandKey);
@@ -124,7 +138,7 @@ export default function RichEditor({ value, label, onChange, endpoints, onProble
     item.apply(chain).run();
     setChoice(0); setInserting(false);
   };
-  handleCommandKey.current = (event) => {
+  const onCommandKey = (event: KeyboardEvent) => {
     if (!showCommands || event.isComposing) return false;
     if (event.key === 'Escape') { setDismissed(commandKey); setInserting(false); editor?.commands.focus(); return true; }
     if (filtered.length && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
@@ -133,7 +147,10 @@ export default function RichEditor({ value, label, onChange, endpoints, onProble
     if (event.key === 'Enter' && filtered[selected]) { applyCommand(filtered[selected]); return true; }
     return false;
   };
-  useEffect(() => { setChoice(0); }, [textBefore]);
+  useLayoutEffect(() => { handleCommandKey.current = onCommandKey; });
+  // Typing more of the command starts the choice over at the top.
+  const [choiceFor, setChoiceFor] = useState(textBefore);
+  if (choiceFor !== textBefore) { setChoiceFor(textBefore); setChoice(0); }
   useEffect(() => {
     const close = (event: PointerEvent) => { if (!root.current?.contains(event.target as Node) && !menuRoot.current?.contains(event.target as Node)) { setDismissed(commandKey); setInserting(false); } };
     document.addEventListener('pointerdown', close);
@@ -198,19 +215,19 @@ export default function RichEditor({ value, label, onChange, endpoints, onProble
     <div className="doc-block-gutter" style={{ top: anchor.gutterTop }}>
       <button type="button" aria-label="Add block" title="Add block" onMouseDown={(e) => e.preventDefault()} onClick={openInsert}><DocIcon name="plus" /></button>
       <button type="button" aria-label="Show formatting toolbar" title="Show formatting toolbar" onMouseDown={(e) => e.preventDefault()} onClick={() => setToolbarPosition(toolbarPosition === 'top' ? 'floating' : 'top')}><DocIcon name="text" /></button>
-      <button type="button" draggable aria-label="Drag block" title="Drag block to reorder" onDragStart={e=>{const from=editor.state.selection.$from;if(from.depth<1)return;editor.commands.setNodeSelection(from.before(1));e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',editor.state.selection.content().content.textBetween(0,editor.state.selection.content().content.size,'\n'));editor.view.dragging={slice:editor.state.selection.content(),move:true};}} onDragEnd={()=>{editor.view.dragging=null;}}><DocIcon name="grip" /></button>
+      <button type="button" draggable aria-label="Drag block" title="Drag block to reorder" onDragStart={e=>{const from=editor.state.selection.$from;if(from.depth<1)return;editor.commands.setNodeSelection(from.before(1));e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',editor.state.selection.content().content.textBetween(0,editor.state.selection.content().content.size,'\n'));setDragging(editor.view,{slice:editor.state.selection.content(),move:true});}} onDragEnd={()=>{setDragging(editor.view,null);}}><DocIcon name="grip" /></button>
       <button type="button" aria-label="Move block up" title="Move block up" disabled={blockIndex===0} onMouseDown={e=>e.preventDefault()} onClick={()=>moveBlock(-1)}><DocIcon name="up" /></button>
       <button type="button" aria-label="Move block down" title="Move block down" disabled={blockIndex>=editor.state.doc.childCount-1} onMouseDown={e=>e.preventDefault()} onClick={()=>moveBlock(1)}><DocIcon name="down" /></button>
     </div>
-    <input hidden ref={imageInput} type="file" aria-label={`Upload image to ${label}`} accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml,.svg" disabled={uploading}
+    <input hidden ref={imageInput} type="file" aria-label={`Upload image to ${label}`} accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml,.svg" disabled={uploading} aria-busy={uploading}
       onChange={(e) => { const file = e.target.files?.[0]; if (file) void upload(file); e.target.value = ''; }} />
-    <input hidden ref={attachmentInput} type="file" aria-label={`Attach file to ${label}`} disabled={uploading}
+    <input hidden ref={setAttachmentInput} type="file" aria-label={`Attach file to ${label}`} disabled={uploading} aria-busy={uploading}
       onChange={(e) => { const file = e.target.files?.[0]; if (file) void upload(file, true); e.target.value = ''; }} />
     {uploading && <p role="status">Uploading file…</p>}
     {downloading && <p role="status">Downloading file…</p>}
     <EditorContent editor={editor} />
     {linkBlock&&<form className="doc-block-form" onSubmit={e=>{e.preventDefault();if(!/^https?:\/\//i.test(blockUrl)||(linkBlock==='embed'&&!safeEmbed(blockUrl))){onProblem('Use a valid HTTPS embed URL from a supported provider, or an HTTP(S) button link.');return;}editor.chain().focus().insertContent(linkBlock==='button'?{type:'linkButton',attrs:{href:blockUrl,label:blockLabel}}:{type:'embed',attrs:{src:blockUrl}}).run();setLinkBlock(null);}}><label>{linkBlock==='embed'?'Embed URL':'Button URL'}<input type="url" required autoFocus value={blockUrl} onChange={e=>setBlockUrl(e.target.value)}/></label>{linkBlock==='button'&&<label>Button label<input required maxLength={200} value={blockLabel} onChange={e=>setBlockLabel(e.target.value)}/></label>}<button type="submit"><DocIcon name="plus" />Insert {linkBlock}</button><button type="button" onClick={()=>setLinkBlock(null)}><DocIcon name="close" />Cancel</button></form>}
-    {isDocAssetLink(editor.getAttributes('link').href ?? '') && <button type="button" disabled={downloading} onClick={() => void download(editor.getAttributes('link').href)}><DocIcon name="download" />Download attachment</button>}
+    {isDocAssetLink(editor.getAttributes('link').href ?? '') && <button type="button" disabled={downloading} aria-busy={downloading} onClick={() => void download(editor.getAttributes('link').href)}><DocIcon name="download" />Download attachment</button>}
     {editor.isEmpty && <p className="doc-empty-hint">Type / for commands</p>}
     {editor.isActive('table') && tableControlsSlot && createPortal(<div className="doc-table-tools" role="group" aria-label="Table actions">
       <button type="button" onClick={() => editor.chain().focus().addRowAfter().run()}><DocIcon name="table" />+ Row</button>

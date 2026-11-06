@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { AccessBoard, PersonAccess } from '@/lib/people';
 import { MIN_PASSWORD_LENGTH, PROTECTED_EMAIL, type Role } from '@/lib/admin-rules';
 import InviteLink, { inviteUrl } from '../invite-link';
 import './people.css';
-import Bell from '../bell';
+import AppHeader, { crossViews } from '../app-header';
+import ConfirmDelete, { TrashIcon } from '../confirm-delete';
 
 /**
  * The access board.
@@ -59,12 +60,14 @@ function monogram(name: string, email: string): string {
   return THAI.test(marks) ? marks : marks.toUpperCase();
 }
 
-type Props = { board: AccessBoard; actingUserId: string; signOut: React.ReactNode };
+type Props = { board: AccessBoard; actingUserId: string };
 
-export default function PeopleView({ board, actingUserId, signOut }: Props) {
+export default function PeopleView({ board, actingUserId }: Props) {
   const router = useRouter();
   const [people, setPeople] = useState(board.people);
-  useEffect(() => setPeople(board.people), [board.people]);
+  // A refreshed board wins: adjusted while rendering, not in an effect.
+  const [seenPeople, setSeenPeople] = useState(board.people);
+  if (board.people !== seenPeople) { setSeenPeople(board.people); setPeople(board.people); }
   const [query, setQuery] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
@@ -105,14 +108,12 @@ export default function PeopleView({ board, actingUserId, signOut }: Props) {
   /**
    * Delete an account outright.
    *
-   * Armed rather than confirmed in a dialog: the question belongs beside the
-   * row it is about, and a modal that interrupts is a modal people learn to
-   * click through. There is no undo — the row goes, its memberships cascade,
-   * and every task it created loses its author — so the armed state says so
-   * before it is answered.
+   * Asked first in the one delete dialog every surface shares. There is no
+   * undo — the row goes, its memberships cascade, and every task it created
+   * loses its author — so the dialog says so before it is answered.
    */
   async function remove(person: PersonAccess) {
-    setArming(null);
+    // The dialog stays up, its Delete spinning, until the answer is in.
     setBusy(`del:${person.id}`);
     setFailure(null);
     try {
@@ -127,6 +128,7 @@ export default function PeopleView({ board, actingUserId, signOut }: Props) {
     } catch {
       setFailure('No connection. That account was not deleted.');
     } finally {
+      setArming(null);
       setBusy(null);
     }
   }
@@ -144,7 +146,7 @@ export default function PeopleView({ board, actingUserId, signOut }: Props) {
    * away: between this click and the claim the person cannot sign in at all.
    */
   async function resetPassword(person: PersonAccess) {
-    setResetting(null);
+    // The armed pair stays, its confirm spinning, until the answer is in.
     setBusy(`pw:${person.id}`);
     setFailure(null);
     setReset(null);
@@ -163,6 +165,7 @@ export default function PeopleView({ board, actingUserId, signOut }: Props) {
     } catch {
       setFailure('No connection. No reset link was issued.');
     } finally {
+      setResetting(null);
       setBusy(null);
     }
   }
@@ -262,8 +265,9 @@ export default function PeopleView({ board, actingUserId, signOut }: Props) {
   if (board.projects.length === 0 && !board.canDeleteUsers) {
     return (
       <main className="people">
+        <AppHeader title="People and access" navLabel="Places" views={crossViews('People')} />
         <div className="people-sheet">
-          <Head signOut={signOut} />
+          <Intro />
           <p className="people-empty">
             You do not administer any project, so there is no access to hand out.
             Admin is granted per project — ask an admin of the project you need.
@@ -275,8 +279,9 @@ export default function PeopleView({ board, actingUserId, signOut }: Props) {
 
   return (
     <main className="people">
+     <AppHeader title="People and access" navLabel="Places" views={crossViews('People')} />
      <div className="people-sheet">
-      <Head signOut={signOut} />
+      <Intro />
 
       <div className="people-bar">
         <span className="people-count">
@@ -381,6 +386,7 @@ export default function PeopleView({ board, actingUserId, signOut }: Props) {
                         className="role"
                         value={role ?? NONE}
                         disabled={busy === key}
+                        aria-busy={busy === key}
                         title={role ? ROLE_NOTE[role] : 'No access — the project is invisible to them.'}
                         aria-label={`${person.name} on ${project.name}`}
                         onChange={(e) => void setAccess(
@@ -421,7 +427,7 @@ export default function PeopleView({ board, actingUserId, signOut }: Props) {
                     busy={busy === `del:${person.id}`}
                     onArm={() => { setArming(person.id); setResetting(null); setReset(null); }}
                     onCancel={() => setArming(null)}
-                    onConfirm={() => void remove(person)}
+                    onConfirm={() => remove(person)}
                   />}
                  </span>
                 </td>
@@ -503,7 +509,7 @@ function DeleteCell({
   busy: boolean;
   onArm: () => void;
   onCancel: () => void;
-  onConfirm: () => void;
+  onConfirm: () => Promise<void>;
 }) {
   if (protectedAccount) {
     return <span className="acct-locked" title="The install account. It cannot be deleted.">install account</span>;
@@ -513,26 +519,34 @@ function DeleteCell({
     // password can be asked for, which is not here.
     return <a className="acct-mine" href="/profile">Your profile ›</a>;
   }
-  if (busy) return <span className="acct-locked">deleting…</span>;
-
-  if (armed) {
-    return (
-      <span className="acct-armed">
-        <button className="acct-yes" onClick={onConfirm}>Delete for good</button>
-        <button className="acct-no" onClick={onCancel}>Cancel</button>
-      </span>
-    );
-  }
+  if (busy && !armed) return <span className="acct-locked">deleting…</span>;
 
   return (
-    <button
-      className="acct-del"
-      onClick={onArm}
-      aria-label={`Delete ${person.name}'s account`}
-      title="Removes the account and its memberships. Projects where they are the last admin transfer to the install account."
-    >
-      Delete
-    </button>
+    <>
+      <button
+        className="acct-del"
+        onClick={onArm}
+        aria-label={`Delete ${person.name}'s account`}
+        title="Removes the account and its memberships. Projects where they are the last admin transfer to the install account."
+      >
+        <TrashIcon />Delete
+      </button>
+      {armed && (
+        <ConfirmDelete
+          title="Delete account"
+          name={person.name}
+          note="This cannot be undone."
+          onConfirm={onConfirm}
+          onCancel={onCancel}
+        >
+          <p>{person.email}</p>
+          <p>
+            The account and every project membership go. Projects where they are
+            the last admin transfer to the install account.
+          </p>
+        </ConfirmDelete>
+      )}
+    </>
   );
 }
 
@@ -562,15 +576,15 @@ function ResetCell({
   onConfirm: () => void;
 }) {
   if (protectedAccount || isSelf) return null;
-  if (busy) return <span className="acct-locked">issuing…</span>;
+  if (busy && !armed) return <span className="acct-locked">issuing…</span>;
 
   if (armed) {
     return (
       <span className="acct-armed">
         {/* The verb says what actually happens, because "Confirm" would not:
             the old password stops working here, not when the link is used. */}
-        <button className="acct-yes" onClick={onConfirm}>Revoke and issue link</button>
-        <button className="acct-no" onClick={onCancel}>Cancel</button>
+        <button className="acct-yes" disabled={busy} aria-busy={busy} onClick={onConfirm}>Revoke and issue link</button>
+        <button className="acct-no" disabled={busy} onClick={onCancel}>Cancel</button>
       </span>
     );
   }
@@ -587,24 +601,15 @@ function ResetCell({
   );
 }
 
-function Head({ signOut }: { signOut: React.ReactNode }) {
+/** What the page is for. Its title is in the shared header above the sheet. */
+function Intro() {
   return (
-    <header className="people-head">
-      <div>
-        <h1>People and access</h1>
-        <p className="people-sub">
-          Who can reach which project, and as what. Access is held per project —
-          there is no account-wide setting to get wrong.
-        </p>
-      </div>
-      {/* Both of these change what level you are on rather than what you are
-          looking at, so they share the head's edge. */}
-      <div className="people-out">
-        <Bell />
-        <a className="shelf-link" href="/">‹ Home</a>
-        {signOut}
-      </div>
-    </header>
+    <div className="people-head">
+      <p className="people-sub">
+        Who can reach which project, and as what. Access is held per project —
+        there is no account-wide setting to get wrong.
+      </p>
+    </div>
   );
 }
 
@@ -630,7 +635,7 @@ function Invite({
       className="invite"
       onSubmit={(e) => {
         e.preventDefault();
-        if (!email.trim()) return;
+        if (!email.trim() || busy) return;
         void onInvite(email, name, projectId, role, withPassword ? password : '')
           .then(() => { setEmail(''); setName(''); setPassword(''); });
       }}
@@ -654,7 +659,7 @@ function Invite({
             <option key={r} value={r}>{ROLE_LABEL[r]}</option>
           ))}
         </select>
-        <button type="submit" disabled={busy}>{busy ? 'Inviting…' : 'Invite'}</button>
+        <button type="submit" disabled={busy} aria-busy={busy}>{busy ? 'Inviting…' : 'Invite'}</button>
       </div>
 
       {/* The default is the link, and it is the default because it is the only

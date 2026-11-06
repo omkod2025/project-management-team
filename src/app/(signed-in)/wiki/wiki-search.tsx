@@ -36,7 +36,7 @@ export default function WikiSearch({ wikiId }: { wikiId: string }) {
   return <section className="wiki-search" aria-label="Search this wiki">
     <form role="search" onSubmit={(e) => void search(e)}>
       <label>Search this wiki<input type="search" value={query} onChange={(e) => { setQuery(e.target.value); if (!e.target.value) setHits(null); }} /></label>
-      <button type="submit" disabled={busy || !query.trim()}>{busy ? 'Searching…' : 'Search'}</button>
+      <button type="submit" disabled={busy || !query.trim()} aria-busy={busy}>{busy ? 'Searching…' : 'Search'}</button>
     </form>
     {error && <p role="alert" className="docs-error">{error}</p>}
     {hits && <div className="wiki-search-hits">

@@ -9,7 +9,7 @@ import { addDays, contendedRuns, occupancy, pack, span, unpack } from './pack';
 import '../p/[slug]/list.css';
 import '../p/[slug]/timeline/timeline.css';
 import './roster.css';
-import Bell from '../bell';
+import AppHeader, { crossViews } from '../app-header';
 
 /**
  * The roster timeline — the shelf's own view (brief 2026-09-08).
@@ -73,6 +73,7 @@ export default function RosterView({ roster }: { roster: Roster }) {
 
   useEffect(() => {
     const v = loadRecord<{ mode?: Mode; zoom?: Zoom; hidden?: string[] }>('_shelf', 'roster', {});
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- restoring from localStorage, which the server render cannot read
     if (v.mode) setMode(v.mode);
     if (v.zoom) setZoom(v.zoom);
     if (v.hidden) setHiddenProjects(new Set(v.hidden));
@@ -93,7 +94,8 @@ export default function RosterView({ roster }: { roster: Roster }) {
 
   const dayW = DAY_W[zoom];
   const holidaySet = useMemo(() => new Set(holidays), [holidays]);
-  const today = useMemo(() => toIso(new Date(Date.now() + 7 * 3600 * 1000)), []);
+  // Today in Bangkok, read once: a render must not ask the clock.
+  const [today] = useState(() => toIso(new Date(Date.now() + 7 * 3600 * 1000)));
   const solo = who.size > 0;
 
   /** Filtering happens before packing: hidden work must not
@@ -182,19 +184,7 @@ export default function RosterView({ roster }: { roster: Roster }) {
   return (
     <div className="book">
       <div className="sheet">
-        <header className="head">
-          <a className="shelf label" href="/">‹ Home</a>
-          <h1>All Timeline</h1>
-          {/* The bell stands immediately before the view nav, so notice and
-              navigation sit together in the one cluster this header already
-              uses for "where do I go from here" (spec 11 §6). */}
-          <Bell />
-          <div className="views label">
-            <a href="/">Projects</a>
-            <span aria-current="page">All Timeline</span>
-            <a href="/people">People</a>
-          </div>
-        </header>
+        <AppHeader title="All Timeline" navLabel="Places" views={crossViews('All Timeline')} />
 
         <div className="toolbar label">
           <button className="today-jump label" onClick={scrollToToday}>Today</button>

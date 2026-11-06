@@ -45,7 +45,7 @@
   --cu-r-sheet: var(--radius-lg);
 
   min-height: 100vh;
-  padding: 24px 24px 64px;
+  padding: 0 24px 64px;
   background: var(--cu-ground);
   color: var(--cu-ink);
   font-family: var(--cu-font);
@@ -89,7 +89,9 @@
   font-size: 13px;
   line-height: 1.5;
 }
-.people-out { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+/* The shared page header runs edge to edge above the sheet. */
+.people > header.head.app-head { margin: 0 -24px 24px; }
+.people-head .people-sub { margin: 0; }
 
 /* The two chrome controls follow the sheet rather than the field book. Both
    are overrides of `.shelf-button` (globals.css), rendered by pages this
@@ -480,22 +482,26 @@ table.board {
    handing out a link, not by deleting anything — so it stays grey, never red. */
 
 .acct-del {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   height: 28px;
-  padding: 0 11px;
+  padding: 0 11px 0 9px;
   border: 1px solid transparent;
   border-radius: var(--cu-r-lg);
   background: none;
-  color: var(--cu-ink-faint);
+  color: var(--color-danger);
   cursor: pointer;
   font-family: var(--cu-font);
   font-size: 12.5px;
   transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
 }
-/* Revealed on approach rather than parked: one irreversible verb per row, on a
-   page whose ordinary work is the grid to its left. It stays for the keyboard,
-   which has no approach. Danger red, never vermilion: deletion is not a
-   misclosure (DESIGN.md § Colors). */
-.board tbody tr:hover .acct-del { color: var(--cu-ink-soft); border-color: var(--cu-line); }
+/* A red bin, at rest and on approach: every delete in the app is drawn the
+   same way, and asks in the same dialog. Danger red, never vermilion:
+   deletion is not a misclosure (DESIGN.md § Colors). Row hover adds the
+   border only. */
+.acct-del .trash-icon { width: 14px; height: 14px; }
+.board tbody tr:hover .acct-del { color: var(--color-danger); border-color: var(--cu-line); }
 /* The row-hover reveal above is (0,3,2) — one class heavier than a plain
    `.acct-del:hover` (0,2,0) — so hovering the row keeps outranking the
    button's own hover unless the button's rule is stated at least as
@@ -648,7 +654,8 @@ table.board {
 .legend dd { margin: 0; color: var(--cu-ink-soft); line-height: 1.55; }
 
 @media (max-width: 720px) {
-  .people { padding: 12px 12px 40px; }
+  .people { padding: 0 12px 40px; }
+  .people > header.head.app-head { margin: 0 -12px 12px; }
   .people-head { flex-wrap: wrap; padding: 18px 16px 14px; }
   .people-bar { flex-wrap: wrap; padding: 0 16px 12px; }
   .people-count { width: 100%; margin-right: 0; }

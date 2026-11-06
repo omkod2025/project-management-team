@@ -6,7 +6,8 @@ import type { FieldDef, Person } from '@/lib/ledger';
 import { loadRecord, saveRecord } from '../view-state';
 import '../list.css';
 import './report.css';
-import Bell from '../../../bell';
+import AppHeader from '../../../app-header';
+import { projectViews } from '../project-views';
 
 /**
  * The client report (Q4).
@@ -31,6 +32,7 @@ type Props = {
   fields: FieldDef[];
   people: Person[];
   statusFieldId: string | null;
+  canSettings: boolean;
 };
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -45,7 +47,7 @@ type Prefs = {
   preparedFor: string;
 };
 
-export default function ReportView({ projectName, slug, rows, fields, people, statusFieldId }: Props) {
+export default function ReportView({ projectName, slug, rows, fields, people, statusFieldId, canSettings }: Props) {
   const live = useMemo(
     () => fields.filter((f) => !f.archived).sort((a, b) => a.position - b.position),
     [fields],
@@ -68,6 +70,7 @@ export default function ReportView({ projectName, slug, rows, fields, people, st
       const fallback = f.kind !== 'money' && f.id === statusFieldId;
       columns[f.id] = stored.columns?.[f.id] ?? fallback;
     }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- restoring from localStorage, which the server render cannot read
     setPrefs({
       columns,
       showVariance: stored.showVariance ?? false,
@@ -128,33 +131,18 @@ export default function ReportView({ projectName, slug, rows, fields, people, st
     }
   };
 
-  const today = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10);
+  // Today in Bangkok, read once: a render must not ask the clock.
+  const [today] = useState(() => new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10));
 
   return (
     <>
       {/* Everything in here is screen-only; the printed page starts below. */}
       <div className="report-controls no-print">
-        <div className="head">
-          {/* Up a level, to the shelf. Deliberately not in the view nav
-              beside List / Timeline / Report: those are views *of this
-              project* and this is the way out of it — filing a level change
-              among sibling views because the two sit near each other is the
-              grouping-by-adjacency this page has been unpicking. */}
-          <a className="shelf label" href="/">‹ Field Book</a>
-          <h1>{projectName}</h1>
-          {/* The bell stands immediately before the view nav, so notice and
-              navigation sit together in the one cluster this header already
-              uses for "where do I go from here" (spec 11 §6). */}
-          <Bell />
-          <div className="views label">
-            <a href={`/p/${slug}`}>List</a>
-            <span style={{ color: 'var(--color-hairline)' }}>·</span>
-            <a href={`/p/${slug}/timeline`}>Timeline</a>
-            <span style={{ color: 'var(--color-hairline)' }}>·</span>
-            <span aria-current="page">Report</span>
-            <a href={`/p/${slug}/docs`}>Docs</a>
-          </div>
-        </div>
+        <AppHeader
+          title={projectName}
+          navLabel="Project views"
+          views={projectViews(slug, 'Report', { canSettings, extra: { label: 'Report', href: `/p/${slug}/report` } })}
+        />
 
         <p className="aside">
           Prints as a client report. Nothing here is shared by link — you send

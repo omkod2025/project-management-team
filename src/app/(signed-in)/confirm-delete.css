@@ -1,0 +1,144 @@
+/* ---- the one delete question ----
+   Every delete in the app asks here first. Danger red throughout: vermilion
+   means out of closure and nothing else, so it never draws a delete. */
+
+dialog.confirm-delete {
+  width: min(440px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-xl);
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  box-shadow: var(--shadow-2), 0 0 0 1px rgb(0 0 0 / 6%);
+}
+.confirm-delete::backdrop { background: rgb(15 15 15 / 40%); }
+.confirm-delete[open] { animation: confirm-delete-in .18s cubic-bezier(.16, 1, .3, 1); }
+.confirm-delete[open]::backdrop { animation: confirm-delete-fade .18s ease-out; }
+@keyframes confirm-delete-in { from { opacity: 0; transform: translateY(6px) scale(.98); } }
+@keyframes confirm-delete-fade { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .confirm-delete[open], .confirm-delete[open]::backdrop { animation: none; }
+}
+
+dialog.confirm-delete .confirm-delete-sheet { display: grid; gap: 12px; padding: 22px 24px 24px; }
+
+dialog.confirm-delete .confirm-delete-head { display: flex; align-items: center; gap: 12px; }
+dialog.confirm-delete .confirm-delete-head h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--color-ink);
+}
+dialog.confirm-delete .confirm-delete-mark {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-full);
+  background: var(--color-danger-wash);
+  color: var(--color-danger);
+}
+dialog.confirm-delete .confirm-delete-mark .trash-icon { width: 18px; height: 18px; }
+
+dialog.confirm-delete .confirm-delete-name {
+  margin: 4px 0 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+dialog.confirm-delete .confirm-delete-body { font-size: 14px; line-height: 1.55; color: var(--color-ink-secondary); }
+dialog.confirm-delete .confirm-delete-body p { margin: 0; }
+dialog.confirm-delete .confirm-delete-body p + p { margin-top: 6px; }
+dialog.confirm-delete .confirm-delete-body strong { font-variant-numeric: tabular-nums; color: var(--color-ink); }
+
+dialog.confirm-delete .confirm-delete-note {
+  margin: 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-hairline);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--color-ink-muted);
+}
+dialog.confirm-delete .confirm-delete-blocked {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  background: var(--color-paper);
+  color: var(--color-ink-secondary);
+  font-size: 13px;
+}
+dialog.confirm-delete .confirm-delete-error {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  background: var(--color-danger-wash);
+  color: var(--color-danger-active);
+  font-size: 13px;
+}
+
+dialog.confirm-delete .confirm-delete-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+dialog.confirm-delete .confirm-delete-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 18px;
+  border: 1px solid var(--color-field-line);
+  border-radius: var(--radius-full);
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+dialog.confirm-delete .confirm-delete-actions button:hover:not(:disabled) { background: var(--color-paper); }
+dialog.confirm-delete .confirm-delete-actions button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+dialog.confirm-delete .confirm-delete-actions button:disabled { opacity: .6; cursor: default; }
+dialog.confirm-delete .confirm-delete-actions .confirm-delete-go {
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+  color: #fff;
+  font-weight: 600;
+}
+dialog.confirm-delete .confirm-delete-actions .confirm-delete-go:hover:not(:disabled) {
+  background: var(--color-danger-active);
+  border-color: var(--color-danger-active);
+}
+dialog.confirm-delete .confirm-delete-go .trash-icon { width: 15px; height: 15px; }
+dialog.confirm-delete .confirm-delete-actions button { white-space: nowrap; }
+/* On a phone the answers stack full width, Cancel last — nearest the thumb. */
+@media (max-width: 480px) {
+  dialog.confirm-delete .confirm-delete-actions { flex-direction: column-reverse; }
+  dialog.confirm-delete .confirm-delete-actions button { width: 100%; height: 40px; }
+}
+@media print { .confirm-delete { display: none !important; } }
+
+/* ---- the delete control itself ----
+   A red bin wherever something can be deleted. `.delete-control` on a
+   labelled button, `.rowact.delete` on the List's icon-only row action. */
+.delete-control { color: var(--color-danger) !important; }
+.delete-control:hover:not(:disabled) { background: var(--color-danger-wash) !important; color: var(--color-danger-active) !important; }
+.delete-control:disabled { color: color-mix(in srgb, var(--color-danger) 45%, white) !important; }
+/* Icon only: the bin says it, the aria-label and title name it. A 32px
+   square so it is still a fair target, transparent until approached. */
+button.delete-control.icon-only {
+  display: inline-grid !important;
+  place-items: center;
+  width: 32px !important;
+  min-width: 32px;
+  height: 32px !important;
+  padding: 0 !important;
+  border-color: transparent !important;
+  border-radius: var(--radius-sm) !important;
+  background: transparent;
+  box-shadow: none !important;
+}
+button.delete-control.icon-only .trash-icon { width: 16px; height: 16px; }

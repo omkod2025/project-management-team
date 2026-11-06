@@ -8,7 +8,7 @@ import { wikiEndpoints } from '@/lib/doc-endpoints';
 import DocIcon from '../p/[slug]/docs/doc-icon';
 import DocContent from '../p/[slug]/docs/doc-content';
 import PageOutline from '../p/[slug]/docs/page-outline';
-import Bell from '../bell';
+import AppHeader, { wikiViews } from '../app-header';
 import WikiTree from './wiki-tree';
 import WikiTransfer from './wiki-transfer';
 import type { TreePage } from './wiki-tree-order';
@@ -70,16 +70,11 @@ export default function WikiWorkspace({ wiki, pages, archivedPages, page: server
   }
 
   return <div className="book docs-book wiki-book"><main className="docs-main">
-    <header className="head">
-      <a href="/wiki">Wiki</a>
-      <span className="docs-project">{wiki.title}</span>
-      {wiki.archived && <span className="wiki-flag">Archived</span>}
-      <Bell />
-      <nav className="views" aria-label="Wiki views">
-        <a href="/">Projects</a>
-        {(canManage || canWrite) && <a href={`${base}/settings`}>Settings</a>}
-      </nav>
-    </header>
+    <AppHeader
+      title={<><h1>{wiki.title}</h1>{wiki.archived && <span className="wiki-flag">Archived</span>}</>}
+      navLabel="Wiki views"
+      views={wikiViews('Pages', { id: wiki.id, canSettings: canManage || canWrite })}
+    />
     <div className="doc-workspace">
       <button className="doc-sidebar-toggle" type="button" aria-expanded={showPages} aria-controls="wiki-page-index" onClick={() => setShowPages(!showPages)}>
         <DocIcon name="file" />Pages · {wiki.title}

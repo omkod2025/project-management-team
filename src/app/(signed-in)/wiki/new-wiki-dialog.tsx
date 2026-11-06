@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 import DocIcon from '../p/[slug]/docs/doc-icon';
 import { problem, wikiCall } from './wiki-api';
+import { hardNavigate } from '@/lib/hard-navigate';
 
 /**
  * Any active signed-in person may start a wiki, and owns what they start (spec §5a).
@@ -41,7 +42,7 @@ export default function NewWikiDialog() {
     setBusy(true); setError('');
     try {
       const wiki = await wikiCall<{ id: string }>('/api/wikis', 'POST', { title, description });
-      window.location.assign(`/wiki/${wiki.id}`);
+      hardNavigate(`/wiki/${wiki.id}`);
     } catch (err) { setError(problem(err, 'The wiki could not be created. Try again.')); setBusy(false); }
   }
 
@@ -67,7 +68,7 @@ export default function NewWikiDialog() {
         </div>
         <footer className="wiki-dialog-actions">
           <button type="button" disabled={busy} onClick={close}>Cancel</button>
-          <button className="docs-primary" type="submit" disabled={busy || !title.trim()}>
+          <button className="docs-primary" type="submit" disabled={busy || !title.trim()} aria-busy={busy}>
             <DocIcon name="plus" />{busy ? 'Creating…' : 'Create wiki'}
           </button>
         </footer>
