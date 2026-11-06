@@ -34,7 +34,7 @@
 .doc-prose :is(ul,ol) { padding-left: 26px; }
 .doc-prose table { border-collapse: collapse; width: 100%; table-layout: fixed; }
 .doc-prose :is(td,th) { border: 1px solid var(--color-hairline); padding: 4px 10px 3px; min-width: 60px; vertical-align: top; }
-.doc-prose th { background: var(--color-paper); }
+.doc-prose th { background: var(--color-table-head); }
 .doc-table-filter-menu { position: relative; font-size: 12px; font-weight: 400; }
 .doc-table-filter-menu summary { cursor: pointer; padding: 6px 0; }
 .doc-table-filter-options { position: absolute; z-index: 20; top: 100%; right: 0; width: 240px; max-width: 75vw; max-height: 280px; overflow: auto; padding: 10px; background: var(--color-canvas); border: 1px solid var(--color-hairline); border-radius: var(--radius-md); box-shadow: var(--shadow-2); }

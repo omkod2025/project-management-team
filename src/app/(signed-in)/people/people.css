@@ -233,7 +233,7 @@ table.board {
   min-width: 100%;
 }
 
-/* The table wears the house's table law: a paper header row, Stone captions.
+/* The table wears the house's table law: the house table-head row, Stone captions.
    Project names are Thai-capable, so the row stays at 13px rather than
    dropping to the fixed-English 12px eyebrow. */
 .board thead th {
@@ -241,14 +241,14 @@ table.board {
   padding: 0 12px;
   text-align: left;
   white-space: nowrap;
-  background: var(--color-paper);
+  background: var(--color-table-head);
   color: var(--cu-ink-soft);
   font-family: var(--cu-font);
   font-size: 13px;
   font-weight: 600;
   letter-spacing: normal;
   text-transform: none;
-  box-shadow: inset 0 -1px 0 var(--cu-line);
+  box-shadow: inset 0 -1px 0 var(--color-table-head-line);
 }
 /* Project names are long, bracketed and often Thai. The head truncates rather
    than spilling across the neighbouring column — the full name is in the title
@@ -272,8 +272,8 @@ table.board {
 }
 .board thead th.who {
   z-index: 3;
-  background: var(--color-paper);
-  box-shadow: inset 0 -1px 0 var(--cu-line), 1px 0 0 var(--cu-line);
+  background: var(--color-table-head);
+  box-shadow: inset 0 -1px 0 var(--color-table-head-line), 1px 0 0 var(--color-table-head-line);
 }
 .board tbody tr:hover th.who { background: var(--cu-hover); }
 

@@ -120,13 +120,13 @@
 .docs-tools { display: flex; flex-wrap: wrap; align-items: end; gap: 16px; margin: 24px 0 12px; }
 .docs-search { display: grid; gap: 6px; font-size: 13px; width: 300px; max-width: 100%; }
 .docs-tools > span { padding-bottom: 8px; }
-/* Registers: a white panel on paper, the header row in paper. */
+/* Registers: a white panel on paper, the header row on the house table head. */
 .docs-table-wrap { overflow-x: auto; background: var(--color-canvas); border: 1px solid var(--color-hairline); border-radius: var(--radius-lg); }
 .docs-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 14px; }
 .docs-table th, .docs-table td { padding: 12px 16px; border-bottom: 1px solid var(--color-hairline); overflow-wrap: anywhere; }
 .docs-table th:first-child { width: 45%; }
 /* Column heads are English chrome: the 12px eyebrow with its tracking. */
-.docs-table thead th { background: var(--color-paper); color: var(--color-ink-muted); font-weight: 600; font-size: 12px; letter-spacing: .125px; white-space: nowrap; }
+.docs-table thead th { background: var(--color-table-head); border-bottom-color: var(--color-table-head-line); color: var(--color-ink-muted); font-weight: 600; font-size: 12px; letter-spacing: .125px; white-space: nowrap; }
 .docs-table tbody th { font-weight: 500; line-height: 1.6; }
 .docs-table tbody tr:hover { background: var(--cu-hover); }
 .docs-table tbody tr:last-child :is(th, td) { border-bottom: 0; }

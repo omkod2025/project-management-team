@@ -319,9 +319,9 @@ table.sh-run {
   padding: 0 14px;
   text-align: left;
   white-space: nowrap;
-  background: var(--sh-panel-soft);
+  background: var(--color-table-head);
   color: var(--sh-ink-soft);
-  border-bottom: 1px solid var(--sh-line);
+  border-bottom: 1px solid var(--color-table-head-line);
   font-family: var(--font-read), system-ui, sans-serif;
   font-size: 11px;
   font-weight: 500;
