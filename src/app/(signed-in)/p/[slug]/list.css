@@ -31,6 +31,10 @@
   --cu-ink-faint: var(--color-ink-faint);
   --cu-hover: color-mix(in srgb, var(--color-paper) 70%, var(--color-canvas));
   --cu-chip: var(--color-paper);
+  /* The header rows: a cool slate, apart from the warm paper the table sits
+     on, so the heads never read as part of the page around them. */
+  --cu-head: var(--color-table-head);
+  --cu-head-line: var(--color-table-head-line);
   --cu-r: var(--radius-xs);
   --cu-r-lg: var(--radius-md);
   --list-font: var(--font-sans), var(--font-read), -apple-system, system-ui, 'Segoe UI', Helvetica, Arial, sans-serif;
@@ -490,7 +494,7 @@
    a seam in the page, not as a floating box over it. */
 .run thead tr.heads th[draggable='true'] { cursor: grab; }
 .run thead tr.heads th[data-dragging] { opacity: .45; cursor: grabbing; }
-.run thead tr.heads th[data-drop] { box-shadow: inset 2px 0 0 var(--color-ink-graphite), inset 0 -1px 0 var(--cu-line); }
+.run thead tr.heads th[data-drop] { box-shadow: inset 2px 0 0 var(--color-ink-graphite), inset 0 -1px 0 var(--cu-head-line); }
 .head-mark { color: var(--cu-ink); }
 .head-mark .figure { font-family: var(--list-font); font-size: 11px; font-variant-numeric: tabular-nums; }
 
@@ -515,7 +519,8 @@ table.run {
   table-layout: fixed;
 }
 
-/* The eyebrow style on paper, as the Wiki's tables draw their heads. Column
+/* The eyebrow style on the slate head (the page around the table is paper, so
+   paper heads vanished into it). Column
    names are user-defined and may be Thai, so they take 13px — Thai never goes
    below it — and no tracking. Only the band's fixed English captions drop to
    the 12px eyebrow. */
@@ -525,7 +530,7 @@ table.run {
   padding: 0 12px;
   text-align: left;
   white-space: nowrap;
-  background: var(--color-paper);
+  background: var(--cu-head);
   color: var(--color-ink-muted);
   font-family: var(--list-font);
   font-size: 13px;
@@ -551,13 +556,13 @@ table.run {
 .run thead tr.band .band-estimate { color: var(--color-ink-graphite); }
 .run thead tr.band .band-actual { color: var(--color-ink-blue); }
 .run thead tr.band .band-variance,
-.run thead tr.band .band-progress { color: var(--cu-ink-faint); }
-.run thead tr.band th:not(.band-blank) { box-shadow: inset 0 -1px 0 var(--cu-line); }
+.run thead tr.band .band-progress { color: var(--color-ink-muted); }
+.run thead tr.band th:not(.band-blank) { box-shadow: inset 0 -1px 0 var(--cu-head-line); }
 
 .run thead tr.heads th {
   top: 24px;
   height: 36px;
-  box-shadow: inset 0 -1px 0 var(--cu-line);
+  box-shadow: inset 0 -1px 0 var(--cu-head-line);
 }
 .run th.num, .run td.num { text-align: right; }
 
@@ -572,9 +577,9 @@ table.run {
   min-width: 440px;
   box-shadow: 1px 0 0 var(--cu-line);
 }
-.run thead th.nm { z-index: 6; background: var(--color-paper); }
-.run thead tr.band th.nm { box-shadow: 1px 0 0 var(--cu-line); }
-.run thead tr.heads th.nm { box-shadow: inset 0 -1px 0 var(--cu-line), 1px 0 0 var(--cu-line); }
+.run thead th.nm { z-index: 6; background: var(--cu-head); }
+.run thead tr.band th.nm { box-shadow: 1px 0 0 var(--cu-head-line); }
+.run thead tr.heads th.nm { box-shadow: inset 0 -1px 0 var(--cu-head-line), 1px 0 0 var(--cu-head-line); }
 
 /* Airy rows: 40px, padded 8px 12px, parted by a hairline. No rule between
    columns — a column is held by its alignment, as in a Notion database. */
