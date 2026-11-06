@@ -8,7 +8,7 @@ import ConfirmDelete, { TrashIcon } from '../../../confirm-delete';
 import KindIcon, { KIND_LABEL } from './kind-icon';
 
 export type Field = Settings['fields'][number];
-type Send = (url: string, method: string, body?: unknown) => Promise<unknown>;
+type Send = (url: string, method: string, body?: unknown, source?: string) => Promise<unknown>;
 
 const STAGE_LABEL = { notStarted: 'not started', inProgress: 'running', done: 'closed' } as const;
 
@@ -23,13 +23,15 @@ const STAGE_LABEL = { notStarted: 'not started', inProgress: 'running', done: 'c
  * The column's kind is shown, never offered: it cannot be changed (D-31).
  */
 export default function ColumnDialog({
-  f, isStatus, projectId, error, busy, send, onClose,
+  f, isStatus, projectId, error, busy, busyFor, send, onClose,
 }: {
   f: Field;
   isStatus: boolean;
   projectId: string;
   error: string | null;
   busy: boolean;
+  /** Which control started the write in flight: only it shows busy. */
+  busyFor: string | null;
   send: Send;
   onClose: () => void;
 }) {
@@ -79,9 +81,10 @@ export default function ColumnDialog({
                 className="field-input"
                 defaultValue={f.name}
                 maxLength={120}
+                aria-busy={busyFor === 'name'}
                 onBlur={(e) => {
                   const v = e.target.value.trim();
-                  if (v && v !== f.name) void send(`/api/fields/${f.id}`, 'PATCH', { name: v });
+                  if (v && v !== f.name) void send(`/api/fields/${f.id}`, 'PATCH', { name: v }, 'name');
                 }}
                 onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
               />
@@ -106,9 +109,11 @@ export default function ColumnDialog({
               <button
                 type="button"
                 className="label"
+                disabled={busy}
+                aria-busy={busyFor === 'status'}
                 onClick={() => void send(`/api/projects/${projectId}`, 'PATCH', {
                   statusFieldId: isStatus ? null : f.id,
-                })}
+                }, 'status')}
               >
                 {isStatus ? 'Stop using as status' : 'Make status column'}
               </button>
@@ -128,9 +133,10 @@ export default function ColumnDialog({
                     key={o.label}
                     className="field-input name"
                     defaultValue={o.label}
+                    aria-busy={busyFor === `label:${o.id}`}
                     onBlur={(e) => {
                       const v = e.target.value.trim();
-                      if (v && v !== o.label) void send(`/api/options/${o.id}`, 'PATCH', { label: v });
+                      if (v && v !== o.label) void send(`/api/options/${o.id}`, 'PATCH', { label: v }, `label:${o.id}`);
                     }}
                     onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
                     aria-label="Option label"
@@ -140,7 +146,9 @@ export default function ColumnDialog({
                       key={o.stage ?? ''}
                       className="field-input stage-select"
                       defaultValue={o.stage ?? ''}
-                      onChange={(e) => void send(`/api/options/${o.id}`, 'PATCH', { stage: e.target.value })}
+                      onChange={(e) => void send(`/api/options/${o.id}`, 'PATCH', { stage: e.target.value }, `stage:${o.id}`)}
+                      disabled={busyFor === `stage:${o.id}`}
+                      aria-busy={busyFor === `stage:${o.id}`}
                       aria-label={`Stage for ${o.label}`}
                     >
                       <option value="">no stage</option>
@@ -151,7 +159,9 @@ export default function ColumnDialog({
                     <button
                       type="button"
                       className="label"
-                      onClick={() => void send(`/api/options/${o.id}`, 'PATCH', { archived: false })}
+                      disabled={busy}
+                      aria-busy={busyFor === `restore:${o.id}`}
+                      onClick={() => void send(`/api/options/${o.id}`, 'PATCH', { archived: false }, `restore:${o.id}`)}
                     >
                       Restore
                     </button>
@@ -173,11 +183,11 @@ export default function ColumnDialog({
                 className="settings-row add"
                 onSubmit={(e) => {
                   e.preventDefault();
-                  if (!label.trim()) return;
+                  if (!label.trim() || busy) return;
                   void send(`/api/fields/${f.id}/options`, 'POST', {
                     label,
                     colorIndex: nextOptionColor(f.options.length),
-                  });
+                  }, 'add-option');
                   setLabel('');
                 }}
               >
@@ -188,7 +198,7 @@ export default function ColumnDialog({
                   onChange={(e) => setLabel(e.target.value)}
                   aria-label="New option label"
                 />
-                <button type="submit" className="label" disabled={!label.trim()}>Add option</button>
+                <button type="submit" className="label" disabled={!label.trim() || busy} aria-busy={busyFor === 'add-option'}>Add option</button>
               </form>
 
               {isStatus && (

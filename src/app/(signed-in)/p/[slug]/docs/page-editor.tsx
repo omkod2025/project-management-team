@@ -5,13 +5,16 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { pageMarkdown, pageSections, type DocPage, type PageContent } from '@/lib/doc-rules';
 import RichEditor from './rich-editor';
 import type { DocEndpoints } from '@/lib/doc-endpoints';
+import { quietHeaders } from '@/lib/api-activity-rules';
 
 export default function PageEditor({ page, endpoints, onDone, onTitleSaved, focusTitle = false, metadata, actionsContainer }: { page: DocPage; endpoints: DocEndpoints; onDone: (saved: { content: PageContent; title: string; updatedAt: string }) => void; onTitleSaved: (title: string) => void; focusTitle?: boolean; metadata: React.ReactNode; actionsContainer: HTMLDivElement | null }) {
   const draft = useRef<PageContent>({ ...page.content });
   const titleDraft = useRef(page.title);
   const [title, setTitle] = useState(page.title);
-  const snapshotDraft = () => JSON.stringify({ content: draft.current, ...(!page.nodeId ? { title: titleDraft.current } : {}) });
-  const saved = useRef(snapshotDraft());
+  const snapshotDraft = useCallback(() => JSON.stringify({ content: draft.current, ...(!page.nodeId ? { title: titleDraft.current } : {}) }), [page.nodeId]);
+  // The same string snapshotDraft() gives before any edit, built from props so
+  // render never reads a ref.
+  const saved = useRef(JSON.stringify({ content: { ...page.content }, ...(!page.nodeId ? { title: page.title } : {}) }));
   const stamp = useRef(page.updatedAt);
   const flight = useRef<Promise<boolean> | null>(null);
   const stopped = useRef(false);
@@ -21,7 +24,8 @@ export default function PageEditor({ page, endpoints, onDone, onTitleSaved, focu
   const [error, setError] = useState('');
   const errorPanel = useRef<HTMLDivElement>(null);
   const [conflict, setConflict] = useState(false);
-  const [copy, setCopy] = useState(false);
+  /** The draft as text, taken when "Show my draft" opens; null while closed. */
+  const [copy, setCopy] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [uploads, setUploads] = useState(0);
   const [restoreId,setRestoreId]=useState<string|null>(null);
@@ -34,6 +38,7 @@ export default function PageEditor({ page, endpoints, onDone, onTitleSaved, focu
   const cleanupPending = useRef(false);
   const forceRevision=useRef(false);
   const [history, setHistory] = useState<Array<{ id: string; content: PageContent; updatedAt: string; editor: string | null }> | null>(null);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   const save = useCallback(async (finalizeAssets = false): Promise<boolean> => {
     if (flight.current) return flight.current;
@@ -44,7 +49,7 @@ export default function PageEditor({ page, endpoints, onDone, onTitleSaved, focu
     setStatus('Saving…'); setError('');
     flight.current = (async () => {
       try {
-        const response = await fetch(endpoints.savePage(page.id), { method: 'PATCH', headers: { 'content-type': 'application/json' },
+        const response = await fetch(endpoints.savePage(page.id), { method: 'PATCH', headers: { 'content-type': 'application/json', ...(finalizeAssets ? {} : quietHeaders) },
           body: JSON.stringify({ ...JSON.parse(snapshot), updatedAt: stamp.current, forceRevision:forceRevision.current, finalizeAssets, uploadedAssets: [...uploadedAssets.current] }) });
         const body = await response.json();
         if (!response.ok) {
@@ -68,20 +73,20 @@ export default function PageEditor({ page, endpoints, onDone, onTitleSaved, focu
       }
     })();
     return flight.current;
-  }, [page.id, page.nodeId, onTitleSaved, endpoints]);
+  }, [page.id, page.nodeId, onTitleSaved, endpoints, snapshotDraft]);
 
   useEffect(() => {
     if (finishing.current || stopped.current || snapshotDraft() === saved.current) return;
     const timer = setTimeout(() => void save(), 1000);
     return () => clearTimeout(timer);
-  }, [change, save]);
+  }, [change, save, snapshotDraft]);
 
   useEffect(() => {
     alive.current = true;
     const warn = (e: BeforeUnloadEvent) => { if (pendingUploads.current || snapshotDraft() !== saved.current) { e.preventDefault(); e.returnValue = ''; } };
     window.addEventListener('beforeunload', warn);
     return () => { alive.current = false; window.removeEventListener('beforeunload', warn); };
-  }, []);
+  }, [snapshotDraft]);
 
   async function done() {
     if (pendingUploads.current || finishing.current) return;
@@ -107,17 +112,22 @@ export default function PageEditor({ page, endpoints, onDone, onTitleSaved, focu
   }
 
   async function showHistory() {
+    if (loadingHistory) return;
+    setLoadingHistory(true);
     try {
       const res = await fetch(endpoints.history(page.id));
       if (!res.ok) throw new Error();
       setHistory(await res.json());
     } catch { setError('Could not load history. Try again.'); }
+    finally { setLoadingHistory(false); }
   }
 
   async function copyDraft() {
     try { await navigator.clipboard.writeText(pageMarkdown(page.template, draft.current)); setCopied(true); }
-    catch { setCopy(true); }
+    catch { setCopy(draftText()); }
   }
+  /** Read when "Show my draft" opens, never during render: the draft lives in refs. */
+  function draftText() { return `# ${titleDraft.current}\n\n${pageMarkdown(page.template, draft.current)}`; }
   function downloadDraft() {
     const source=JSON.stringify({format:'fieldbook-doc-v1',pages:[{title:titleDraft.current,template:page.template,content:draft.current}]},null,2);
     const url=URL.createObjectURL(new Blob([source],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='fieldbook-draft.json';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
@@ -132,14 +142,14 @@ export default function PageEditor({ page, endpoints, onDone, onTitleSaved, focu
     {metadata}
     <div className="editor-savebar"><span role="status">{status}</span>
       <button type="button" onClick={() => void copyDraft()}><DocIcon name="copy" />{copied ? 'Copied Markdown' : 'Copy Markdown'}</button>
-      <button type="button" onClick={() => history ? setHistory(null) : void showHistory()}><DocIcon name="history" />History</button>
+      <button type="button" disabled={loadingHistory} aria-busy={loadingHistory} onClick={() => history ? setHistory(null) : void showHistory()}><DocIcon name="history" />History</button>
     </div>
     {error && <div ref={errorPanel} tabIndex={-1} className="editor-error" role="alert"><p>{error}</p>
       <button type="button" onClick={downloadDraft}><DocIcon name="download" />Download complete draft (JSON)</button>
       {!conflict && <button type="button" onClick={() => { stopped.current = false; void save(); }}><DocIcon name="history" />Retry save</button>}
-      {conflict && <button type="button" onClick={() => setCopy(true)}>Show my draft</button>}
+      {conflict && <button type="button" onClick={() => setCopy(draftText())}>Show my draft</button>}
     </div>}
-    {copy && <label className="editor-copy">Your current draft — title and content; copy before reloading<textarea readOnly value={`# ${titleDraft.current}\n\n${pageMarkdown(page.template, draft.current)}`} onFocus={(e) => e.target.select()} /></label>}
+    {copy !== null && <label className="editor-copy">Your current draft — title and content; copy before reloading<textarea readOnly value={copy} onFocus={(e) => e.target.select()} /></label>}
     {history && <div className="editor-history"><div className="editor-history-heading"><h2>Page history</h2><button type="button" aria-label="Close history" onClick={() => setHistory(null)}><DocIcon name="close" /></button></div>{history.length ? history.map((r) => <details key={r.id}>
       <summary>{r.editor ?? 'Former member'} · {new Date(r.updatedAt).toLocaleString('en-GB', { timeZone: 'Asia/Bangkok' })}</summary>
       <pre>{pageMarkdown(page.template, r.content)}</pre>

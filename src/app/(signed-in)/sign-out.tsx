@@ -1,3 +1,6 @@
+'use client';
+
+import { useFormStatus } from 'react-dom';
 import { signOutAction } from './sign-out-action';
 
 /**
@@ -15,11 +18,20 @@ import { signOutAction } from './sign-out-action';
  *
  * The button is styled by its caller — the shelf and the shared page header
  * each draw it their own way. It takes a class name and nothing else.
+ *
+ * A client component only so the button can say it is in flight; the form
+ * still posts without JavaScript.
  */
 export default function SignOut({ className = '' }: { className?: string }) {
   return (
     <form action={signOutAction}>
-      <button type="submit" className={className}>Sign out</button>
+      <SignOutButton className={className} />
     </form>
   );
+}
+
+/** Its own component because the form's pending state is only readable inside it. */
+function SignOutButton({ className }: { className: string }) {
+  const { pending } = useFormStatus();
+  return <button type="submit" className={className} disabled={pending} aria-busy={pending}>Sign out</button>;
 }

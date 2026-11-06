@@ -14,6 +14,8 @@ type Props = {
   /** The page being read contains this one, or is it — deleting it leaves nothing to show. */
   holdsCurrent: boolean;
   disabled: boolean;
+  /** A subpage of this page is being created, from this menu. */
+  addingSubpage?: boolean;
   onAddSubpage: (parentId: string) => void;
   onClose: () => void;
 };
@@ -25,7 +27,7 @@ type Props = {
  * delete dialog every surface shares. Underneath, Delete archives: the page
  * waits under Deleted pages for a Restore.
  */
-export default function WikiPageActions({ wikiId, page, pages, holdsCurrent, disabled, onAddSubpage, onClose }: Props) {
+export default function WikiPageActions({ wikiId, page, pages, holdsCurrent, disabled, addingSubpage = false, onAddSubpage, onClose }: Props) {
   const [mode, setMode] = useState<'menu' | 'move' | 'delete'>('menu');
   const [parentId, setParentId] = useState(page.parentId ?? '');
   const [position, setPosition] = useState<'first' | 'last'>('last');
@@ -36,6 +38,7 @@ export default function WikiPageActions({ wikiId, page, pages, holdsCurrent, dis
 
   async function move(e: React.FormEvent) {
     e.preventDefault();
+    if (busy) return;
     const parent = parentId || null;
     const first = pages.find((p) => p.parentId === parent && p.id !== page.id);
     setBusy(true); setError('');
@@ -56,7 +59,7 @@ export default function WikiPageActions({ wikiId, page, pages, holdsCurrent, dis
 
   return <div className="wiki-page-actions" role="group" aria-label={`Actions for ${page.title}`}>
     {mode !== 'move' && <>
-      {page.depth < 3 && <button type="button" disabled={disabled} onClick={() => onAddSubpage(page.id)}><DocIcon name="plus" />New subpage</button>}
+      {page.depth < 3 && <button type="button" disabled={disabled} aria-busy={addingSubpage} onClick={() => onAddSubpage(page.id)}><DocIcon name="plus" />New subpage</button>}
       <button type="button" disabled={disabled} onClick={() => setMode('move')}><DocIcon name="move" />Move to…</button>
       <button type="button" className="delete-control" disabled={disabled} onClick={() => setMode('delete')}><TrashIcon />Delete…</button>
     </>}
@@ -68,7 +71,7 @@ export default function WikiPageActions({ wikiId, page, pages, holdsCurrent, dis
       <label>Position<select value={position} disabled={busy} onChange={(e) => setPosition(e.target.value as 'first' | 'last')}>
         <option value="first">First</option><option value="last">Last</option>
       </select></label>
-      <div className="docs-actions"><button className="docs-primary" disabled={busy || disabled}>{busy ? 'Moving…' : 'Move page'}</button></div>
+      <div className="docs-actions"><button className="docs-primary" disabled={busy || disabled} aria-busy={busy}>{busy ? 'Moving…' : 'Move page'}</button></div>
     </form>}
     {mode === 'delete' && <ConfirmDelete title="Delete page" name={page.title}
       note="Writers can restore it from Deleted pages." onConfirm={remove} onCancel={() => setMode('menu')}>

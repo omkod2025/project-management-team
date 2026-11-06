@@ -88,7 +88,7 @@ export default function DocsView({ project, initialDocs, canCreate }: Props) {
             <p className="docs-muted">This document belongs to {project.name}. Project members can view it.</p>
             {error && <p className="docs-error" role="alert">{error}</p>}
             <div className="docs-actions">
-              <button className="docs-primary" type="submit" disabled={saving || !title.trim()}><DocIcon name="plus" />{saving ? 'Creating…' : 'Create document'}</button>
+              <button className="docs-primary" type="submit" disabled={saving || !title.trim()} aria-busy={saving}><DocIcon name="plus" />{saving ? 'Creating…' : 'Create document'}</button>
               <button type="button" disabled={saving} onClick={closeForm}><DocIcon name="close" />Cancel</button>
             </div>
           </form>}

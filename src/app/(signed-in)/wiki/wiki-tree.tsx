@@ -26,26 +26,30 @@ type Props = {
  */
 export default function WikiTree({ wiki, pages, archivedPages, currentId, currentTitle, canWrite, locked, open }: Props) {
   const [menuFor, setMenuFor] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  // What is in flight — 'new', 'sub:<parent id>' or 'restore:<page id>' — so only its button reads busy.
+  const [working, setWorking] = useState<string | null>(null);
+  const busy = working !== null;
   const [error, setError] = useState('');
   const base = `/wiki/${wiki.id}`;
   const ordered = treeOrder(pages);
   const holdsCurrent = (id: string) => !!currentId && subtreeOf(pages, id).has(currentId);
 
   async function addPage(parentId: string | null) {
-    setBusy(true); setError('');
+    if (busy) return;
+    setWorking(parentId ? `sub:${parentId}` : 'new'); setError('');
     try {
       const page = await wikiCall<{ slug: string }>(`/api/wikis/${wiki.id}/pages`, 'POST', { title: 'Untitled', ...(parentId ? { parentId } : {}) });
       hardNavigate(`${base}/${page.slug}?edit=1`);
-    } catch (err) { setError(problem(err, 'Could not create a page.')); setBusy(false); }
+    } catch (err) { setError(problem(err, 'Could not create a page.')); setWorking(null); }
   }
 
   async function restore(pageId: string) {
-    setBusy(true); setError('');
+    if (busy) return;
+    setWorking(`restore:${pageId}`); setError('');
     try {
       const page = await wikiCall<{ slug: string }>(`/api/wikis/${wiki.id}/pages`, 'PATCH', { pageId });
       hardNavigate(`${base}/${page.slug}`);
-    } catch (err) { setError(problem(err, 'Could not restore this page.')); setBusy(false); }
+    } catch (err) { setError(problem(err, 'Could not restore this page.')); setWorking(null); }
   }
 
   return <aside id="wiki-page-index" className={`doc-sidebar wiki-sidebar${open ? ' is-open' : ''}`} aria-label="Wiki pages">
@@ -60,14 +64,14 @@ export default function WikiTree({ wiki, pages, archivedPages, currentId, curren
           disabled={locked} onClick={() => setMenuFor(menuFor === p.id ? null : p.id)}><DocIcon name="more" /></button>}
       </div>
       {canWrite && menuFor === p.id && <WikiPageActions wikiId={wiki.id} page={p} pages={pages} holdsCurrent={holdsCurrent(p.id)}
-        disabled={locked || busy} onAddSubpage={(id) => void addPage(id)} onClose={() => setMenuFor(null)} />}
+        disabled={locked || busy} addingSubpage={working === `sub:${p.id}`} onAddSubpage={(id) => void addPage(id)} onClose={() => setMenuFor(null)} />}
     </div>)}</nav>
     {!ordered.length && <p className="docs-muted">No pages yet.</p>}
-    {canWrite && <div className="doc-add-actions"><button type="button" disabled={locked || busy} onClick={() => void addPage(null)}><DocIcon name="plus" />{busy ? 'Working…' : 'New page'}</button></div>}
+    {canWrite && <div className="doc-add-actions"><button type="button" disabled={locked || busy} aria-busy={working === 'new'} onClick={() => void addPage(null)}><DocIcon name="plus" />{busy ? 'Working…' : 'New page'}</button></div>}
     {error && <p role="alert" className="docs-error">{error}</p>}
     {canWrite && !!archivedPages.length && <details className="doc-archived"><summary>Deleted pages ({archivedPages.length})</summary>
       {archivedPages.map((p) => <div key={p.id}><span>{p.title}</span>
-        <button type="button" disabled={busy || locked} onClick={() => void restore(p.id)}><DocIcon name="history" />Restore</button></div>)}
+        <button type="button" disabled={busy || locked} aria-busy={working === `restore:${p.id}`} onClick={() => void restore(p.id)}><DocIcon name="history" />Restore</button></div>)}
     </details>}
   </aside>;
 }

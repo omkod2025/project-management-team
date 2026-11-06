@@ -314,6 +314,8 @@
   box-shadow: 0 0 0 3px var(--brand-glow);
 }
 .field-input.name { flex: 1; }
+/* A box whose own write is in flight: marked, not locked. */
+.field-input[aria-busy='true'] { cursor: progress; opacity: 0.7; }
 .field-input.figure { font-variant-numeric: tabular-nums; font-size: 13px; }
 .stage-select { width: 130px; }
 

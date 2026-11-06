@@ -113,7 +113,7 @@ export default function PeopleView({ board, actingUserId }: Props) {
    * loses its author — so the dialog says so before it is answered.
    */
   async function remove(person: PersonAccess) {
-    setArming(null);
+    // The dialog stays up, its Delete spinning, until the answer is in.
     setBusy(`del:${person.id}`);
     setFailure(null);
     try {
@@ -128,6 +128,7 @@ export default function PeopleView({ board, actingUserId }: Props) {
     } catch {
       setFailure('No connection. That account was not deleted.');
     } finally {
+      setArming(null);
       setBusy(null);
     }
   }
@@ -145,7 +146,7 @@ export default function PeopleView({ board, actingUserId }: Props) {
    * away: between this click and the claim the person cannot sign in at all.
    */
   async function resetPassword(person: PersonAccess) {
-    setResetting(null);
+    // The armed pair stays, its confirm spinning, until the answer is in.
     setBusy(`pw:${person.id}`);
     setFailure(null);
     setReset(null);
@@ -164,6 +165,7 @@ export default function PeopleView({ board, actingUserId }: Props) {
     } catch {
       setFailure('No connection. No reset link was issued.');
     } finally {
+      setResetting(null);
       setBusy(null);
     }
   }
@@ -384,6 +386,7 @@ export default function PeopleView({ board, actingUserId }: Props) {
                         className="role"
                         value={role ?? NONE}
                         disabled={busy === key}
+                        aria-busy={busy === key}
                         title={role ? ROLE_NOTE[role] : 'No access — the project is invisible to them.'}
                         aria-label={`${person.name} on ${project.name}`}
                         onChange={(e) => void setAccess(
@@ -424,7 +427,7 @@ export default function PeopleView({ board, actingUserId }: Props) {
                     busy={busy === `del:${person.id}`}
                     onArm={() => { setArming(person.id); setResetting(null); setReset(null); }}
                     onCancel={() => setArming(null)}
-                    onConfirm={() => void remove(person)}
+                    onConfirm={() => remove(person)}
                   />}
                  </span>
                 </td>
@@ -506,7 +509,7 @@ function DeleteCell({
   busy: boolean;
   onArm: () => void;
   onCancel: () => void;
-  onConfirm: () => void;
+  onConfirm: () => Promise<void>;
 }) {
   if (protectedAccount) {
     return <span className="acct-locked" title="The install account. It cannot be deleted.">install account</span>;
@@ -516,7 +519,7 @@ function DeleteCell({
     // password can be asked for, which is not here.
     return <a className="acct-mine" href="/profile">Your profile ›</a>;
   }
-  if (busy) return <span className="acct-locked">deleting…</span>;
+  if (busy && !armed) return <span className="acct-locked">deleting…</span>;
 
   return (
     <>
@@ -573,15 +576,15 @@ function ResetCell({
   onConfirm: () => void;
 }) {
   if (protectedAccount || isSelf) return null;
-  if (busy) return <span className="acct-locked">issuing…</span>;
+  if (busy && !armed) return <span className="acct-locked">issuing…</span>;
 
   if (armed) {
     return (
       <span className="acct-armed">
         {/* The verb says what actually happens, because "Confirm" would not:
             the old password stops working here, not when the link is used. */}
-        <button className="acct-yes" onClick={onConfirm}>Revoke and issue link</button>
-        <button className="acct-no" onClick={onCancel}>Cancel</button>
+        <button className="acct-yes" disabled={busy} aria-busy={busy} onClick={onConfirm}>Revoke and issue link</button>
+        <button className="acct-no" disabled={busy} onClick={onCancel}>Cancel</button>
       </span>
     );
   }
@@ -632,7 +635,7 @@ function Invite({
       className="invite"
       onSubmit={(e) => {
         e.preventDefault();
-        if (!email.trim()) return;
+        if (!email.trim() || busy) return;
         void onInvite(email, name, projectId, role, withPassword ? password : '')
           .then(() => { setEmail(''); setName(''); setPassword(''); });
       }}
@@ -656,7 +659,7 @@ function Invite({
             <option key={r} value={r}>{ROLE_LABEL[r]}</option>
           ))}
         </select>
-        <button type="submit" disabled={busy}>{busy ? 'Inviting…' : 'Invite'}</button>
+        <button type="submit" disabled={busy} aria-busy={busy}>{busy ? 'Inviting…' : 'Invite'}</button>
       </div>
 
       {/* The default is the link, and it is the default because it is the only

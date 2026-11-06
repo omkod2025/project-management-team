@@ -147,6 +147,8 @@
 /* ---- the title, and the pencil that edits it ---- */
 
 .title-holder { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+/* The new name is on the page while its write is still in flight. */
+.title-holder h1[aria-busy='true'] { cursor: progress; opacity: 0.7; }
 
 /* Hidden until the pointer is in the head or the button itself has focus.
    `visibility` rather than `display`, so the title does not shift sideways
@@ -873,6 +875,12 @@ td.saving::after {
   border-radius: 50%;
   background: var(--cu-ink-faint);
 }
+/* A write in flight marks only its own cell (or the row it moves) — the rest of
+   the grid stays live, so triage never waits on the network. */
+.run tbody td[aria-busy='true'] { cursor: progress; }
+.run tbody tr[aria-busy='true'] td { cursor: progress; }
+.run tbody tr[aria-busy='true'] td.nm,
+.run tr.add-row td[aria-busy='true'] { opacity: 0.7; }
 td.failed { box-shadow: inset 0 0 0 2px var(--color-vermilion); }
 .run tbody td { position: relative; }
 

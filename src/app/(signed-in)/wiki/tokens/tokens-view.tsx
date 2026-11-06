@@ -102,9 +102,13 @@ function CreateForm({ wikis, busy, run, onCreated }: { wikis: Wiki[]; busy: bool
   const [label, setLabel] = useState('');
   const [chosen, setChosen] = useState<string[]>([]);
   const [expiry, setExpiry] = useState('');
+  const [sending, setSending] = useState(false);
   async function create(e: React.FormEvent) {
     e.preventDefault();
+    if (busy) return;
+    setSending(true);
     const created = await run(() => wikiCall<Created>('/api/wiki-tokens', 'POST', { label, wikiIds: chosen, expiresAt: endOfDay(expiry) }), 'Token created.');
+    setSending(false);
     if (created) { onCreated(created); setLabel(''); setChosen([]); setExpiry(''); }
   }
   return <form className="docs-create wiki-token-create" onSubmit={(e) => void create(e)} aria-labelledby="wiki-token-new-head">
@@ -115,22 +119,27 @@ function CreateForm({ wikis, busy, run, onCreated }: { wikis: Wiki[]; busy: bool
     </div>
     <WikiChoices wikis={wikis} chosen={chosen} onChange={setChosen} disabled={busy} legend="Wikis this token can read" />
     <p className="docs-muted">The token reads only these wikis, and only while you can read them yourself. It never writes.</p>
-    <div className="docs-actions"><button type="submit" className="docs-primary" disabled={busy || !label.trim()}><DocIcon name="plus" />Create token</button></div>
+    <div className="docs-actions"><button type="submit" className="docs-primary" disabled={busy || !label.trim()} aria-busy={sending}><DocIcon name="plus" />Create token</button></div>
   </form>;
 }
 
 function EditForm({ token, wikis, busy, run, onClose }: { token: TokenRow; wikis: Wiki[]; busy: boolean; run: Run; onClose: () => void }) {
   const [label, setLabel] = useState(token.label);
   const [chosen, setChosen] = useState(token.wikis.map((w) => w.id));
+  const [sending, setSending] = useState(false);
   async function save(e: React.FormEvent) {
     e.preventDefault();
-    if (await run(() => wikiCall(`/api/wiki-tokens/${token.id}`, 'PATCH', { label, wikiIds: chosen }), 'Token saved.')) onClose();
+    if (busy) return;
+    setSending(true);
+    const saved = await run(() => wikiCall(`/api/wiki-tokens/${token.id}`, 'PATCH', { label, wikiIds: chosen }), 'Token saved.');
+    setSending(false);
+    if (saved) onClose();
   }
   return <form className="wiki-token-edit" onSubmit={(e) => void save(e)} aria-label={`Edit ${token.label}`}>
     <label>Label<input value={label} required maxLength={100} disabled={busy} onChange={(e) => setLabel(e.target.value)} /></label>
     <WikiChoices wikis={wikis} chosen={chosen} onChange={setChosen} disabled={busy} legend="Wikis this token can read" />
     <div className="docs-actions">
-      <button type="submit" className="docs-primary" disabled={busy || !label.trim()}><DocIcon name="save" />Save</button>
+      <button type="submit" className="docs-primary" disabled={busy || !label.trim()} aria-busy={sending}><DocIcon name="save" />Save</button>
       <button type="button" disabled={busy} onClick={onClose}><DocIcon name="close" />Cancel</button>
     </div>
   </form>;

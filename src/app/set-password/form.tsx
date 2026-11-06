@@ -2,6 +2,7 @@
 
 import { useId, useState } from 'react';
 import { PasswordField, Errata } from '../auth-fields';
+import { hardNavigate } from '@/lib/hard-navigate';
 
 export default function SetPasswordForm({ token, minLength }: { token: string; minLength: number }) {
   const [password, setPassword] = useState('');
@@ -29,6 +30,7 @@ export default function SetPasswordForm({ token, minLength }: { token: string; m
     e.preventDefault();
     setTouched(true);
     setWriteFailed(false);
+    if (busy) return;
     if (password !== confirm) return setError('The two entries do not match.');
     setBusy(true);
     setError(null);
@@ -44,13 +46,14 @@ export default function SetPasswordForm({ token, minLength }: { token: string; m
         // expired token); a 5xx is the write itself failing.
         setWriteFailed(res.status >= 500);
         setError(err.message ?? 'That did not save.');
+        setBusy(false);
         return;
       }
-      window.location.href = '/sign-in?set=1';
+      // Stays busy until the sign-in page replaces this one.
+      hardNavigate('/sign-in?set=1');
     } catch {
       setWriteFailed(true);
       setError('No connection. Nothing was saved.');
-    } finally {
       setBusy(false);
     }
   }

@@ -144,6 +144,13 @@ export default function ListView({
   const [dragRow, setDragRow] = useState<string | null>(null);
   const [dropAt, setDropAt] = useState<{ id: string; zone: DropZone; ok: boolean } | null>(null);
   const [saving, setSaving] = useState<Set<string>>(new Set());
+  /** Rows whose move is in flight — marked, never blocked (triage speed). */
+  const [moving, setMoving] = useState<Set<string>>(new Set());
+  /** Which add control started the create in flight, so only it shows busy. */
+  const [creating, setCreating] = useState<string | null>(null);
+  /** Which column-order control started the write in flight. */
+  const [columnsSaving, setColumnsSaving] = useState<string | null>(null);
+  const [restoring, setRestoring] = useState(false);
   const [failure, setFailure] = useState<{ cell: string; message: string } | null>(null);
   const [pendingArchive, setPendingArchive] = useState<LedgerRow | null>(null);
   const [undo, setUndo] = useState<{ nodeId: string; name: string; count: number } | null>(null);
@@ -330,10 +337,11 @@ export default function ListView({
    * is not there — puts the previous order back and says so, rather than
    * leaving this reader looking at an arrangement nobody else has.
    */
-  const commitColumnOrder = useCallback(async (next: string[]) => {
+  const commitColumnOrder = useCallback(async (next: string[], source?: string) => {
     const before = columnOrder;
     setColumnOrder(next);
     setFailure(null);
+    if (source) setColumnsSaving(source);
     try {
       const res = await fetch(api(`/api/projects/${projectId}`), {
         method: 'PATCH',
@@ -348,12 +356,14 @@ export default function ListView({
     } catch {
       setColumnOrder(before);
       setFailure({ cell: '', message: 'No connection. The column did not move.' });
+    } finally {
+      if (source) setColumnsSaving((c) => (c === source ? null : c));
     }
   }, [api, columnOrder, projectId]);
 
   const moveColumn = useCallback(
-    (key: string, to: number | 'left' | 'right') =>
-      void commitColumnOrder(moveBlock(blocks, columnOrder, key, to)),
+    (key: string, to: number | 'left' | 'right', source?: string) =>
+      void commitColumnOrder(moveBlock(blocks, columnOrder, key, to), source),
     [blocks, columnOrder, commitColumnOrder],
   );
 
@@ -639,6 +649,8 @@ export default function ListView({
     const trimmed = name.trim();
     if (!trimmed || trimmed === node.led_name) return;
     const before = node;
+    const cellKey = `${node.led_node_id}:name`;
+    setSaving((s) => new Set(s).add(cellKey));
     setFailure(null);
     try {
       const res = await fetch(api(`/api/nodes/${node.led_node_id}`), {
@@ -656,6 +668,8 @@ export default function ListView({
       setRows((rs) => rs.map((r) => (r.led_node_id === fresh.led_node_id ? fresh : r)));
     } catch {
       setFailure({ cell: '', message: 'No connection. The name did not save.' });
+    } finally {
+      setSaving((s) => { const n = new Set(s); n.delete(cellKey); return n; });
     }
   }, [api]);
 
@@ -666,7 +680,6 @@ export default function ListView({
    * a delete.
    */
   const archive = useCallback(async (node: LedgerRow) => {
-    setPendingArchive(null);
     setFailure(null);
     try {
       const res = await fetch(api(`/api/nodes/${node.led_node_id}`), { method: 'DELETE' });
@@ -686,13 +699,16 @@ export default function ListView({
       setUndo({ nodeId: node.led_node_id, name: node.led_name, count: archived });
     } catch {
       setFailure({ cell: '', message: 'No connection. The task was not deleted.' });
+    } finally {
+      // Closed only once the write lands, so its Delete button shows it working.
+      setPendingArchive(null);
     }
   }, [api, byParent]);
 
   const restore = useCallback(async () => {
-    if (!undo) return;
+    if (!undo || restoring) return;
     const target = undo;
-    setUndo(null);
+    setRestoring(true);
     setLoadingRequests((count) => count + 1);
     try {
       const res = await fetch(api(`/api/nodes/${target.nodeId}/restore`), { method: 'POST' });
@@ -703,12 +719,15 @@ export default function ListView({
     } catch {
       setFailure({ cell: '', message: 'No connection. The task was not restored.' });
     } finally {
+      setUndo(null);
+      setRestoring(false);
       setLoadingRequests((count) => count - 1);
     }
-  }, [api, undo, projectId]);
+  }, [api, undo, restoring, projectId]);
 
-  const create = useCallback(async (parentId: string, afterId: string | null) => {
+  const create = useCallback(async (parentId: string, afterId: string | null, source?: string) => {
     setFailure(null);
+    if (source) setCreating(source);
     try {
       const res = await fetch(api('/api/nodes'), {
         method: 'POST',
@@ -726,6 +745,8 @@ export default function ListView({
       setSelected(fresh.led_node_id);
     } catch {
       setFailure({ cell: '', message: 'No connection. The task was not created.' });
+    } finally {
+      if (source) setCreating((c) => (c === source ? null : c));
     }
   }, [api]);
 
@@ -750,6 +771,7 @@ export default function ListView({
   ) => {
     setFailure(null);
     setLoadingRequests((count) => count + 1);
+    setMoving((s) => new Set(s).add(node.led_node_id));
     try {
       const res = await fetch(api(`/api/nodes/${node.led_node_id}`), {
         method: 'PATCH',
@@ -769,6 +791,7 @@ export default function ListView({
     } catch {
       setFailure({ cell: '', message: 'No connection. The move did not save.' });
     } finally {
+      setMoving((s) => { const n = new Set(s); n.delete(node.led_node_id); return n; });
       setLoadingRequests((count) => count - 1);
     }
   }, [api, projectId]);
@@ -1219,8 +1242,9 @@ export default function ListView({
                       <span className="sortby-name">{b.label}</span>
                       <button
                         type="button"
-                        onClick={() => moveColumn(b.key, 'left')}
-                        disabled={i === 0}
+                        onClick={() => moveColumn(b.key, 'left', `${b.key}:left`)}
+                        disabled={i === 0 || columnsSaving !== null}
+                        aria-busy={columnsSaving === `${b.key}:left`}
                         aria-label={`Move ${b.label} left`}
                         title="Left"
                       >
@@ -1228,8 +1252,9 @@ export default function ListView({
                       </button>
                       <button
                         type="button"
-                        onClick={() => moveColumn(b.key, 'right')}
-                        disabled={i === movableBlocks.length - 1}
+                        onClick={() => moveColumn(b.key, 'right', `${b.key}:right`)}
+                        disabled={i === movableBlocks.length - 1 || columnsSaving !== null}
+                        aria-busy={columnsSaving === `${b.key}:right`}
                         aria-label={`Move ${b.label} right`}
                         title="Right"
                       >
@@ -1241,7 +1266,12 @@ export default function ListView({
 
                 {columnOrder.length > 0 && (
                   <div className="sortby-add">
-                    <button type="button" onClick={() => void commitColumnOrder([])}>
+                    <button
+                      type="button"
+                      disabled={columnsSaving !== null}
+                      aria-busy={columnsSaving === 'reset'}
+                      onClick={() => void commitColumnOrder([], 'reset')}
+                    >
                       Back to the filed order
                     </button>
                   </div>
@@ -1262,7 +1292,13 @@ export default function ListView({
               of the page — a long run puts that row a scroll away, and a
               search hides it entirely. */}
           {canEdit && root && (
-            <button type="button" className="toolbar-add" onClick={() => void create(root.led_node_id, null)}>
+            <button
+              type="button"
+              className="toolbar-add"
+              disabled={creating === 'toolbar'}
+              aria-busy={creating === 'toolbar'}
+              onClick={() => void create(root.led_node_id, null, 'toolbar')}
+            >
               + Module
             </button>
           )}
@@ -1277,8 +1313,8 @@ export default function ListView({
               Deleted <strong>{undo.name}</strong>
               {undo.count > 1 && ` and ${undo.count - 1} below it`}.
             </span>
-            <button className="label" onClick={() => void restore()}>Undo</button>
-            <button className="label dismiss" onClick={() => setUndo(null)} aria-label="Dismiss">×</button>
+            <button className="label" disabled={restoring} aria-busy={restoring} onClick={() => void restore()}>Undo</button>
+            <button className="label dismiss" disabled={restoring} onClick={() => setUndo(null)} aria-label="Dismiss">×</button>
           </div>
         )}
 
@@ -1291,7 +1327,7 @@ export default function ListView({
                 columns={columns}
                 message={canEdit ? 'No modules yet.' : 'No modules yet. An admin adds the first one.'}
                 action={canEdit && root
-                  ? { label: '+ Add module', onClick: () => void create(root.led_node_id, null) }
+                  ? { label: '+ Add module', busy: creating === 'empty', onClick: () => void create(root.led_node_id, null, 'empty') }
                   : undefined}
               />
             ) : nodeRows.length === 0 ? (
@@ -1422,7 +1458,11 @@ export default function ListView({
                          hue of the module it would inherit from would be a lie
                          about what it creates. */
                       <tr className="add-row module-add" key="add-module">
-                        <td className="nm" onClick={() => void create(v.row.led_node_id, null)}>
+                        <td
+                          className="nm"
+                          aria-busy={creating === 'addmodule' || undefined}
+                          onClick={() => { if (creating !== 'addmodule') void create(v.row.led_node_id, null, 'addmodule'); }}
+                        >
                           <div className="nm-inner">
                             <span className="hole" />+ Add module
                           </div>
@@ -1438,7 +1478,14 @@ export default function ListView({
                         key={`add-${v.row.led_node_id}`}
                         style={{ ['--row-hue' as string]: TAB_HUE(moduleIndex.get(v.row.led_node_id) ?? 1) }}
                       >
-                        <td className="nm" onClick={() => void create(v.row.led_node_id, null)}>
+                        <td
+                          className="nm"
+                          aria-busy={creating === `add:${v.row.led_node_id}` || undefined}
+                          onClick={() => {
+                            const source = `add:${v.row.led_node_id}`;
+                            if (creating !== source) void create(v.row.led_node_id, null, source);
+                          }}
+                        >
                           <div className="nm-inner" style={{ paddingLeft: 20 }}>
                             <span className="hole" />+ Add {kind === 'defect' ? 'defect' : 'task'}
                           </div>
@@ -1452,6 +1499,7 @@ export default function ListView({
                         className={v.row.led_depth === 2 ? 'module' : ''}
                         style={{ ['--row-hue' as string]: TAB_HUE(moduleIndex.get(v.row.led_node_id) ?? 1) }}
                         aria-selected={selected === v.row.led_node_id}
+                        aria-busy={moving.has(v.row.led_node_id) || undefined}
                         /* A row in hand is not a row being typed into, so a
                            cell that is open for editing suspends the drag
                            rather than fighting the caret for the pointer. */
@@ -1510,7 +1558,8 @@ export default function ListView({
                               canAddChild={v.row.led_depth < MAX_DEPTH}
                               /* `create` opens the parent and selects the new
                                  row itself, so there is nothing to do here. */
-                              onAddChild={() => void create(v.row.led_node_id, null)}
+                              addingChild={creating === `child:${v.row.led_node_id}`}
+                              onAddChild={() => void create(v.row.led_node_id, null, `child:${v.row.led_node_id}`)}
                               renaming={renamingId === v.row.led_node_id}
                               onStartRename={() => setRenamingId(v.row.led_node_id)}
                               onCancelRename={() => setRenamingId(null)}
@@ -1534,7 +1583,7 @@ export default function ListView({
             <ConfirmDeleteNode
               node={pendingArchive}
               descendants={descendantCount(pendingArchive.led_node_id)}
-              onConfirm={() => void archive(pendingArchive)}
+              onConfirm={() => archive(pendingArchive)}
               onCancel={() => setPendingArchive(null)}
             />
           )}
@@ -1574,7 +1623,7 @@ export default function ListView({
 /** A ruled page with its columns drawn and no rows. Never an illustration. */
 function EmptyRun(
   { columns, message, action }:
-  { columns: Column[]; message: string; action?: { label: string; onClick: () => void } },
+  { columns: Column[]; message: string; action?: { label: string; busy?: boolean; onClick: () => void } },
 ) {
   return (
     <table className="run">
@@ -1594,7 +1643,7 @@ function EmptyRun(
             {action && (
               <>
                 {' '}
-                <button type="button" className="empty-add" onClick={action.onClick}>
+                <button type="button" className="empty-add" disabled={action.busy} aria-busy={action.busy} onClick={action.onClick}>
                   {action.label}
                 </button>
               </>
@@ -1629,6 +1678,7 @@ type CellProps = {
   /** False on a row already at the depth ceiling (D-1), so the control is
    *  absent rather than present and guaranteed to fail. */
   canAddChild: boolean;
+  addingChild: boolean;
   onAddChild: () => void;
   renaming: boolean;
   onStartRename: () => void;
@@ -1662,6 +1712,7 @@ function Cell(p: CellProps) {
         p.saving ? 'saving' : '',
         p.failed ? 'failed' : '',
       ].filter(Boolean).join(' ')}
+      aria-busy={p.saving || undefined}
       onClick={() => {
         if (p.editing || p.renaming) return;
         p.onFocus();
@@ -1792,6 +1843,8 @@ function NameCell(p: CellProps) {
               className="rowact"
               aria-label={`Add a subtask under ${r.led_name}`}
               title="Add subtask  ·  Shift N"
+              disabled={p.addingChild}
+              aria-busy={p.addingChild}
               onClick={(e) => { e.stopPropagation(); p.onAddChild(); }}
             >
               {/* a plus, drawn in the same 1px hand as the other two */}

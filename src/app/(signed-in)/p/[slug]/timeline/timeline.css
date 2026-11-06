@@ -340,6 +340,8 @@
 /* Dragging tracks the pointer 1:1: no transition on a bar, ever. */
 .bar.draggable { cursor: grab; }
 .bar.dragging { cursor: grabbing; z-index: 8; }
+/* Its write is in flight: this one bar says so; the chart stays live. */
+.bar[aria-busy='true'] { cursor: progress; opacity: 0.7; }
 .bar .handle {
   position: absolute;
   top: 0; bottom: 0;

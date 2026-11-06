@@ -81,7 +81,7 @@ export function ImageField({ nodeId, fieldId, label, value, editing, canEdit, on
     {error && <p role="alert">{error}</p>}
     {busy && <p role="status">Uploading…</p>}
     <div className="image-actions">
-      <button type="button" disabled={busy} onClick={() => input.current?.click()}>Browse images</button>
+      <button type="button" disabled={busy} aria-busy={busy} onClick={() => input.current?.click()}>Browse images</button>
       <button type="button" disabled={busy} onClick={() => onCommit(draft)}>Save</button>
       <button type="button" disabled={busy} onClick={onCancel}>Cancel</button>
     </div>

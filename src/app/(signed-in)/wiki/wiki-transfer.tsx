@@ -57,12 +57,15 @@ function save(source: string, mime: string, name: string, format: Format) {
 export default function WikiTransfer({ wiki, page, hasPages, canWrite, endpoints, disabled }: Props) {
   const router = useRouter();
   const [scope, setScope] = useState<'page' | 'wiki'>(page ? 'page' : 'wiki');
-  const [busy, setBusy] = useState(false);
+  // 'import' or the export format in flight, so only that control reads busy.
+  const [working, setWorking] = useState<Format | 'import' | null>(null);
+  const busy = working !== null;
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
 
   async function download(format: Format) {
-    setBusy(true); setError(''); setNotice('');
+    if (busy) return;
+    setWorking(format); setError(''); setNotice('');
     try {
       const pages = scope === 'page' && page
         ? [asTransfer({ id: page.id, title: page.title, body: page.content.body ?? '' })]
@@ -73,12 +76,13 @@ export default function WikiTransfer({ wiki, page, hasPages, canWrite, endpoints
       save(source, mime, title, format);
       if (format !== 'print') setNotice('Export prepared. Check your browser downloads.');
     } catch (err) { setError(problem(err, 'Export failed. Try again.')); }
-    finally { setBusy(false); }
+    finally { setWorking(null); }
   }
 
   async function importFile(file: File) {
     if (!file.size || file.size > MAX_IMPORT_BYTES) { setError('Choose a non-empty file up to 5 MB.'); return; }
-    setBusy(true); setError(''); setNotice('');
+    if (busy) return;
+    setWorking('import'); setError(''); setNotice('');
     let created = 0;
     try {
       const { items, warnings } = await readImportFile(file, endpoints.uploadAsset);
@@ -90,7 +94,7 @@ export default function WikiTransfer({ wiki, page, hasPages, canWrite, endpoints
       router.refresh();
     } catch (err) {
       setError(`${problem(err, 'Import failed.')}${created ? ` ${created} page(s) already imported; do not import them again.` : ''}`);
-    } finally { setBusy(false); }
+    } finally { setWorking(null); }
   }
 
   return <details className="wiki-transfer">
@@ -103,16 +107,16 @@ export default function WikiTransfer({ wiki, page, hasPages, canWrite, endpoints
         </select></label>
         <p className="docs-muted">Exports use saved content. Markdown omits colours and advanced layout; JSON preserves them.</p>
         <div className="wiki-transfer-row">
-          <button type="button" disabled={busy || disabled} onClick={() => void download('md')}><DocIcon name="download" />Markdown</button>
-          <button type="button" disabled={busy || disabled} onClick={() => void download('json')}><DocIcon name="download" />Fieldbook JSON</button>
-          <button type="button" disabled={busy || disabled} onClick={() => void download('html')}><DocIcon name="download" />HTML</button>
-          <button type="button" disabled={busy || disabled} onClick={() => void download('print')}><DocIcon name="print" />Print / Save as PDF</button>
+          <button type="button" disabled={busy || disabled} aria-busy={working === 'md'} onClick={() => void download('md')}><DocIcon name="download" />Markdown</button>
+          <button type="button" disabled={busy || disabled} aria-busy={working === 'json'} onClick={() => void download('json')}><DocIcon name="download" />Fieldbook JSON</button>
+          <button type="button" disabled={busy || disabled} aria-busy={working === 'html'} onClick={() => void download('html')}><DocIcon name="download" />HTML</button>
+          <button type="button" disabled={busy || disabled} aria-busy={working === 'print'} onClick={() => void download('print')}><DocIcon name="print" />Print / Save as PDF</button>
         </div>
       </>}
       {canWrite && <>
         <h3>Import as new pages</h3>
         <p className="docs-muted">Word (.docx), Markdown, text, HTML or Fieldbook JSON. Existing pages are never replaced.</p>
-        <input type="file" accept=".md,.markdown,.txt,.docx,.html,.htm,.json" disabled={busy || disabled} aria-label="Import document file"
+        <input type="file" accept=".md,.markdown,.txt,.docx,.html,.htm,.json" disabled={busy || disabled} aria-busy={working === 'import'} aria-label="Import document file"
           onChange={(e) => { const file = e.target.files?.[0]; if (file) void importFile(file); e.target.value = ''; }} />
       </>}
       <p role="status" className="docs-notice">{notice}</p>

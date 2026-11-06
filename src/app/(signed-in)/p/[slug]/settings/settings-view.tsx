@@ -63,6 +63,8 @@ export default function SettingsView({ settings: initial, slug, kind = 'task' }:
   const [s, setS] = useState(initial);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  /** Which control started the write in flight: only it shows busy. */
+  const [busyFor, setBusyFor] = useState<string | null>(null);
   const current = useSection();
   // A defect list has only its columns to administer: no rail for one item.
   const full = kind === 'task';
@@ -74,8 +76,9 @@ export default function SettingsView({ settings: initial, slug, kind = 'task' }:
   };
 
   /** Every mutation goes the same way: send, surface the refusal, reload. */
-  const send = async (url: string, method: string, body?: unknown) => {
+  const send = async (url: string, method: string, body?: unknown, source?: string) => {
     setBusy(true);
+    setBusyFor(source ?? null);
     setError(null);
     try {
       const res = await fetch(workApi(url, kind), {
@@ -96,6 +99,7 @@ export default function SettingsView({ settings: initial, slug, kind = 'task' }:
       return null;
     } finally {
       setBusy(false);
+      setBusyFor(null);
     }
   };
 
@@ -131,10 +135,10 @@ export default function SettingsView({ settings: initial, slug, kind = 'task' }:
           )}
 
           <div className="settings-panel">
-            {section === 'columns' && <Columns s={s} send={send} error={error} busy={busy} />}
-            {section === 'people' && <Members s={s} send={send} />}
-            {section === 'project' && <Project s={s} send={send} />}
-            {section === 'holidays' && <Calendar s={s} send={send} year={year} />}
+            {section === 'columns' && <Columns s={s} send={send} error={error} busy={busy} busyFor={busyFor} />}
+            {section === 'people' && <Members s={s} send={send} busy={busy} busyFor={busyFor} />}
+            {section === 'project' && <Project s={s} send={send} busy={busy} busyFor={busyFor} />}
+            {section === 'holidays' && <Calendar s={s} send={send} year={year} busy={busy} busyFor={busyFor} />}
           </div>
         </div>
       </div>
@@ -142,11 +146,12 @@ export default function SettingsView({ settings: initial, slug, kind = 'task' }:
   );
 }
 
-type Send = (url: string, method: string, body?: unknown) => Promise<unknown>;
+type Send = (url: string, method: string, body?: unknown, source?: string) => Promise<unknown>;
+type Busy = { busy: boolean; busyFor: string | null };
 
 /* ================================================================ project */
 
-function Project({ s, send }: { s: Settings; send: Send }) {
+function Project({ s, send, busy, busyFor }: { s: Settings; send: Send } & Busy) {
   const [name, setName] = useState(s.project.name);
 
   // The saved name is the truth. If a reload brings back something different
@@ -167,8 +172,8 @@ function Project({ s, send }: { s: Settings; send: Send }) {
         className="settings-row"
         onSubmit={(e) => {
           e.preventDefault();
-          if (!dirty) return;
-          void send(`/api/projects/${s.project.id}`, 'PATCH', { name });
+          if (!dirty || busy) return;
+          void send(`/api/projects/${s.project.id}`, 'PATCH', { name }, 'rename');
         }}
       >
         <input
@@ -178,7 +183,7 @@ function Project({ s, send }: { s: Settings; send: Send }) {
           maxLength={120}
           aria-label="Project name"
         />
-        <button type="submit" className="label primary" disabled={!dirty}>Rename</button>
+        <button type="submit" className="label primary" disabled={!dirty || busy} aria-busy={busyFor === 'rename'}>Rename</button>
       </form>
 
       <p className="aside">
@@ -196,7 +201,7 @@ function Project({ s, send }: { s: Settings; send: Send }) {
 /** How many option chips a row shows before it says "+n". */
 const CHIPS_SHOWN = 3;
 
-function Columns({ s, send, error, busy }: { s: Settings; send: Send; error: string | null; busy: boolean }) {
+function Columns({ s, send, error, busy, busyFor }: { s: Settings; send: Send; error: string | null } & Busy) {
   const [name, setName] = useState('');
   const [kind, setKind] = useState<FieldKind>('text');
   const [editing, setEditing] = useState<string | null>(null);
@@ -243,8 +248,8 @@ function Columns({ s, send, error, busy }: { s: Settings; send: Send; error: str
         className="settings-row add column-add"
         onSubmit={(e) => {
           e.preventDefault();
-          if (!name.trim()) return;
-          void send(`/api/projects/${s.project.id}/fields`, 'POST', { name, kind });
+          if (!name.trim() || busy) return;
+          void send(`/api/projects/${s.project.id}/fields`, 'POST', { name, kind }, 'add-column');
           setName('');
         }}
       >
@@ -258,7 +263,7 @@ function Columns({ s, send, error, busy }: { s: Settings; send: Send; error: str
         <select className="field-input" value={kind} onChange={(e) => setKind(e.target.value as FieldKind)} aria-label="Type">
           {FIELD_KINDS.map((k) => <option key={k} value={k}>{KIND_LABEL[k]}</option>)}
         </select>
-        <button type="submit" className="label primary">Add column</button>
+        <button type="submit" className="label primary" disabled={busy} aria-busy={busyFor === 'add-column'}>Add column</button>
       </form>
 
       {archived.length > 0 && (
@@ -269,7 +274,12 @@ function Columns({ s, send, error, busy }: { s: Settings; send: Send; error: str
               <KindIcon kind={f.kind} />
               <span className="struck">{f.name}</span>
               <span className="kind">{KIND_LABEL[f.kind]}</span>
-              <button className="label" onClick={() => void send(`/api/fields/${f.id}`, 'PATCH', { archived: false })}>
+              <button
+                className="label"
+                disabled={busy}
+                aria-busy={busyFor === `restore:${f.id}`}
+                onClick={() => void send(`/api/fields/${f.id}`, 'PATCH', { archived: false }, `restore:${f.id}`)}
+              >
                 Restore
               </button>
             </div>
@@ -302,6 +312,7 @@ function Columns({ s, send, error, busy }: { s: Settings; send: Send; error: str
           projectId={s.project.id}
           error={error}
           busy={busy}
+          busyFor={busyFor}
           send={send}
           onClose={() => setEditing(null)}
         />
@@ -337,7 +348,7 @@ function ColumnRow({ f, isStatus, onEdit }: { f: Field; isStatus: boolean; onEdi
 
 /* ================================================================ members */
 
-function Members({ s, send }: { s: Settings; send: Send }) {
+function Members({ s, send, busy, busyFor }: { s: Settings; send: Send } & Busy) {
   const [invite, setInvite] = useState('');
   // The whole address, built here rather than in the markup: `location` is not
   // readable while rendering on the server.
@@ -363,7 +374,9 @@ function Members({ s, send }: { s: Settings; send: Send }) {
             defaultValue={m.role}
             onChange={(e) => void send(`/api/projects/${s.project.id}/members`, 'POST', {
               userId: m.userId, role: e.target.value,
-            })}
+            }, `role:${m.userId}`)}
+            disabled={busyFor === `role:${m.userId}`}
+            aria-busy={busyFor === `role:${m.userId}`}
             aria-label={`Role for ${m.name}`}
           >
             <option value="admin">admin</option>
@@ -388,7 +401,9 @@ function Members({ s, send }: { s: Settings; send: Send }) {
             defaultValue=""
             onChange={(e) => e.target.value && void send(`/api/projects/${s.project.id}/members`, 'POST', {
               userId: e.target.value, role: 'member',
-            })}
+            }, 'add-member')}
+            disabled={busyFor === 'add-member'}
+            aria-busy={busyFor === 'add-member'}
             aria-label="Add someone already in the system"
           >
             <option value="">Add someone…</option>
@@ -401,10 +416,10 @@ function Members({ s, send }: { s: Settings; send: Send }) {
         className="settings-row add"
         onSubmit={async (e) => {
           e.preventDefault();
-          if (!invite.trim()) return;
+          if (!invite.trim() || busy) return;
           const out = (await send('/api/users', 'POST', {
             projectId: s.project.id, email: invite,
-          })) as { token?: string } | null;
+          }, 'invite')) as { token?: string } | null;
           if (out?.token) setLink(inviteUrl(out.token));
           setInvite('');
         }}
@@ -417,7 +432,7 @@ function Members({ s, send }: { s: Settings; send: Send }) {
           onChange={(e) => setInvite(e.target.value)}
           aria-label="New person's email"
         />
-        <button type="submit" className="label">Create</button>
+        <button type="submit" className="label" disabled={busy} aria-busy={busyFor === 'invite'}>Create</button>
       </form>
 
       {link && (
@@ -448,7 +463,7 @@ function Members({ s, send }: { s: Settings; send: Send }) {
 
 /* =============================================================== calendar */
 
-function Calendar({ s, send, year }: { s: Settings; send: Send; year: number }) {
+function Calendar({ s, send, year, busy, busyFor }: { s: Settings; send: Send; year: number } & Busy) {
   const [date, setDate] = useState('');
   const [name, setName] = useState('');
   const [dropping, setDropping] = useState<string | null>(null);
@@ -486,8 +501,8 @@ function Calendar({ s, send, year }: { s: Settings; send: Send; year: number }) 
         className="settings-row add"
         onSubmit={(e) => {
           e.preventDefault();
-          if (!date || !name.trim()) return;
-          void send('/api/holidays', 'POST', { projectId: s.project.id, date, name });
+          if (!date || !name.trim() || busy) return;
+          void send('/api/holidays', 'POST', { projectId: s.project.id, date, name }, 'add-holiday');
           setDate('');
           setName('');
         }}
@@ -496,7 +511,7 @@ function Calendar({ s, send, year }: { s: Settings; send: Send; year: number }) 
                onChange={(e) => setDate(e.target.value)} aria-label="Holiday date" />
         <input className="field-input" placeholder="Name" value={name}
                onChange={(e) => setName(e.target.value)} aria-label="Holiday name" />
-        <button type="submit" className="label">Add</button>
+        <button type="submit" className="label" disabled={busy} aria-busy={busyFor === 'add-holiday'}>Add</button>
       </form>
 
       {dropped && (

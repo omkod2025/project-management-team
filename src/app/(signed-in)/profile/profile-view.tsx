@@ -60,7 +60,7 @@ export default function ProfileView({ profile }: Props) {
 
   async function save(event: React.FormEvent) {
     event.preventDefault();
-    if (!dirty) return;
+    if (!dirty || busy) return;
     setBusy(true);
     setFailure(null);
     setSaved(false);
@@ -135,7 +135,7 @@ export default function ProfileView({ profile }: Props) {
             </label>
 
             <div className="prof-actions">
-              <button type="submit" className="prof-save" disabled={!dirty || busy}>
+              <button type="submit" className="prof-save" disabled={!dirty || busy} aria-busy={busy}>
                 {busy ? 'Saving…' : 'Save name'}
               </button>
               {dirty && !busy && (

@@ -61,7 +61,8 @@ export default function PageTools({
     people: [],
     tasks: [],
   });
-  const [busy, setBusy] = useState(false),
+  // The action in flight, keyed so only the button that started it reads busy.
+  const [working, setWorking] = useState<string | null>(null),
     [error, setError] = useState(""),
     [notice, setNotice] = useState("");
   const [comment, setComment] = useState(""),
@@ -81,6 +82,8 @@ export default function PageTools({
   // The page's saved settings win when they change: adjusted while rendering, not in an effect.
   const [seenSettings, setSeenSettings] = useState(page.settings);
   if (page.settings !== seenSettings) { setSeenSettings(page.settings); setSettings(page.settings ?? {}); }
+  const busy = working !== null;
+  const setBusy = (key: string | false) => setWorking(key || null);
   async function load() {
     const res = await fetch(`/api/doc-pages/${page.id}/tools`);
     if (!res.ok) throw new Error("Could not load page tools.");
@@ -112,9 +115,9 @@ export default function PageTools({
     if (!res.ok) throw new Error(result.message ?? "The page was not deleted.");
     hardNavigate(`${base}?doc=${page.docId}`);
   }
-  async function action(body: Record<string, unknown>) {
+  async function action(body: Record<string, unknown>, key = String(body.action)) {
     if (busy) return;
-    setBusy(true);
+    setBusy(key);
     setError("");
     setNotice("");
     try {
@@ -148,7 +151,8 @@ export default function PageTools({
     }
   }
   async function download(format: "md" | "json" | "html" | "print") {
-    setBusy(true);
+    if (busy) return;
+    setBusy(`download:${format}`);
     setError("");
     try {
       const selected = scope === "doc" ? pages : [page];
@@ -192,7 +196,7 @@ export default function PageTools({
       setError("Choose a non-empty file up to 5 MB.");
       return;
     }
-    setBusy(true);
+    setBusy("import");
     setError("");
     let created = 0;
     try {
@@ -227,7 +231,7 @@ export default function PageTools({
       setError("Choose an image up to 50 MB.");
       return;
     }
-    setBusy(true);
+    setBusy("cover");
     setError("");
     try {
       const body = new FormData();
@@ -393,12 +397,13 @@ export default function PageTools({
                     {canEdit && (
                       <button
                         disabled={busy}
+                        aria-busy={working === `resolve:${c.id}`}
                         onClick={() =>
                           void action({
                             action: "resolve",
                             commentId: c.id,
                             resolved: !c.resolved,
-                          })
+                          }, `resolve:${c.id}`)
                         }
                       ><DocIcon name={c.resolved ? "history" : "check"} />
                         {c.resolved ? "Reopen" : "Resolve"}
@@ -464,7 +469,7 @@ export default function PageTools({
                       onChange={(e) => setComment(e.target.value)}
                     />
                   </label>
-                  <button disabled={busy || !comment.trim()}><DocIcon name="send" />
+                  <button disabled={busy || !comment.trim()} aria-busy={working === "comment"}><DocIcon name="send" />
                     Send comment
                   </button>
                 </form>
@@ -488,16 +493,16 @@ export default function PageTools({
                 layout; JSON preserves them. HTML references attached files on
                 this server.
               </p>
-              <button disabled={editing} onClick={() => void download("md")}><DocIcon name="download" />
+              <button disabled={editing || busy} aria-busy={working === "download:md"} onClick={() => void download("md")}><DocIcon name="download" />
                 Markdown
               </button>
-              <button disabled={editing} onClick={() => void download("json")}><DocIcon name="download" />
+              <button disabled={editing || busy} aria-busy={working === "download:json"} onClick={() => void download("json")}><DocIcon name="download" />
                 Fieldbook JSON
               </button>
-              <button disabled={editing} onClick={() => void download("html")}><DocIcon name="download" />
+              <button disabled={editing || busy} aria-busy={working === "download:html"} onClick={() => void download("html")}><DocIcon name="download" />
                 HTML
               </button>
-              <button disabled={editing} onClick={() => void download("print")}><DocIcon name="print" />
+              <button disabled={editing || busy} aria-busy={working === "download:print"} onClick={() => void download("print")}><DocIcon name="print" />
                 Print / Save as PDF
               </button>
               {canCreate && (
@@ -513,6 +518,7 @@ export default function PageTools({
                     type="file"
                     accept=".md,.markdown,.txt,.docx,.html,.htm,.json"
                     disabled={locked}
+                    aria-busy={working === "import"}
                     aria-label="Import document file"
                     onChange={(e) => {
                       if (e.target.files?.[0])
@@ -544,11 +550,12 @@ export default function PageTools({
                     {canCreate && (
                       <button
                         disabled={locked || t.kind !== page.template}
+                        aria-busy={working === `applyTemplate:${t.id}`}
                         onClick={() =>
                           void action({
                             action: "applyTemplate",
                             templateId: t.id,
-                          })
+                          }, `applyTemplate:${t.id}`)
                         }
                       ><DocIcon name="template" />
                         Create page from template
@@ -575,7 +582,7 @@ export default function PageTools({
                       onChange={(e) => setTemplateTitle(e.target.value)}
                     />
                   </label>
-                  <button disabled={locked}><DocIcon name="save" />Save this page as template</button>
+                  <button disabled={locked} aria-busy={working === "template"}><DocIcon name="save" />Save this page as template</button>
                 </form>
               )}
             </>
@@ -655,6 +662,7 @@ export default function PageTools({
                   type="file"
                   accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml,.svg"
                   aria-label="Upload cover image"
+                  aria-busy={working === "cover"}
                   onChange={(e) => {
                     if (e.target.files?.[0]) void cover(e.target.files[0]);
                     e.target.value = "";
@@ -668,6 +676,7 @@ export default function PageTools({
                   </button>
                 )}
                 <button
+                  aria-busy={working === "settings"}
                   onClick={() => void action({ action: "settings", settings })}
                 ><DocIcon name="save" />
                   Save page settings
@@ -724,6 +733,7 @@ export default function PageTools({
                       </a>
                       <button
                         disabled={busy}
+                        aria-busy={working === "unpublish"}
                         onClick={() => void action({ action: "unpublish" })}
                       ><DocIcon name="lock" />
                         Unpublish (revokes the link)
@@ -732,6 +742,7 @@ export default function PageTools({
                   ) : (
                     <button
                       disabled={busy}
+                      aria-busy={working === "publish"}
                       onClick={() => void action({ action: "publish" })}
                     ><DocIcon name="link" />
                       Publish as read-only link…
@@ -739,12 +750,14 @@ export default function PageTools({
                   )}
                   <button
                     disabled={locked}
+                    aria-busy={working === "duplicate"}
                     onClick={() => void action({ action: "duplicate" })}
                   ><DocIcon name="copy" />
                     Duplicate page
                   </button>
                   <button
                     disabled={locked}
+                    aria-busy={working === "protect"}
                     onClick={() =>
                       void action({
                         action: "protect",
@@ -824,7 +837,8 @@ export default function PageTools({
               {canEdit && (
                 <button
                   disabled={locked || page.protected}
-                  onClick={() => void action({ action: "settings", settings })}
+                  aria-busy={working === "relations"}
+                  onClick={() => void action({ action: "settings", settings }, "relations")}
                 ><DocIcon name="save" />
                   Save relationships
                 </button>
@@ -838,20 +852,22 @@ export default function PageTools({
                 <>
                   <button
                     disabled={locked || page.protected}
+                    aria-busy={working === "owners"}
                     onClick={() =>
-                      void action({ action: "settings", settings })
+                      void action({ action: "settings", settings }, "owners")
                     }
                   ><DocIcon name="save" />
                     Save owners
                   </button>
                   <button
                     disabled={locked || page.protected}
+                    aria-busy={working === "allPages"}
                     onClick={() =>
                       void action({
                         action: "settings",
                         settings,
                         allPages: true,
-                      })
+                      }, "allPages")
                     }
                   ><DocIcon name="save" />
                     Apply typography to all pages
@@ -882,6 +898,7 @@ export default function PageTools({
               </label>
               <button
                 disabled={locked || page.protected}
+                aria-busy={working === "move"}
                 onClick={() =>
                   void action({ action: "move", parentId: parentId || null })
                 }
@@ -898,8 +915,9 @@ export default function PageTools({
                   <span>{p.title}</span>
                   <button
                     disabled={locked}
+                    aria-busy={working === `restore:${p.id}`}
                     onClick={() =>
-                      void action({ action: "restore", pageId: p.id })
+                      void action({ action: "restore", pageId: p.id }, `restore:${p.id}`)
                     }
                   ><DocIcon name="history" />
                     Restore

@@ -95,7 +95,7 @@ export default function ConfirmDelete({
 
         <footer className="confirm-delete-actions">
           <button ref={keep} type="button" disabled={busy} onClick={cancel}>Cancel</button>
-          <button type="button" className="confirm-delete-go" disabled={busy || !!blocked} onClick={() => void confirm()}>
+          <button type="button" className="confirm-delete-go" disabled={busy || !!blocked} aria-busy={busy} onClick={() => void confirm()}>
             <TrashIcon />{busy ? 'Deleting…' : 'Delete'}
           </button>
         </footer>

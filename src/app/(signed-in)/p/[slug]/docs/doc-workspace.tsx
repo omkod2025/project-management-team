@@ -55,7 +55,9 @@ export default function DocWorkspace({ project, doc, pages, page: serverPage, ar
   const [template, setTemplate] = useState<PageTemplate>('free');
   const [parentId, setParentId] = useState('');
   const [nodeId, setNodeId] = useState('');
-  const [busy, setBusy] = useState(false);
+  // Which action is in flight — 'quick', 'form' or a page id being restored — so only its button reads busy.
+  const [working, setWorking] = useState<string | null>(null);
+  const busy = working !== null;
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
   const [showPages, setShowPages] = useState(false);
@@ -96,7 +98,7 @@ export default function DocWorkspace({ project, doc, pages, page: serverPage, ar
 
   async function add(e?: React.FormEvent, quick = false) {
     e?.preventDefault(); if (busy) return;
-    setBusy(true); setError('');
+    setWorking(quick ? 'quick' : 'form'); setError('');
     try {
       const res = await fetch(`/api/docs/${doc.id}/pages`, { method: 'POST', headers: { 'content-type': 'application/json' },
         body: JSON.stringify(quick ? { title: 'Untitled', template: 'free' } : { title, template, parentId: parentId || null, nodeId: template === 'module' ? nodeId || null : null }) });
@@ -104,7 +106,7 @@ export default function DocWorkspace({ project, doc, pages, page: serverPage, ar
       if (!res.ok) { setError(body.message ?? 'Could not create this page.'); return; }
       hardNavigate(`${base}/${body.slug}?edit=1`);
     } catch { setError('Could not confirm creation. Reload the document before retrying.'); }
-    finally { setBusy(false); }
+    finally { setWorking(null); }
   }
   const metadata = page && <div className="doc-page-meta">{page.settings?.subtitle && <p className="doc-subtitle">{String(page.settings.subtitle)}</p>}{page.ownerNames?.length ? <p>Owners: {page.ownerNames.join(', ')}</p> : null}<p className="docs-muted">{doc.version || 'No version stamp'}{page.settings?.showModified!==false && <> · Last updated {new Date(page.updatedAt).toLocaleString('en-GB', { timeZone: 'Asia/Bangkok', dateStyle: 'medium', timeStyle: 'short' })}</>}{page.nodeArchived ? ' · Module archived' : ''}{page.protected ? ' · Protected' : ''}</p></div>;
 
@@ -130,9 +132,9 @@ export default function DocWorkspace({ project, doc, pages, page: serverPage, ar
           blocked={pages.some(p => p.parentId === removing.id) ? 'This page has subpages. Delete them first.' : undefined}
           note="The page moves to Deleted pages, where you can restore it."
           onConfirm={removePage} onCancel={() => setRemoving(null)} />}
-        {canCreate && <div className="doc-add-actions"><button type="button" disabled={editing || busy} onClick={() => void add(undefined, true)}><DocIcon name="plus" />{busy ? 'Adding…' : 'Add page'}</button><button type="button" disabled={editing || busy} aria-label="New page options" onClick={() => { setParentId(''); setTitle(''); setAdding(!adding); }} aria-expanded={adding}><DocIcon name="chevron" /></button></div>}
+        {canCreate && <div className="doc-add-actions"><button type="button" disabled={editing || busy} aria-busy={working === 'quick'} onClick={() => void add(undefined, true)}><DocIcon name="plus" />{busy ? 'Adding…' : 'Add page'}</button><button type="button" disabled={editing || busy} aria-label="New page options" onClick={() => { setParentId(''); setTitle(''); setAdding(!adding); }} aria-expanded={adding}><DocIcon name="chevron" /></button></div>}
         {error && !adding && <p role="alert">{error}</p>}
-        {canCreate&&!!archivedPages.length&&<details className="doc-archived"><summary>Deleted pages ({archivedPages.length})</summary>{archivedPages.map(p=><div key={p.id}><span>{p.title}</span><button disabled={busy||editing} onClick={async()=>{setBusy(true);setError('');try{const res=await fetch(`/api/docs/${doc.id}/pages`,{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({pageId:p.id})});const body=await res.json();if(!res.ok)throw new Error(body.message);hardNavigate(`${base}/${body.slug}`);}catch(e){setError(e instanceof Error?e.message:'Restore failed.');}finally{setBusy(false);}}}><DocIcon name="history" />Restore</button></div>)}</details>}
+        {canCreate&&!!archivedPages.length&&<details className="doc-archived"><summary>Deleted pages ({archivedPages.length})</summary>{archivedPages.map(p=><div key={p.id}><span>{p.title}</span><button disabled={busy||editing} aria-busy={working===p.id} onClick={async()=>{if(busy)return;setWorking(p.id);setError('');try{const res=await fetch(`/api/docs/${doc.id}/pages`,{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({pageId:p.id})});const body=await res.json();if(!res.ok)throw new Error(body.message);hardNavigate(`${base}/${body.slug}`);}catch(e){setError(e instanceof Error?e.message:'Restore failed.');}finally{setWorking(null);}}}><DocIcon name="history" />Restore</button></div>)}</details>}
       </aside>
       <div ref={reading} className={`doc-reading font-${readingStyle.font} size-${readingStyle.size} focus-${readingStyle.focus??'none'}${readingStyle.wide ? ' is-wide' : ''}`}>
         {editing && <div ref={setEditActions} className="doc-edit-actions" role="group" aria-label="Editing actions" />}
@@ -149,7 +151,7 @@ export default function DocWorkspace({ project, doc, pages, page: serverPage, ar
             {template === 'module' && <label>Linked module / task<select value={nodeId} disabled={busy} onChange={(e) => setNodeId(e.target.value)}><option value="">None — use page title</option>{bindableNodes.map((n) => <option key={n.id} value={n.id}>{n.name}</option>)}</select></label>}
             </details>
           </div><p className="docs-muted">Create a blank page and start writing. Template and location are optional.</p>
-          {error && <p role="alert">{error}</p>}<div className="docs-actions"><button className="docs-primary" disabled={busy}><DocIcon name="plus" />{busy ? 'Creating…' : 'Create page'}</button><button type="button" disabled={busy} onClick={() => setAdding(false)}><DocIcon name="close" />Cancel</button></div>
+          {error && <p role="alert">{error}</p>}<div className="docs-actions"><button className="docs-primary" disabled={busy} aria-busy={working === 'form'}><DocIcon name="plus" />{busy ? 'Creating…' : 'Create page'}</button><button type="button" disabled={busy} onClick={() => setAdding(false)}><DocIcon name="close" />Cancel</button></div>
         </form>}
         {page ? <>
           {/* eslint-disable-next-line @next/next/no-img-element -- a user-uploaded cover of unknown size; next/image needs both dimensions */}

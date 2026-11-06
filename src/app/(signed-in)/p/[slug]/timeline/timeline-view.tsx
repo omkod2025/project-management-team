@@ -323,6 +323,15 @@ export default function TimelineView({
     setDrag({ ...drag, offsetDays: dayAt - diffDays(start, anchor) });
   };
 
+  /** Bars whose write is in flight, as `nodeId:est|act` — marked, never blocked. */
+  const [savingBars, setSavingBars] = useState<Set<string>>(new Set());
+  const markSaving = useCallback((key: string, on: boolean) =>
+    setSavingBars((cur) => {
+      const next = new Set(cur);
+      if (on) next.add(key); else next.delete(key);
+      return next;
+    }), []);
+
   const onPointerUp = async () => {
     if (!drag) return;
     const d = drag;
@@ -338,7 +347,9 @@ export default function TimelineView({
         : { actualStart: shifted.s, actualEnd: shifted.e };
 
     const before = live;
+    const barKey = `${d.nodeId}:${d.kind}`;
     setFailure(null);
+    markSaving(barKey, true);
     try {
       const res = await fetch(`/api/nodes/${d.nodeId}`, {
         method: 'PATCH',
@@ -356,6 +367,8 @@ export default function TimelineView({
     } catch {
       setLive(before);
       setFailure('No connection. The change did not save.');
+    } finally {
+      markSaving(barKey, false);
     }
   };
 
@@ -418,6 +431,8 @@ export default function TimelineView({
       const next = shift(origin, e.key === '[' ? 'start' : 'end', step);
       if (!next) return;
 
+      const barKey = `${selected}:${onActual ? 'act' : 'est'}`;
+      markSaving(barKey, true);
       void fetch(`/api/nodes/${selected}`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
@@ -428,11 +443,12 @@ export default function TimelineView({
         .then((r) => (r.ok ? r.json() : null))
         .then((fresh: LedgerRow | null) => {
           if (fresh) setLive((rs) => rs.map((r) => (r.led_node_id === fresh.led_node_id ? fresh : r)));
-        });
+        })
+        .finally(() => markSaving(barKey, false));
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [selected, live, canEdit]);
+  }, [selected, live, canEdit, markSaving]);
 
   /* --------------------------------------------------------------- view */
 
@@ -646,6 +662,8 @@ export default function TimelineView({
                     hue={TAB_HUE(moduleIndex.get(r.led_node_id) ?? 1)}
                     canEdit={draggable}
                     drag={drag?.nodeId === r.led_node_id ? drag : null}
+                    savingEst={savingBars.has(`${r.led_node_id}:est`)}
+                    savingAct={savingBars.has(`${r.led_node_id}:act`)}
                     liveRollup={liveRollup}
                     onPointerDown={onPointerDown}
                     onSelect={() => setSelected(r.led_node_id)}
@@ -663,7 +681,7 @@ export default function TimelineView({
 /* ===================================================================== row */
 
 function Row({
-  row, mode, dayW, x, hue, canEdit, drag, liveRollup, onPointerDown, onSelect,
+  row, mode, dayW, x, hue, canEdit, drag, savingEst, savingAct, liveRollup, onPointerDown, onSelect,
 }: {
   row: LedgerRow;
   mode: Mode;
@@ -672,6 +690,8 @@ function Row({
   hue: string;
   canEdit: boolean;
   drag: { kind: 'est' | 'act'; edge: 'move' | 'start' | 'end'; offsetDays: number; origin: { s: string | null; e: string | null } } | null;
+  savingEst: boolean;
+  savingAct: boolean;
   liveRollup: (parent: LedgerRow) => { s: string | null; e: string | null };
   onPointerDown: (e: React.PointerEvent, row: LedgerRow, kind: 'est' | 'act', edge: 'move' | 'start' | 'end') => void;
   onSelect: () => void;
@@ -709,6 +729,7 @@ function Row({
             <div
               className={`bar est${canEdit ? ' draggable' : ''}${drag?.kind === 'est' ? ' dragging' : ''}`}
               style={estBox}
+              aria-busy={savingEst || undefined}
               onPointerDown={(e) => onPointerDown(e, row, 'est', 'move')}
             >
               <span className="lead" />
@@ -724,6 +745,7 @@ function Row({
             <div
               className={`bar act${canEdit ? ' draggable' : ''}${drag?.kind === 'act' ? ' dragging' : ''}`}
               style={actBox}
+              aria-busy={savingAct || undefined}
               onPointerDown={(e) => onPointerDown(e, row, 'act', 'move')}
             >
               <span className="lead" />

@@ -26,15 +26,21 @@ export default function ProjectTitle(
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(initial);
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const inFlight = useRef(false);
 
-  useEffect(() => { setName(initial); }, [initial]);
+  // A new name from the server (after router.refresh) replaces the shown one.
+  const [seen, setSeen] = useState(initial);
+  if (initial !== seen) { setSeen(initial); setName(initial); }
   useEffect(() => { if (editing) input.current?.select(); }, [editing]);
 
   async function commit() {
     const trimmed = draft.trim();
     setEditing(false);
-    if (!trimmed || trimmed === name) return;
+    if (!trimmed || trimmed === name || inFlight.current) return;
 
+    inFlight.current = true;
+    setSaving(true);
     const before = name;
     setName(trimmed);                         // the page reads right immediately
     setError(null);
@@ -59,6 +65,9 @@ export default function ProjectTitle(
     } catch {
       setName(before);
       setError('No connection. The name did not save.');
+    } finally {
+      inFlight.current = false;
+      setSaving(false);
     }
   }
 
@@ -84,7 +93,8 @@ export default function ProjectTitle(
   return (
     <span className="title-holder">
       <h1
-        onDoubleClick={canRename ? () => { setDraft(name); setEditing(true); } : undefined}
+        aria-busy={saving}
+        onDoubleClick={canRename && !saving ? () => { setDraft(name); setEditing(true); } : undefined}
         title={canRename ? 'Double-click to rename' : undefined}
       >
         {name}
@@ -95,6 +105,7 @@ export default function ProjectTitle(
           type="button"
           className="title-edit-btn"
           aria-label={`Rename ${name}`}
+          disabled={saving}
           onClick={() => { setDraft(name); setEditing(true); }}
         >
           {/* A pencil, drawn rather than fetched: an icon font or an SVG file
