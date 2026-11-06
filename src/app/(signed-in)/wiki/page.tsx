@@ -14,7 +14,7 @@ const day = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeZone: 'A
 
 function WikiTable({ wikis, caption }: { wikis: WikiSummary[]; caption: string }) {
   return <div className="docs-table-wrap">
-    <table className="docs-table">
+    <table className="docs-table wiki-index">
       <caption className="docs-sr-only">{caption}</caption>
       <thead><tr><th scope="col">Wiki</th><th scope="col">Owner</th><th scope="col">Your access</th><th scope="col">Updated</th></tr></thead>
       <tbody>{wikis.map((w) => <tr key={w.id}>

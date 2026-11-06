@@ -78,6 +78,13 @@
 
 .wiki-section-head { margin: 36px 0 12px; font-size: 15px; font-weight: 600; color: var(--color-ink-secondary); }
 .wiki-row-description { display: block; font-weight: 400; font-size: 13px; color: var(--color-ink-muted); }
+/* The whole row opens the wiki: the name's link stretches over its row, so
+   a click anywhere lands where the name does — and middle-click, a new tab
+   and the keyboard still see one plain link. Its focus ring draws round the row. */
+.wiki-index tbody tr { position: relative; }
+.wiki-index tbody th a::after { content: ''; position: absolute; inset: 0; }
+.wiki-book .wiki-index tbody th a:focus-visible { outline: none; }
+.wiki-index tbody th a:focus-visible::after { outline: 2px solid var(--color-primary); outline-offset: -2px; }
 
 /* ---- settings: each section its own white panel ---- */
 
