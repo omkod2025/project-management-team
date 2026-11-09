@@ -1000,7 +1000,7 @@ describe('access tokens', () => {
   });
 
   test('the token page renders for a signed-in user, and a writer reaches the wiki settings', async () => {
-    const res = await fetch(`${BASE_URL}/wiki/tokens`, { headers: { cookie: writerJar.header }, redirect: 'manual' });
+    const res = await fetch(`${BASE_URL}/tokens`, { headers: { cookie: writerJar.header }, redirect: 'manual' });
     assert.equal(res.status, 200);
     assert.ok(!(await res.text()).includes(writerSecret));
     const settings = await fetch(`${BASE_URL}/wiki/${tw}/settings`, { headers: { cookie: writerJar.header }, redirect: 'manual' });
@@ -1010,8 +1010,9 @@ describe('access tokens', () => {
     assert.ok(!page.includes('Transfer ownership') && !page.includes('Add member'), 'and nothing a writer cannot use');
     const asReader = await fetch(`${BASE_URL}/wiki/${tw}/settings`, { headers: { cookie: readerJar.header }, redirect: 'manual' });
     assert.ok(asReader.status >= 300 && asReader.status < 400, 'a reader is sent back to the wiki');
-    const index = await fetch(`${BASE_URL}/wiki`, { headers: { cookie: writerJar.header } });
-    assert.ok((await index.text()).includes('href="/wiki/tokens"'));
+    // Tokens are system-wide now: the page is one of the places outside any project, not a Wiki view.
+    const profile = await fetch(`${BASE_URL}/profile`, { headers: { cookie: writerJar.header } });
+    assert.ok((await profile.text()).includes('href="/tokens"'));
   });
 });
 

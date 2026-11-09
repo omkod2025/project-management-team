@@ -1,39 +1,10 @@
-import { listWikis, wikiViewer } from '@/lib/wiki';
-import { isInstallAdmin } from '@/lib/wiki-rules';
-import { listAllTokens, listMyTokens } from '@/lib/access-tokens';
-import AppHeader, { wikiViews } from '../../app-header';
-import { requireReader } from '../load-workspace';
-import { requestOrigin } from './request-origin';
-import TokensView, { GuideLink } from './tokens-view';
-import '../../p/[slug]/list.css';
-import '../../p/[slug]/docs/docs.css';
-import '../wiki.css';
+import { redirect } from 'next/navigation';
 
 /**
- * Tokens / MCP (spec §6): the person's own access tokens, and for the
- * install admin every token in the install (§6c). No secret ever reaches
- * this render — a secret exists only in the create response.
+ * Tokens moved out of the Wiki when a token became system-wide (central MCP
+ * tokens design): one token can now reach List, Docs and the Wiki. The old
+ * address is kept as a redirect so bookmarks and the guide's links still land.
  */
-export default async function WikiTokensPage() {
-  const userId = await requireReader();
-  const [viewer, mine, wikis, origin] = await Promise.all([
-    wikiViewer(userId), listMyTokens(userId), listWikis(userId), requestOrigin(),
-  ]);
-  const all = isInstallAdmin(viewer) ? await listAllTokens(userId) : null;
-
-  return <div className="book docs-book wiki-book"><main className="docs-main">
-    <AppHeader title="Wiki" navLabel="Wiki menu" views={wikiViews('Tokens / MCP')} />
-    <div className="docs-content">
-      <div className="docs-heading">
-        <div><h1>Tokens / MCP</h1><p>Choose which wikis an AI assistant can access and what it can create or edit through MCP.</p></div>
-        <GuideLink />
-      </div>
-      <TokensView
-        origin={origin}
-        wikis={wikis.map((w) => ({ id: w.id, title: w.title }))}
-        mine={mine}
-        all={all}
-      />
-    </div>
-  </main></div>;
+export default function WikiTokensPage() {
+  redirect('/tokens');
 }

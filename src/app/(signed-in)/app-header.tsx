@@ -44,12 +44,13 @@ export default function AppHeader({ title, views, navLabel }: {
   );
 }
 
-/** The views of the places outside any one project. */
-export function crossViews(current: 'All Timeline' | 'People' | null): HeaderView[] {
+/** The views of the places outside any one project. Tokens / MCP is one: a token reaches List, Docs and the Wiki. */
+export function crossViews(current: 'All Timeline' | 'People' | 'Tokens / MCP' | null): HeaderView[] {
   return [
     { label: 'Projects', href: '/' },
     { label: 'All Timeline', href: '/timeline', current: current === 'All Timeline' },
     { label: 'People', href: '/people', current: current === 'People' },
+    { label: 'Tokens / MCP', href: '/tokens', current: current === 'Tokens / MCP' },
   ];
 }
 
@@ -58,12 +59,11 @@ export function crossViews(current: 'All Timeline' | 'People' | null): HeaderVie
  * Settings for the people who may open them.
  */
 export function wikiViews(
-  current: 'Wikis' | 'Tokens / MCP' | 'Mermaid guide' | 'Pages' | 'Settings',
+  current: 'Wikis' | 'Mermaid guide' | 'Pages' | 'Settings',
   wiki?: { id: string; canSettings: boolean },
 ): HeaderView[] {
   const views: HeaderView[] = [
     { label: 'Wikis', href: '/wiki' },
-    { label: 'Tokens / MCP', href: '/wiki/tokens' },
     { label: 'Mermaid guide', href: '/wiki/mermaid-guide' },
   ];
   if (wiki) {

@@ -40,6 +40,7 @@ export const PAGES: Array<{
   },
   { name: 'all timeline', path: () => '/timeline', primary: '.today-jump' },
   { name: 'people', path: () => '/people', primary: '.people-add' },
+  { name: 'tokens', path: () => '/tokens', primary: '.tk-make' },
   // No field is dirty on load, so the Save button starts disabled; the
   // always-enabled link beside it is what the keyboard actually reaches.
   { name: 'profile', path: () => '/profile', primary: '.prof-link' },

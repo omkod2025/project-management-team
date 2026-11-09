@@ -110,15 +110,14 @@
    widening the page; the open link sits in the button row as a utility button. */
 .wiki-public-link code { font-family: var(--font-mono); font-size: 13px; overflow-wrap: anywhere; }
 .wiki-settings-section .docs-actions { flex-wrap: wrap; }
-.wiki-book :is(.wiki-settings-section .docs-actions a, .wiki-guide-link) { display: inline-flex; gap: 8px; align-items: center; padding: 6px 12px; min-height: 34px; box-sizing: border-box; border: 1px solid var(--color-hairline); border-radius: var(--radius-md); background: var(--color-canvas); color: var(--color-ink); font-size: 14px; font-weight: 500; text-decoration: none; transition: background-color .12s ease; }
-.wiki-book :is(.wiki-settings-section .docs-actions a, .wiki-guide-link):hover { background: var(--cu-hover); }
+.wiki-book .wiki-settings-section .docs-actions a { display: inline-flex; gap: 8px; align-items: center; padding: 6px 12px; min-height: 34px; box-sizing: border-box; border: 1px solid var(--color-hairline); border-radius: var(--radius-md); background: var(--color-canvas); color: var(--color-ink); font-size: 14px; font-weight: 500; text-decoration: none; transition: background-color .12s ease; }
+.wiki-book .wiki-settings-section .docs-actions a:hover { background: var(--cu-hover); }
 /* A visually hidden header is absolutely placed; held inside the scroller it
    cannot push the page wider than the phone. */
 .wiki-book .docs-table-wrap { position: relative; }
 
-/* ---- tokens / MCP ----
-   The secret and the config snippets sit in the code face on a paper block.
-   A revoked or expired token is a word and a quieter ink, never red. */
+/* ---- Allow my token (wiki settings) ----
+   The Tokens / MCP page itself is `src/app/(signed-in)/tokens/tokens.css`. */
 
 .wiki-token-wikis { display: grid; gap: 6px; margin: 16px 0 0; padding: 10px 0 0; border: 0; border-top: 1px solid var(--color-hairline); max-width: 780px; }
 .wiki-token-wikis legend { padding: 0; font-size: 13px; font-weight: 500; }
@@ -126,33 +125,12 @@
 .wiki-token-wikis p { margin: 0; }
 /* The Docs sheet sizes every input to its row; a checkbox is a box, not a field. */
 .wiki-book .wiki-token-wikis input[type='checkbox'] { flex: 0 0 auto; width: 18px; height: 18px; min-height: 0; margin: 0; padding: 0; accent-color: var(--color-primary); cursor: pointer; }
-.wiki-book .wiki-token-create { margin-top: 24px; padding: 24px; border: 1px solid var(--color-hairline); border-radius: var(--radius-lg); background: var(--color-canvas); max-width: 780px; box-sizing: border-box; }
-.wiki-book .wiki-token-create h2 { font-size: 17px; font-weight: 600; }
-.wiki-token-create .docs-actions { margin-top: 12px; }
-.wiki-token-secret { margin-top: 22px; padding: 24px; border: 1px solid var(--color-hairline); border-radius: var(--radius-lg); background: var(--color-canvas); max-width: 780px; }
-.wiki-token-secret h2 { margin: 0 0 8px; font-size: 17px; font-weight: 600; }
-.wiki-token-secret > p { margin: 0 0 12px; }
-.wiki-token-snippet { margin: 12px 0 0; }
-.wiki-token-snippet-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; font-weight: 500; }
-.wiki-token-snippet pre { margin: 6px 0 0; padding: 10px 12px; border: 1px solid var(--color-hairline); border-radius: var(--radius-xs); background: var(--color-paper); overflow-x: auto; }
-.wiki-token-snippet code,
-.wiki-tokens code,
 .wiki-token-prefix { font-family: var(--font-mono); font-size: 13px; }
-.wiki-token-snippet pre code { white-space: pre-wrap; overflow-wrap: anywhere; }
-.wiki-token-snippet .docs-notice { margin: 4px 0 0; min-height: 0; }
-.wiki-book .docs-table.wiki-tokens th:first-child { width: auto; }
-.wiki-token-dead th, .wiki-token-dead td { color: var(--color-ink-muted); }
-.wiki-token-actions { display: inline-flex; flex-wrap: wrap; gap: 6px; }
-.wiki-token-edit { display: grid; gap: 10px; max-width: 780px; margin-top: 16px; padding: 14px 16px; border: 0; border-radius: var(--radius-md); background: var(--color-paper); }
-.wiki-token-edit > label { display: grid; gap: 6px; font-size: 13px; font-weight: 500; max-width: 420px; }
 
 /* ---- the connection guide ----
-   The "How to connect" link is a utility button like the settings links.
-   The guide itself wears the doc-prose sheet; it adds only a centred
+   The guide wears the doc-prose sheet; it adds only a centred
    measure and code that wraps inside a phone rather than widening it. */
 
-.wiki-guide-link { white-space: nowrap; }
-.wiki-token-guide { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 14px 0; }
 .wiki-guide { margin: 0 auto; }
 .wiki-guide pre { max-width: 100%; box-sizing: border-box; }
 .wiki-guide :is(pre, code) { font-family: var(--font-mono); overflow-wrap: anywhere; }

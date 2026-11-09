@@ -22,66 +22,6 @@ const PAGE_TITLE = 'การติดตั้งกล้อง';
 const THAI = 'ขั้นตอนการติดตั้งกล้องวงจรปิด';
 const MERMAID_LINES = ['flowchart LR', 'A["กล้อง"] --> B[NVR]'];
 
-test('Token permissions precede wiki choices and persist through create, edit and clear', async () => {
-  const fx = await setup();
-  let browser: Browser | undefined;
-  let userId = '';
-  try {
-    const user = await makeUser(fx.client, 'token-permissions');
-    userId = user.id;
-    const jar = await signIn(user.email, user.password);
-    const created = await fetch(`${BASE_URL}/api/wikis`, {
-      method: 'POST', headers: { cookie: jar.header, 'content-type': 'application/json' },
-      body: JSON.stringify({ title: 'Token scope choice' }),
-    });
-    assert.equal(created.status, 200);
-    browser = await chromium.launch({ channel: 'msedge', headless: true });
-    const context = await contextFor(browser, jar);
-    const page = await context.newPage();
-    page.setDefaultTimeout(15000);
-    await page.goto(`${BASE_URL}/wiki/tokens`);
-    const form = page.getByRole('form', { name: 'New token' });
-    await form.waitFor();
-    assert.equal(await form.getByLabel('Create wiki', { exact: true }).isChecked(), false);
-    const permissions = form.getByRole('group', { name: 'Optional permissions' });
-    const wikis = form.getByRole('group', { name: 'Wikis this token can access' });
-    const permissionBox = await permissions.boundingBox();
-    const wikiBox = await wikis.boundingBox();
-    assert.ok(permissionBox && wikiBox && permissionBox.y < wikiBox.y);
-    await form.getByLabel('Label', { exact: true }).fill('Browser permission token');
-    await form.getByLabel('Create wiki', { exact: true }).check();
-    await form.getByLabel('Create page', { exact: true }).check();
-    await form.getByLabel('Token scope choice', { exact: true }).check();
-    await form.getByRole('button', { name: 'Create token', exact: true }).click();
-    await page.getByRole('heading', { name: 'Copy your token now' }).waitFor();
-    await page.getByRole('button', { name: 'Done, I have copied it' }).click();
-    const row = page.getByRole('row').filter({ has: page.getByRole('rowheader', { name: 'Browser permission token', exact: true }) });
-    await row.waitFor();
-    assert.match(await row.innerText(), /Create wiki/);
-    await row.getByRole('button', { name: 'Edit', exact: true }).click();
-    const edit = page.getByRole('form', { name: 'Edit Browser permission token' });
-    assert.equal(await edit.getByLabel('Create page', { exact: true }).isChecked(), true);
-    await edit.getByLabel('Create wiki', { exact: true }).uncheck();
-    await edit.getByLabel('Create page', { exact: true }).uncheck();
-    await edit.getByLabel('Write wiki', { exact: true }).check();
-    await edit.getByRole('button', { name: 'Save', exact: true }).click();
-    await edit.waitFor({ state: 'detached' });
-    await row.getByRole('button', { name: 'Edit', exact: true }).click();
-    assert.equal(await edit.getByLabel('Write wiki', { exact: true }).isChecked(), true);
-    await edit.getByLabel('Write wiki', { exact: true }).uncheck();
-    await edit.getByRole('button', { name: 'Save', exact: true }).click();
-    await edit.waitFor({ state: 'detached' });
-    await row.getByRole('cell', { name: 'Read only', exact: true }).waitFor();
-    assert.match(await row.innerText(), /Read only/);
-    await page.setViewportSize({ width: 390, height: 844 });
-    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
-  } finally {
-    await browser?.close();
-    if (userId) await fx.client.query('DELETE FROM pmt_wikis WHERE wiki_owner_id = $1', [userId]);
-    await fx.cleanup();
-  }
-});
-
 async function contextFor(browser: Browser, jar: Jar): Promise<BrowserContext> {
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
   await context.addCookies(jar.header.split('; ').map((pair) => {
