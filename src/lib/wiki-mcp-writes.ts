@@ -5,6 +5,7 @@ import { wikiPages, wikis } from '@/db/schema';
 import { domainError } from '@/lib/errors';
 import { createWikiForToken, createWikiPage, requireWiki, saveWikiPage } from '@/lib/wiki';
 import { isUuid, parseWikiUpdate, type WikiTokenPermission } from '@/lib/wiki-rules';
+import { mcpPageContent } from '@/lib/wiki-mcp-content';
 
 export type McpWriteContext = {
   tokenId: string;
@@ -65,17 +66,17 @@ export async function updateMcpWiki(ctx: McpWriteContext, input: { wiki_id: stri
 }
 
 export async function updateMcpPage(ctx: McpWriteContext, input: {
-  page_id: string; markdown: string; updatedAt: string; title?: string;
+  page_id: string; markdown?: string; rich_content?: string; updatedAt: string; title?: string;
 }) {
   grant(ctx, 'write_wiki');
   if (!isUuid(input.page_id)) throw notFound();
   const id = input.page_id.toLowerCase();
-  const [page] = await db.select({ wikiId: wikiPages.wikiId }).from(wikiPages)
+  const [page] = await db.select({ wikiId: wikiPages.wikiId, body: wikiPages.body }).from(wikiPages)
     .where(and(eq(wikiPages.id, id), isNull(wikiPages.archivedAt))).limit(1);
   if (!page) throw notFound();
   await targetWiki(ctx, page.wikiId, 'write');
   const saved = await saveWikiPage(ctx.ownerId, id, {
-    content: { body: input.markdown }, title: input.title, updatedAt: input.updatedAt,
+    content: { body: mcpPageContent(page.body, input) }, title: input.title, updatedAt: input.updatedAt,
   });
   return { id, title: saved.title, updatedAt: saved.updatedAt };
 }

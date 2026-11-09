@@ -5,7 +5,7 @@ import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '@/db/client';
 import { wikiPages, wikis } from '@/db/schema';
-import { contentMarkdown } from '@/lib/doc-rich-content';
+import { contentMarkdown, decodeRich } from '@/lib/doc-rich-content';
 import { activeWikiPages, searchWikiIds, type WikiPage } from '@/lib/wiki';
 import { isUuid, pageBreadcrumb, takeRateSlot } from '@/lib/wiki-rules';
 import { DomainError } from '@/lib/errors';
@@ -92,7 +92,7 @@ const treeEntry = (p: WikiPage) => ({
 
 async function readPage(
   wikiIds: readonly string[],
-  args: { page_id?: string; wiki_id?: string; slug?: string },
+  args: { page_id?: string; wiki_id?: string; slug?: string; include_rich_content?: boolean },
 ) {
   let wikiId: unknown = args.wiki_id;
   const pageId = typeof args.page_id === 'string' ? args.page_id.toLowerCase() : args.page_id;
@@ -117,6 +117,7 @@ async function readPage(
     breadcrumb: pageBreadcrumb(pages, page.id),
     updatedAt: page.updatedAt,
     markdown: contentMarkdown(page.body),
+    ...(args.include_rich_content ? { rich_content: decodeRich(page.body) ? page.body : null } : {}),
   };
 }
 
@@ -175,11 +176,12 @@ function buildServer(ctx: McpWriteContext): McpServer {
   }));
 
   server.registerTool('read_page', {
-    description: 'Read one page as Markdown (Mermaid diagrams as ```mermaid fences). Give page_id, or wiki_id and slug.',
+    description: 'Read one page as Markdown (Mermaid diagrams as ```mermaid fences). Give page_id, or wiki_id and slug. Request include_rich_content for lossless rich editing; rich_content is null on plain Markdown pages.',
     inputSchema: {
       page_id: z.string().optional().describe('A page id from list_pages or search.'),
       wiki_id: z.string().optional().describe('With slug: the wiki the page is in.'),
       slug: z.string().optional().describe('With wiki_id: the page slug.'),
+      include_rich_content: z.boolean().optional().describe('Include canonical fieldbook-rich-v1 content for lossless edits. Default read response is unchanged.'),
     },
     annotations: readOnly,
   }, (args) => answer('read_page', () => readPage(wikiIds, args)));
@@ -212,8 +214,8 @@ function buildServer(ctx: McpWriteContext): McpServer {
       annotations: { ...writes, destructiveHint: true },
     }, (args) => answer('update_wiki', () => updateMcpWiki(ctx, args)));
     server.registerTool('update_page', {
-      description: 'Update existing page Markdown and optional title. Supply updatedAt from read_page; on conflict read again before retrying.',
-      inputSchema: z.object({ page_id: z.string(), markdown: z.string(), title: z.string().optional(), updatedAt: z.string() }).strict(),
+      description: 'Update a page with exactly one of markdown or rich_content and optional title. For existing rich pages use read_page include_rich_content and edit that canonical string; changed Markdown cannot flatten rich content. Supply latest updatedAt; reread on conflict.',
+      inputSchema: z.object({ page_id: z.string(), markdown: z.string().optional(), rich_content: z.string().optional(), title: z.string().optional(), updatedAt: z.string() }).strict(),
       annotations: { ...writes, destructiveHint: true },
     }, (args) => answer('update_page', () => updateMcpPage(ctx, args)));
   }

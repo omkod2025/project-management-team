@@ -120,7 +120,11 @@ describe('MCP token permissions and writes', () => {
     assert.equal((await call(t.secret, 'create_page', { wiki_id: created.id, title: 'forbidden', markdown: '' })).isError, true);
   });
 
-  test('wiki creation rolls back when adding scope fails', async () => {
+  test('wiki creation rolls back when adding scope fails', async (ctx) => {
+    if (!['127.0.0.1', 'localhost', '::1'].includes(process.env.PGHOST ?? '')) {
+      ctx.skip('Schema fault injection requires an isolated local test database.');
+      return;
+    }
     const t = await mint(['create_wiki'], []);
     const title = `rollback-${randomUUID()}`;
     await fx.client.query(`ALTER TABLE pmt_wiki_token_scopes ADD CONSTRAINT mcp_write_fault CHECK (wiki_token_scope_token_id <> '${t.id}'::uuid)`);
@@ -215,6 +219,9 @@ describe('MCP token permissions and writes', () => {
   test('rich content can be read and updated as Markdown without losing Thai or diagrams', async () => {
     const rich = encodeRich({ type: 'doc', content: [
       { type: 'paragraph', content: [{ type: 'text', text: 'คู่มือภาษาไทย' }] },
+      { type: 'toggle', attrs: { label: 'หัวข้อที่ต้องไม่หาย', open: true }, content: [
+        { type: 'paragraph', content: [{ type: 'text', text: 'รายละเอียด', marks: [{ type: 'underline' }] }] },
+      ] },
       { type: 'codeBlock', attrs: { language: 'mermaid' }, content: [{ type: 'text', text: 'flowchart LR\n A --> B' }] },
     ] });
     const page = await restPage(wiki, jar, rich);
@@ -225,6 +232,16 @@ describe('MCP token permissions and writes', () => {
     assert.equal(after.markdown, before.markdown);
     assert.match(after.markdown, /คู่มือภาษาไทย/);
     assert.match(after.markdown, /```mermaid/);
+    const stored = await fx.client.query('SELECT wiki_page_body FROM pmt_wiki_pages WHERE wiki_page_id = $1', [page.id]);
+    assert.equal(stored.rows[0].wiki_page_body, rich);
+    const unsafe = await call(t.secret, 'update_page', { page_id: page.id, markdown: after.markdown + ' modified', updatedAt: after.updatedAt });
+    assert.equal(unsafe.isError, true);
+    const lossless = await ok(t.secret, 'read_page', { page_id: page.id, include_rich_content: true });
+    assert.equal(lossless.rich_content, rich);
+    const editedRich = rich.replace('หัวข้อที่ต้องไม่หาย', 'หัวข้อแก้ไขแล้ว');
+    await ok(t.secret, 'update_page', { page_id: page.id, rich_content: editedRich, updatedAt: after.updatedAt });
+    const saved = await fx.client.query('SELECT wiki_page_body FROM pmt_wiki_pages WHERE wiki_page_id = $1', [page.id]);
+    assert.equal(saved.rows[0].wiki_page_body, editedRich);
   });
 
   test('expired or inactive-owner tokens cannot write, and archived pages stay hidden', async () => {
