@@ -8,11 +8,13 @@ import { wikiPages, wikis } from '@/db/schema';
 import { contentMarkdown } from '@/lib/doc-rich-content';
 import { activeWikiPages, searchWikiIds, type WikiPage } from '@/lib/wiki';
 import { isUuid, pageBreadcrumb, takeRateSlot } from '@/lib/wiki-rules';
+import { DomainError } from '@/lib/errors';
+import { createMcpWiki, createMcpPage, updateMcpWiki, updateMcpPage, type McpWriteContext } from '@/lib/wiki-mcp-writes';
 import { resolveBearer } from '@/lib/wiki-tokens';
 
 /**
  * The wiki's MCP endpoint (spec §7): the only way AI reaches the wiki, and
- * read-only. Authentication is the Bearer token alone — cookies are never
+ * optionally writable under explicit token grants. Authentication is the Bearer token alone — cookies are never
  * read here, and a session cannot reach this code path.
  *
  * Every lookup is filtered to the token's effective wikis, resolved fresh on
@@ -140,6 +142,12 @@ async function answer(name: string, run: () => Promise<unknown>): Promise<ToolRe
   try {
     return { content: [{ type: 'text', text: JSON.stringify(await run()) }] };
   } catch (err) {
+    if (err instanceof DomainError) {
+      if (err.code === 'E_NOT_FOUND') return { content: [{ type: 'text', text: NOT_FOUND }], isError: true };
+      const message = err.code === 'E_DOC_CONFLICT'
+        ? 'This page changed. Read it again before retrying your edit.' : err.message;
+      return { content: [{ type: 'text', text: JSON.stringify({ error: { code: err.code, message } }) }], isError: true };
+    }
     if (err instanceof OutOfScope) return { content: [{ type: 'text', text: NOT_FOUND }], isError: true };
     console.error(`[mcp] ${name} failed`, err);
     return { content: [{ type: 'text', text: 'The wiki could not answer this request.' }], isError: true };
@@ -148,7 +156,8 @@ async function answer(name: string, run: () => Promise<unknown>): Promise<ToolRe
 
 const readOnly = { readOnlyHint: true } as const;
 
-function buildServer(wikiIds: readonly string[]): McpServer {
+function buildServer(ctx: McpWriteContext): McpServer {
+  const { wikiIds, permissions } = ctx;
   const server = new McpServer({ name: 't-timeline-wiki', version: '1.0.0' });
 
   server.registerTool('list_wikis', {
@@ -185,6 +194,29 @@ function buildServer(wikiIds: readonly string[]): McpServer {
     annotations: readOnly,
   }, (args) => answer('search', () => search(wikiIds, args)));
 
+  const writes = { readOnlyHint: false, destructiveHint: false, idempotentHint: false } as const;
+  if (permissions.includes('create_wiki')) server.registerTool('create_wiki', {
+    description: 'Create a wiki owned by this token owner and add it to this token scope. Retrying may create another wiki.',
+    inputSchema: z.object({ title: z.string(), description: z.string().optional() }).strict(),
+    annotations: writes,
+  }, (args) => answer('create_wiki', () => createMcpWiki(ctx, args)));
+  if (permissions.includes('create_page')) server.registerTool('create_page', {
+    description: 'Create a page with initial Markdown in a scoped wiki you can write. Retrying may create another page.',
+    inputSchema: z.object({ wiki_id: z.string(), title: z.string(), markdown: z.string(), parent_id: z.string().optional(), slug: z.string().optional() }).strict(),
+    annotations: writes,
+  }, (args) => answer('create_page', () => createMcpPage(ctx, args)));
+  if (permissions.includes('write_wiki')) {
+    server.registerTool('update_wiki', {
+      description: 'Update only wiki title or description. Requires this token owner to manage the scoped wiki. Empty description clears it.',
+      inputSchema: z.object({ wiki_id: z.string(), title: z.string().optional(), description: z.string().optional() }).strict(),
+      annotations: { ...writes, destructiveHint: true },
+    }, (args) => answer('update_wiki', () => updateMcpWiki(ctx, args)));
+    server.registerTool('update_page', {
+      description: 'Update existing page Markdown and optional title. Supply updatedAt from read_page; on conflict read again before retrying.',
+      inputSchema: z.object({ page_id: z.string(), markdown: z.string(), title: z.string().optional(), updatedAt: z.string() }).strict(),
+      annotations: { ...writes, destructiveHint: true },
+    }, (args) => answer('update_page', () => updateMcpPage(ctx, args)));
+  }
   return server;
 }
 
@@ -196,7 +228,7 @@ export async function handleMcp(req: Request): Promise<Response> {
     return json({ error: 'rate_limited' }, 429, { 'Retry-After': String(RATE_WINDOW_MS / 1000) });
   }
 
-  const server = buildServer(auth.wikiIds);
+  const server = buildServer(auth);
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
     enableJsonResponse: true,

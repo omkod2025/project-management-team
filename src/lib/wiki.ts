@@ -1,7 +1,7 @@
 import 'server-only';
 import { and, desc, eq, inArray, isNotNull, isNull, sql, type SQL } from 'drizzle-orm';
 import { db } from '@/db/client';
-import { users, wikiMembers, wikiPages, wikiRevisions, wikis } from '@/db/schema';
+import { users, wikiMembers, wikiPages, wikiRevisions, wikiTokenScopes, wikis } from '@/db/schema';
 import { DomainError, domainError } from '@/lib/errors';
 import { extendRevision, nextPageDepth, parsePageContent, type DocPage } from '@/lib/doc-rules';
 import {
@@ -178,10 +178,23 @@ export async function listWikis(userId: string): Promise<WikiSummary[]> {
 }
 
 export async function createWiki(userId: string, input: unknown): Promise<WikiSummary> {
+  return createWikiRecord(userId, input);
+}
+
+/** MCP creates the wiki and its creating token's scope as one atomic change. */
+export async function createWikiForToken(userId: string, tokenId: string, input: unknown): Promise<WikiSummary> {
+  return createWikiRecord(userId, input, tokenId);
+}
+
+async function createWikiRecord(userId: string, input: unknown, tokenId?: string): Promise<WikiSummary> {
   const v = await wikiViewer(userId);
   if (!v.active) throw domainError('E_FORBIDDEN', 'This account is not active.');
   const data = parseNewWiki(input);
-  const [wiki] = await db.insert(wikis).values({ ...data, ownerId: userId }).returning();
+  const wiki = await db.transaction(async (tx) => {
+    const [created] = await tx.insert(wikis).values({ ...data, ownerId: userId }).returning();
+    if (tokenId) await tx.insert(wikiTokenScopes).values({ tokenId, wikiId: created!.id });
+    return created!;
+  });
   const role = wikiRole(v, factsOf(wiki!, null))!;
   return summarize(wiki!, role, await ownerName(userId));
 }
