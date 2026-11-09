@@ -5,6 +5,7 @@ import { hasModule, takeRateSlot } from '@/lib/token-rules';
 import { resolveBearer } from '@/lib/access-tokens';
 import { registerWikiTools } from './wiki-tools';
 import { registerListTools, registerProjectTools } from './list-tools';
+import { registerDocsTools } from './docs-tools';
 import type { McpContext } from './tool-kit';
 
 /**
@@ -49,13 +50,15 @@ function takeSlot(tokenId: string, now: number): boolean {
 /**
  * One module's tools, registered only while this token reaches that module.
  * `list_projects` serves both project-scoped modules, so it is registered
- * once for either. Task 6 adds the Docs tools here.
+ * once for either.
  */
 function buildServer(ctx: McpContext): McpServer {
   const server = new McpServer({ name: 't-timeline', version: '1.0.0' });
   const list = hasModule(ctx.grants, 'list');
-  if (list || hasModule(ctx.grants, 'docs')) registerProjectTools(server, ctx);
+  const docs = hasModule(ctx.grants, 'docs');
+  if (list || docs) registerProjectTools(server, ctx);
   if (list) registerListTools(server, ctx);
+  if (docs) registerDocsTools(server, ctx);
   if (hasModule(ctx.grants, 'wiki')) registerWikiTools(server, ctx);
   return server;
 }

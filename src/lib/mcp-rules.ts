@@ -3,12 +3,16 @@
  *
  * Same split as `token-rules.ts`: what an MCP caller may name and what its
  * arguments become are decisions, so they live where a test can reach them
- * without a database. `mcp/list-tools.ts` is the adapter that resolves ids
- * against the tables and calls the node store.
+ * without a database. `mcp/list-tools.ts` and `mcp/docs-tools.ts` are the
+ * adapters that resolve ids against the tables and call the stores.
  */
 
 import type { NodePatch } from './nodes.ts';
 import { isUuid } from './token-rules.ts';
+import { domainError } from './errors.ts';
+import { mcpPageContent } from './wiki-mcp-content.ts';
+import { removedDocAssetIds } from './doc-asset-references.ts';
+import { pageSections, type PageContent, type PageTemplate } from './doc-rules.ts';
 
 /**
  * The id as the token may use it: uuid-shaped, lowercased (a UUID is
@@ -53,4 +57,28 @@ export function taskPatch(args: TaskArgs): NodePatch {
     if (args[from] !== undefined) patch[to] = args[from];
   }
   return patch as NodePatch;
+}
+
+/**
+ * The page content an `update_doc_page` call asks for: one section replaced,
+ * every other section exactly as it was. `section` defaults to `body` (a Free
+ * page's only one) and must belong to the template. Rich content survives a
+ * Markdown edit that leaves its Markdown unchanged and refuses one that does
+ * not (`mcpPageContent`). An MCP edit may never drop a file link: removing a
+ * file stays a deliberate act in the app, where the editor sees what goes.
+ */
+export function docPageContent(
+  current: PageContent,
+  template: PageTemplate,
+  input: { section?: string; markdown?: string; rich_content?: string },
+): PageContent {
+  const section = input.section ?? 'body';
+  if (!pageSections(template).some(([key]) => key === section)) {
+    throw domainError('E_INVALID_DOC', 'This section does not belong to the page template.');
+  }
+  const next = { ...current, [section]: mcpPageContent(current[section] ?? '', input) };
+  if (removedDocAssetIds(current, next).length > 0) {
+    throw domainError('E_INVALID_DOC', 'This edit would remove a file from the page. Keep every file link, or remove files in the app.');
+  }
+  return next;
 }
