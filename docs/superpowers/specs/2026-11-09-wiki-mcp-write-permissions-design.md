@@ -57,6 +57,8 @@ Before writes, resolve the target's wiki from authoritative database data and ve
 
 Preserve existing page conflict handling: reject stale `updatedAt` and return a recognizable conflict with instructions to reread before retrying. Keep permission, validation and conflict failures actionable without exposing database errors or out-of-scope data. Read results already include `updatedAt`.
 
+Implementation review clarification: portable Markdown exports are lossy for rich content. Preserve canonical rich body on unchanged Markdown submissions; reject changed Markdown on an existing rich page instead of silently flattening it. Opt-in `read_page(include_rich_content: true)` returns the canonical `rich_content` string (null on plain pages), and `update_page` accepts exactly one of `markdown` or `rich_content`. Baseline read responses stay unchanged. Canonical edits use the existing rich validation, history, asset and conflict rules.
+
 ## Explicit exclusions
 
 No delete, archive, restore, member management, ownership transfer, public-link changes, page moves/reordering, file-upload tools, revision-restore tools, REST token access, OAuth changes, or per-wiki permission matrix. Existing human UI capabilities are unaffected. Markdown content may reference assets under existing validation rules; this change does not add asset upload or finalization operations.

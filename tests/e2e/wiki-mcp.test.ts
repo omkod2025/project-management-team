@@ -1,11 +1,11 @@
 /**
  * The wiki's MCP endpoint, through the real API (wiki spec §6b, §7, §8).
  *
- * This is the only way AI reaches the wiki, and it is read-only. These tests
+ * This is the only way AI reaches the wiki, and baseline tokens are read-only. These tests
  * defend that: a Bearer token is the whole credential (no session, no public
  * link secret), what a token reads is decided again on every request
  * (scope ∩ what its owner can see right now), a refusal reveals nothing, and
- * no tool can write.
+ * baseline tokens cannot write.
  *
  * The rate limit is per token, so tests that make many calls each mint their
  * own token rather than spend the shared one's 60-a-minute budget.
@@ -32,6 +32,23 @@ const INJECTION = [
   '$$ \\ ; -- ปลั๊ก',
   '%_\\',
 ];
+
+test('install admin write tokens still cannot archive or delete and admin listing shows permissions', async (t) => {
+  if (!installJar) { t.skip(SKIP_INSTALL); return; }
+  const token = await mintToken(installJar, [mine], 'admin write permissions');
+  const patched = await call(installJar, 'PATCH', `/api/wiki-tokens/${token.id}`, {
+    label: 'admin write permissions', wikiIds: [mine], permissions: ['write_wiki'],
+  });
+  assert.equal(patched.status, 200, JSON.stringify(patched.body));
+  const all = await call(installJar, 'GET', '/api/wiki-tokens?all=1');
+  assert.deepEqual(all.body.find((row: { id: string }) => row.id === token.id).permissions, ['write_wiki']);
+  assert.equal((await tool(token.secret, 'update_wiki', { wiki_id: mine, title: 'forbidden', action: 'archive' })).isError, true);
+  for (const name of ['delete_wiki', 'archive_wiki', 'delete_page', 'archive_page']) {
+    assert.equal((await tool(token.secret, name, { wiki_id: mine })).isError, true);
+  }
+  const result = await fx.client.query('SELECT wiki_archived_at FROM pmt_wikis WHERE wiki_id = $1', [mine]);
+  assert.equal(result.rows[0].wiki_archived_at, null);
+});
 
 let fx: Fixture;
 type U = { id: string; email: string; password: string };

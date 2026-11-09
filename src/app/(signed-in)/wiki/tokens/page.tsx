@@ -25,7 +25,7 @@ export default async function WikiTokensPage() {
     <AppHeader title="Wiki" navLabel="Wiki menu" views={wikiViews('Tokens / MCP')} />
     <div className="docs-content">
       <div className="docs-heading">
-        <div><h1>Tokens / MCP</h1><p>Let an AI assistant read the wikis you choose, as you, through MCP.</p></div>
+        <div><h1>Tokens / MCP</h1><p>Choose which wikis an AI assistant can access and what it can create or edit through MCP.</p></div>
         <GuideLink />
       </div>
       <TokensView

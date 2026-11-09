@@ -8,7 +8,7 @@
 
 ## 1. ภาพรวม
 
-MCP (Model Context Protocol) คือโปรโตคอลมาตรฐานที่ให้โปรแกรม AI เรียก "เครื่องมือ" (tools) ของระบบอื่นได้ ข้อความที่รับส่งเป็น JSON-RPC 2.0 ระบบนี้ใช้ MCP เป็น **ช่องทางเดียว** ที่ AI เข้าถึง Wiki ได้ และเป็นแบบ **อ่านอย่างเดียว**
+MCP (Model Context Protocol) คือโปรโตคอลมาตรฐานที่ให้โปรแกรม AI เรียก "เครื่องมือ" (tools) ของระบบอื่นได้ ข้อความที่รับส่งเป็น JSON-RPC 2.0 ระบบนี้ใช้ MCP เป็น **ช่องทางเดียว** ที่ AI เข้าถึง Wiki ได้ โดยอ่านได้เป็นพื้นฐาน และสร้างหรือแก้ไขได้เมื่อ token มีสิทธิ์เพิ่มตาม [SRS](../spec/13-wiki-mcp-write-srs.md)
 
 | เรื่อง | ค่าที่ใช้ |
 |---|---|
@@ -16,7 +16,7 @@ MCP (Model Context Protocol) คือโปรโตคอลมาตรฐา
 | Transport | Streamable HTTP แบบ **stateless** ตอบกลับเป็น JSON (`enableJsonResponse: true`) ไม่มี session id และไม่มี stream จากฝั่งเซิร์ฟเวอร์ |
 | SDK | `@modelcontextprotocol/sdk` — `McpServer` + `WebStandardStreamableHTTPServerTransport` |
 | การยืนยันตัวตน | `Authorization: Bearer pmw_…` **อย่างเดียว** ไม่อ่าน cookie ไม่รับ token ใน query string ไม่รับ secret ของลิงก์สาธารณะ |
-| เครื่องมือ | 4 ตัว: `list_wikis`, `list_pages`, `read_page`, `search` ทั้งหมดติด `readOnlyHint` |
+| เครื่องมือ | อ่านพื้นฐาน 4 ตัวติด `readOnlyHint: true`; เพิ่ม `create_wiki`, `create_page`, `update_wiki`, `update_page` ตาม permission |
 | อัตราการเรียก | 60 ครั้งต่อนาทีต่อ token (sliding window ในหน่วยความจำ) |
 | `GET`, `DELETE` | `405` เพราะ stateless จึงไม่มี stream ให้เปิดและไม่มี session ให้ปิด |
 
@@ -25,7 +25,7 @@ MCP (Model Context Protocol) คือโปรโตคอลมาตรฐา
 | ไฟล์ | หน้าที่ |
 |---|---|
 | `src/app/api/mcp/route.ts` | route ของ Next.js — ส่ง `POST` ต่อให้ `handleMcp` และตอบ `405` ให้ `GET`/`DELETE` ไม่เรียก `handle()` หรือ `currentUserId()` เลย cookie ของ session จึงไปไม่ถึงโค้ดส่วนนี้ |
-| `src/lib/wiki-mcp.ts` | ตัวเซิร์ฟเวอร์ MCP: ตรวจ token, จำกัดอัตรา, สร้าง `McpServer`, ลงทะเบียนเครื่องมือทั้ง 4 ตัว และแปลงข้อผิดพลาด |
+| `src/lib/wiki-mcp.ts` | ตัวเซิร์ฟเวอร์ MCP: ตรวจ token, จำกัดอัตรา, สร้าง `McpServer`, ลงทะเบียนเครื่องมือตาม permissions และแปลงข้อผิดพลาด |
 | `src/lib/wiki-tokens.ts` | `resolveBearer()` — แปลง header เป็น token และชุด Wiki ที่อ่านได้จริง (ทำทุกคำขอ) รวมถึงการสร้าง แก้ไข และ revoke token |
 | `src/lib/wiki-rules.ts` | กฎแบบ pure function ที่ทดสอบได้โดยไม่ต้องมีฐานข้อมูล: `bearerSecret`, `hashTokenSecret`, `newTokenSecret`, `effectiveTokenWikis`, `tokenStatus`, `shouldTouchLastUsed`, `takeRateSlot` |
 | `src/lib/wiki.ts` | ข้อมูลที่เครื่องมือใช้อ่าน: `visibleWikiIds`, `activeWikiPages`, `searchWikiIds` |
@@ -76,7 +76,7 @@ sequenceDiagram
 6. **จำกัดอัตรา** — `takeSlot()` เก็บเวลาที่เรียกของแต่ละ token ใน `Map` ในหน่วยความจำ ครั้งที่ 61 ภายใน 60 วินาทีได้ `429` พร้อม `Retry-After: 60` และ entry ที่ไม่ได้ใช้เกินหนึ่ง window จะถูกกวาดทิ้ง วิธีนี้ถูกต้องเพราะ deploy เป็น container เดียว (`D-81`, `08-operations.md`) ถ้าวันหนึ่งขยายเป็นหลาย instance ต้องย้ายตัวนับไปไว้ที่เก็บกลาง
 7. **สร้างเซิร์ฟเวอร์ใหม่ทุกคำขอ** — `buildServer(wikiIds)` ผูกชุด Wiki ที่อ่านได้เข้ากับเครื่องมือทุกตัว แล้วต่อกับ transport ตัวใหม่ ตอบคำขอ แล้ว `server.close()` ไม่มีสถานะค้างข้ามคำขอเลย นี่คือความหมายของ stateless และเป็นเหตุผลที่ client เรียก `tools/call` ได้โดยไม่ต้อง `initialize` ก่อน
 
-## 4. เครื่องมือทั้ง 4 ตัว
+## 4. เครื่องมืออ่านพื้นฐานทั้ง 4 ตัว
 
 ทุกตัวรับ `wikiIds` ที่ผ่านขั้นที่ 4 มาแล้วเท่านั้น และกรองซ้ำอีกชั้นว่า Wiki และหน้าต้องยังไม่ถูก archive
 
@@ -152,10 +152,24 @@ npm run test:wiki   # รวม wiki-mcp และ wiki-guide
 
 ## 8. ถ้าจะเพิ่มเครื่องมือใหม่
 
-1. **ยังต้องอ่านอย่างเดียว** MCP ไม่มีเครื่องมือเขียนโดยเจตนา (`D-79`) ถ้าจำเป็นต้องเขียน นั่นคือการเปลี่ยน spec ไม่ใช่แค่เพิ่มโค้ด
-2. ลงทะเบียนใน `buildServer()` ด้วย `server.registerTool(name, { description, inputSchema, annotations: readOnly }, handler)` โดยกำหนด input ด้วย `zod`
-3. ให้ handler รับเฉพาะ `wikiIds` ที่ส่งเข้ามา และใช้ `liveWiki()` / `liveWikis()` ตรวจ Wiki ทุกครั้ง **ห้ามค้นฐานข้อมูลโดยไม่กรองด้วยชุดนี้**
+1. เครื่องมือใหม่ต้องอยู่ในสิทธิ์ตาม SRS: อ่านพื้นฐาน หรือ `create_wiki`, `create_page`, `write_wiki`; ห้ามเพิ่มการลบหรือ archive
+2. ลงทะเบียนใน `buildServer()` ด้วย `server.registerTool(name, { description, inputSchema, annotations: /* readOnly for reads, non-read-only for writes */ }, handler)` โดยกำหนด input ด้วย `zod`
+3. เครื่องมืออ่านใช้ `liveWiki()` / `liveWikis()` กรอง `wikiIds` ส่วนเครื่องมือเขียนรับ context เต็มผ่าน `wiki-mcp-writes.ts` และตรวจทั้ง permission, scope และสิทธิ์ผู้ใช้ก่อนเขียน
 4. ห่อด้วย `answer(name, …)` แล้ว throw `outOfScope()` เมื่อหาไม่เจอหรืออยู่นอกสิทธิ์ ข้อความ `Not found.` จะได้เหมือนกันทุกกรณี
 5. อย่าส่งอีเมล ชื่อเจ้าของ หรือ `wiki_public_token` กลับไป
-6. เพิ่มกรณีใน `tests/e2e/wiki-mcp.test.ts` อย่างน้อย: ใช้ได้ใน scope, `Not found.` นอก scope, ถูก archive, id ผิดรูปแบบ แล้วแก้ test `tools/list names exactly the four tools` ให้ตรงกับรายการใหม่
-7. อัปเดตตารางเครื่องมือใน `docs/spec/12-wiki.md` §7, [`wiki-mcp.md`](wiki-mcp.md) §6 และในเอกสารนี้
+6. เพิ่มกรณีใช้ได้ใน scope, `Not found.` นอก scope, ถูก archive, id ผิดรูปแบบ และตรวจ tools ตาม permissions ใน `wiki-mcp-write.test.ts`; token พื้นฐานยังมีเพียงสี่ read tools
+7. อัปเดตตารางเครื่องมือใน `docs/spec/12-wiki.md` §6, [`wiki-mcp.md`](wiki-mcp.md) §6 และในเอกสารนี้
+
+## สิทธิ์เขียนระดับ token (2026-11-09)
+
+`pmt_wiki_tokens` เพิ่ม `wiki_token_can_create_wiki`, `wiki_token_can_create_page`, `wiki_token_can_write_wiki` เป็น boolean NOT NULL DEFAULT false ใน migration 025. Token API ใช้ `permissions` array; create ที่ไม่ส่งได้ชุดว่าง และ edit ที่ไม่ส่งคงค่าเดิม ขณะที่ชุดว่างชัดเจนล้างสิทธิ์ได้ Wiki settings เปลี่ยน scope เท่านั้น
+
+`resolveBearer` คืน permissions พร้อม tokenId/ownerId/wikiIds ที่คำนวณใหม่ทุก request. `wiki-mcp-writes.ts` ตรวจ permission และ scope ก่อนเรียก domain services; page IDs resolve Wiki จริงก่อนตรวจ authorization. `createWikiForToken` สร้าง Wiki พร้อม scope ใน transaction เดียว ไม่ให้สิทธิ์ token อื่น ส่วน metadata patch ตรวจชื่อและรายละเอียดครบก่อนอัปเดตครั้งเดียว ไม่ forward action ทั่วไป
+
+การสร้างหน้าใช้ `create_page` และสิทธิ์เขียนของผู้ใช้ การแก้หน้าหรือรายละเอียด Wiki ใช้ `write_wiki` โดยรายละเอียด Wiki ต้องมี manage access การแก้หน้าส่ง `updatedAt` ผ่าน `saveWikiPage` เพื่อคง conflict, revisions และ search indexing. Tool schemas จำกัด fields; ไม่มี archive/delete/restore/member/publication/transfer/move/upload
+
+`wiki-mcp-content.ts` ป้องกันการ flatten rich page ผ่าน Markdown export ที่สูญเสียรายละเอียด: no-op Markdown คง canonical body เดิม ส่วน Markdown ที่เปลี่ยนไปถูกปฏิเสธพร้อมคำแนะนำ ใช้ `read_page(include_rich_content: true)` เพื่อรับ `rich_content` แล้วส่ง canonical content ที่แก้ไขกลับใน `update_page` แทน `markdown` การอ่านที่ไม่ขอตัวเลือกนี้ยังคง response shape เดิม
+
+ผลสำเร็จและ reads คง JSON text content เดิม Domain errors ของ writes ใช้ `isError: true` พร้อม `{error:{code,message}}`; stale save เป็น `E_DOC_CONFLICT` และแนะนำให้อ่านใหม่โดยไม่เปิดเผยชื่อผู้แก้ไข เป้าหมายนอก scope หรือ archived ยังคง `Not found.` Unexpected errors ไม่ส่ง SQL/stack trace
+
+ทดสอบสิทธิ์อิสระทั้ง 8 ชุดและผลการเขียนจริงที่ `tests/e2e/wiki-mcp-write.test.ts`, migration/default ที่ `wiki-token-migration.test.ts` (ฐานข้อมูลท้องถิ่นแยกเท่านั้น), และ token UI ที่ `wiki.browser.test.ts`. Read-only tests เดิมใช้กับ token ที่ไม่มี optional permissions

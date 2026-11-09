@@ -87,6 +87,7 @@
 - **WRT-06:** การแก้หน้าต้องส่ง `updatedAt` จากการอ่านล่าสุด และตรวจเทียบภายใต้การควบคุม concurrent writes หากเก่าแล้วต้องไม่เขียนทับ พร้อมระบุ conflict ให้ client อ่านใหม่; ไม่เพิ่มทางข้าม conflict
 - **WRT-07:** การเขียนหน้าต้องใช้กฎ validation, revision history, search indexing และ asset-reference validation เดิม โดยบันทึกเจ้าของ token เป็นผู้แก้ไข ไม่เพิ่ม upload หรือ asset-finalization operations ใน MCP
 - **WRT-08:** Markdown ภาษาไทยและ Mermaid ต้องผ่านเส้นทางจัดเก็บ/อ่านเดิมโดยไม่สูญเสียเนื้อหาหรือกลายเป็น HTML ที่รันได้ คงข้อจำกัดความยาวและ validation เดิม
+- **WRT-09:** ต้องไม่แปลง rich content เป็น Markdown แล้วทำให้ข้อมูลหรือรูปแบบหายโดยเงียบ การส่ง Markdown กลับมาโดยไม่เปลี่ยนต้องคง rich body เดิม หากเปลี่ยน Markdown ของ rich page ให้ปฏิเสธและแนะนำให้อ่านด้วย `include_rich_content: true` แล้วแก้ `rich_content` แทน; read response เดิมไม่เปลี่ยนเมื่อไม่ขอ field นี้
 
 ### 4.4 สัญญาเครื่องมือใหม่
 
@@ -97,7 +98,9 @@
 | `create_wiki` | `create_wiki` | ชื่อ; คำอธิบายไม่บังคับ | Wiki ID, ชื่อ, คำอธิบาย; Wiki ปรากฏใน `list_wikis` ของ token นั้น |
 | `create_page` | `create_page` | Wiki ID, ชื่อ, Markdown; parent ID และ slug ไม่บังคับ | Page ID, Wiki ID, slug, ชื่อ, `updatedAt` |
 | `update_wiki` | `write_wiki` | Wiki ID และชื่อหรือคำอธิบายอย่างน้อยหนึ่งรายการ | Wiki ID, ชื่อและคำอธิบายหลังบันทึก |
-| `update_page` | `write_wiki` | Page ID, Markdown, `updatedAt`; ชื่อไม่บังคับ | Page ID, ชื่อและ `updatedAt` ใหม่ |
+| `update_page` | `write_wiki` | Page ID, `updatedAt`, เลือกส่ง `markdown` หรือ canonical `rich_content` เพียงหนึ่งรายการ; ชื่อไม่บังคับ | Page ID, ชื่อและ `updatedAt` ใหม่ |
+
+`read_page` รับ `include_rich_content` เป็นตัวเลือก เมื่อเป็น true ให้คืน `rich_content` เป็นสตริง `fieldbook-rich-v1:` สำหรับ rich page หรือ null สำหรับหน้า Markdown ปกติ การแก้ rich content ยังผ่าน validation, limits และการตรวจ asset เดิมทั้งหมด
 
 ## 5. Authorization และข้อกำหนดที่ไม่ใช่ฟังก์ชัน
 
@@ -135,7 +138,7 @@
 | AC-08 | เปลี่ยน scope จาก Wiki settings แล้ว permissions ไม่เปลี่ยน; ไม่มีสิทธิ์แก้ token ของผู้อื่นเพิ่ม | TOK-09 |
 | AC-09 | ลดสิทธิ์ผู้ใช้หรือ revoke/expire/deactivate แล้ว token หยุดตามกฎเดิม; ให้สมาชิกกลับคืนแล้ว scope เดิมกลับมีผล | SEC-01–02 |
 | AC-10 | อ่านแล้วมีผู้อื่นแก้ก่อน ส่ง `updatedAt` เก่าต้องได้ conflict และข้อมูลล่าสุดไม่ถูกทับ | WRT-06 |
-| AC-11 | เขียนไทย/Mermaid แล้วอ่านกลับได้ ค้นพบเนื้อหาใหม่ มี revision/ผู้แก้ไข และใช้ validation เดิม; input ผิดไม่เปลี่ยนข้อมูล | WRT-07–08, SEC-07 |
+| AC-11 | เขียนไทย/Mermaid แล้วอ่านกลับได้ ค้นพบเนื้อหาใหม่ มี revision/ผู้แก้ไข และใช้ validation เดิม; input ผิดไม่เปลี่ยนข้อมูล; rich no-op คง body รวม toggle label/marks เดิม การแก้ rich ทำผ่าน canonical content และห้าม flatten เงียบ | WRT-07–09, SEC-07 |
 | AC-12 | ไม่มี tool หรือ input ที่ลบ/archive/restore/transfer/publish/จัดการสมาชิกได้ แม้ token owner เป็น install admin | WRT-04–05, SEC-07 |
 | AC-13 | UI เรียง permissions ก่อน Wiki และสร้าง/แก้ไข/แสดงสิทธิ์ได้ตรงกัน ทั้งตารางเจ้าของและ admin | TOK-02–04, TOK-08 |
 | AC-14 | ชื่อและคำอธิบาย Wiki ที่ส่งมาคู่กันสำเร็จพร้อมกัน หรือคงค่าเดิมทั้งคู่เมื่อ validation/write ล้มเหลว | WRT-04 |

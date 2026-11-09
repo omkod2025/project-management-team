@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import type { WikiTokenPermission } from '@/lib/wiki-rules';
 import type { TokenRow } from '@/lib/wiki-tokens';
 import DocIcon from '../../p/[slug]/docs/doc-icon';
 import ConfirmDelete, { TrashIcon } from '../../confirm-delete';
@@ -31,6 +32,7 @@ const mcpCommand = (origin: string, secret: string) =>
 function useRunner() {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const [refreshing, startRefresh] = useTransition();
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   async function run<T>(work: () => Promise<T>, done: string): Promise<T | null> {
@@ -38,12 +40,12 @@ function useRunner() {
     try {
       const result = await work();
       setNotice(done);
-      router.refresh();
+      startRefresh(() => router.refresh());
       return result;
     } catch (err) { setError(problem(err, 'That did not save. Reload and try again.')); return null; }
     finally { setBusy(false); }
   }
-  return { busy, notice, error, run };
+  return { busy: busy || refreshing, notice, error, run };
 }
 type Run = ReturnType<typeof useRunner>['run'];
 
@@ -57,6 +59,29 @@ function WikiChoices({ wikis, chosen, onChange, disabled, legend }: {
         onChange={(e) => onChange(e.target.checked ? [...chosen, w.id] : chosen.filter((id) => id !== w.id))} />
       <span>{w.title}</span>
     </label>) : <p className="docs-muted">You cannot see any wiki yet. A token with no wiki reads nothing.</p>}
+  </fieldset>;
+}
+
+const PERMISSION_LABELS: Record<WikiTokenPermission, string> = {
+  create_wiki: 'Create wiki', create_page: 'Create page', write_wiki: 'Write wiki',
+};
+const PERMISSION_KEYS: WikiTokenPermission[] = ['create_wiki', 'create_page', 'write_wiki'];
+const permissionSummary = (token: TokenRow) => token.permissions.length
+  ? token.permissions.map((key) => PERMISSION_LABELS[key]).join(', ') : 'Read only';
+
+function PermissionChoices({ chosen, onChange, disabled }: {
+  chosen: WikiTokenPermission[]; onChange: (permissions: WikiTokenPermission[]) => void; disabled: boolean;
+}) {
+  return <fieldset className="wiki-token-wikis" disabled={disabled}>
+    <legend>Optional permissions</legend>
+    {PERMISSION_KEYS.map((key) => <label key={key}>
+      <input type="checkbox" checked={chosen.includes(key)}
+        onChange={(e) => onChange(e.target.checked ? [...chosen, key] : chosen.filter((value) => value !== key))} />
+      <span>{PERMISSION_LABELS[key]}</span>
+    </label>)}
+    <p className="docs-muted">All tokens can list, read and search selected wikis while you can access them. These permissions apply to every selected wiki and never exceed your own access.</p>
+    <p className="docs-muted">Write wiki edits existing pages and wiki details; changing wiki details requires owner access. Create page is separate. No token can delete or archive.</p>
+    <p className="docs-muted">New wikis created through MCP are added only to this token. Creating pages or editing them still requires the matching permission.</p>
   </fieldset>;
 }
 
@@ -101,15 +126,16 @@ function SecretPanel({ created, origin, onDone }: { created: Created; origin: st
 function CreateForm({ wikis, busy, run, onCreated }: { wikis: Wiki[]; busy: boolean; run: Run; onCreated: (c: Created) => void }) {
   const [label, setLabel] = useState('');
   const [chosen, setChosen] = useState<string[]>([]);
+  const [permissions, setPermissions] = useState<WikiTokenPermission[]>([]);
   const [expiry, setExpiry] = useState('');
   const [sending, setSending] = useState(false);
   async function create(e: React.FormEvent) {
     e.preventDefault();
     if (busy) return;
     setSending(true);
-    const created = await run(() => wikiCall<Created>('/api/wiki-tokens', 'POST', { label, wikiIds: chosen, expiresAt: endOfDay(expiry) }), 'Token created.');
+    const created = await run(() => wikiCall<Created>('/api/wiki-tokens', 'POST', { label, wikiIds: chosen, permissions, expiresAt: endOfDay(expiry) }), 'Token created.');
     setSending(false);
-    if (created) { onCreated(created); setLabel(''); setChosen([]); setExpiry(''); }
+    if (created) { onCreated(created); setLabel(''); setChosen([]); setPermissions([]); setExpiry(''); }
   }
   return <form className="docs-create wiki-token-create" onSubmit={(e) => void create(e)} aria-labelledby="wiki-token-new-head">
     <h2 id="wiki-token-new-head">New token</h2>
@@ -117,8 +143,9 @@ function CreateForm({ wikis, busy, run, onCreated }: { wikis: Wiki[]; busy: bool
       <label>Label<input value={label} required maxLength={100} disabled={busy} placeholder="e.g. Work laptop" onChange={(e) => setLabel(e.target.value)} /></label>
       <label>Expires <span className="docs-muted">(optional)</span><input type="date" value={expiry} disabled={busy} onChange={(e) => setExpiry(e.target.value)} /></label>
     </div>
-    <WikiChoices wikis={wikis} chosen={chosen} onChange={setChosen} disabled={busy} legend="Wikis this token can read" />
-    <p className="docs-muted">The token reads only these wikis, and only while you can read them yourself. It never writes.</p>
+    <PermissionChoices chosen={permissions} onChange={setPermissions} disabled={busy} />
+    <WikiChoices wikis={wikis} chosen={chosen} onChange={setChosen} disabled={busy} legend="Wikis this token can access" />
+    <p className="docs-muted">Select the wikis this token can access. Writing also requires the relevant permission and your current wiki access.</p>
     <div className="docs-actions"><button type="submit" className="docs-primary" disabled={busy || !label.trim()} aria-busy={sending}><DocIcon name="plus" />Create token</button></div>
   </form>;
 }
@@ -126,18 +153,20 @@ function CreateForm({ wikis, busy, run, onCreated }: { wikis: Wiki[]; busy: bool
 function EditForm({ token, wikis, busy, run, onClose }: { token: TokenRow; wikis: Wiki[]; busy: boolean; run: Run; onClose: () => void }) {
   const [label, setLabel] = useState(token.label);
   const [chosen, setChosen] = useState(token.wikis.map((w) => w.id));
+  const [permissions, setPermissions] = useState<WikiTokenPermission[]>(token.permissions);
   const [sending, setSending] = useState(false);
   async function save(e: React.FormEvent) {
     e.preventDefault();
     if (busy) return;
     setSending(true);
-    const saved = await run(() => wikiCall(`/api/wiki-tokens/${token.id}`, 'PATCH', { label, wikiIds: chosen }), 'Token saved.');
+    const saved = await run(() => wikiCall(`/api/wiki-tokens/${token.id}`, 'PATCH', { label, wikiIds: chosen, permissions }), 'Token saved.');
     setSending(false);
     if (saved) onClose();
   }
   return <form className="wiki-token-edit" onSubmit={(e) => void save(e)} aria-label={`Edit ${token.label}`}>
     <label>Label<input value={label} required maxLength={100} disabled={busy} onChange={(e) => setLabel(e.target.value)} /></label>
-    <WikiChoices wikis={wikis} chosen={chosen} onChange={setChosen} disabled={busy} legend="Wikis this token can read" />
+    <PermissionChoices chosen={permissions} onChange={setPermissions} disabled={busy} />
+    <WikiChoices wikis={wikis} chosen={chosen} onChange={setChosen} disabled={busy} legend="Wikis this token can access" />
     <div className="docs-actions">
       <button type="submit" className="docs-primary" disabled={busy || !label.trim()} aria-busy={sending}><DocIcon name="save" />Save</button>
       <button type="button" disabled={busy} onClick={onClose}><DocIcon name="close" />Cancel</button>
@@ -170,12 +199,13 @@ function MyTokens({ tokens, wikis, busy, run }: { tokens: TokenRow[]; wikis: Wik
     <div className="docs-table-wrap"><table className="docs-table wiki-tokens">
       <caption className="docs-sr-only">Your tokens</caption>
       <thead><tr>
-        <th scope="col">Label</th><th scope="col">Token</th><th scope="col">Wikis</th><th scope="col">Created</th>
+        <th scope="col">Label</th><th scope="col">Token</th><th scope="col">Permissions</th><th scope="col">Wikis</th><th scope="col">Created</th>
         <th scope="col">Last used</th><th scope="col">Status</th><th scope="col"><span className="docs-sr-only">Actions</span></th>
       </tr></thead>
       <tbody>{tokens.map((t) => <tr key={t.id} className={t.status === 'active' ? undefined : 'wiki-token-dead'}>
         <th scope="row">{t.label}</th>
         <td><code>{prefixOf(t)}</code></td>
+        <td>{permissionSummary(t)}</td>
         <td>{wikiList(t)}</td>
         <td><time dateTime={t.createdAt}>{stamp(t.createdAt)}</time></td>
         <td>{t.lastUsedAt ? <time dateTime={t.lastUsedAt}>{stamp(t.lastUsedAt)}</time> : 'Never'}</td>
@@ -198,13 +228,14 @@ function AllTokens({ tokens, busy, run }: { tokens: TokenRow[]; busy: boolean; r
     {tokens.length ? <div className="docs-table-wrap"><table className="docs-table wiki-tokens">
       <caption className="docs-sr-only">All tokens</caption>
       <thead><tr>
-        <th scope="col">Label</th><th scope="col">Token</th><th scope="col">Created by</th><th scope="col">Wikis</th>
+        <th scope="col">Label</th><th scope="col">Token</th><th scope="col">Created by</th><th scope="col">Permissions</th><th scope="col">Wikis</th>
         <th scope="col">Created</th><th scope="col">Last used</th><th scope="col">Status</th><th scope="col"><span className="docs-sr-only">Revoke</span></th>
       </tr></thead>
       <tbody>{tokens.map((t) => <tr key={t.id} className={t.status === 'active' ? undefined : 'wiki-token-dead'}>
         <th scope="row">{t.label}</th>
         <td><code>{prefixOf(t)}</code></td>
         <td>{t.ownerName}<span className="wiki-row-description">{t.ownerEmail}</span></td>
+        <td>{permissionSummary(t)}</td>
         <td>{wikiList(t)}</td>
         <td><time dateTime={t.createdAt}>{stamp(t.createdAt)}</time></td>
         <td>{t.lastUsedAt ? <time dateTime={t.lastUsedAt}>{stamp(t.lastUsedAt)}</time> : 'Never'}</td>
