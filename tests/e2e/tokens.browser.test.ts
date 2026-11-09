@@ -81,6 +81,9 @@ test('Tokens / MCP: make a token across three modules, edit one away, and the ol
 
     // 4. Name and confirm.
     await stepper.getByLabel('Label', { exact: true }).fill(LABEL);
+    // Expiry is the end of the chosen day in Bangkok: 23:59:59+07:00.
+    const expiry = new Date(Date.now() + 30 * 86_400_000).toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
+    await stepper.getByLabel(/^Expires/).fill(expiry);
     await stepper.getByRole('button', { name: 'Create token', exact: true }).click();
 
     await page.getByRole('heading', { name: 'Copy your token now' }).waitFor();
@@ -122,8 +125,9 @@ test('Tokens / MCP: make a token across three modules, edit one away, and the ol
     assert.equal((await row.innerText()).includes(WIKI_TITLE), false, 'the row still lists the wiki');
 
     const api = await fetch(`${BASE_URL}/api/tokens`, { headers: { cookie: jar.header } });
-    const mine = (await api.json()) as Array<{ label: string; grants: Record<string, string[]>; projects: unknown[]; wikis: unknown[] }>;
+    const mine = (await api.json()) as Array<{ label: string; grants: Record<string, string[]>; projects: unknown[]; wikis: unknown[]; expiresAt: string | null }>;
     const saved = mine.find((t) => t.label === LABEL)!;
+    assert.equal(saved.expiresAt, `${expiry}T16:59:59.000Z`, 'the expiry is not the end of the chosen Bangkok day');
     assert.deepEqual(saved.grants, { list: ['write_task'], docs: [] });
     assert.equal(saved.projects.length, 1);
     assert.equal(saved.wikis.length, 0);

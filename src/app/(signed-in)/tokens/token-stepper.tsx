@@ -9,7 +9,6 @@ import {
   type ModuleKey, type ScopeKind, type TokenGrants, type TokenModule,
 } from '@/lib/token-modules';
 import { createToken, problem, updateToken, type CreatedToken } from './token-api';
-import { DatePicker } from '@/components/date-picker';
 
 type Wiki = { id: string; title: string; role: WikiRole };
 type Props = {
@@ -236,9 +235,8 @@ export default function TokenStepper({ projects, wikis, token, onDone }: Props) 
         <label className="tk-field"><span className="tk-field-label">Label</span>
           <input value={label} required maxLength={MAX_LABEL} disabled={busy} placeholder="e.g. Work laptop"
             onChange={(e) => setLabel(e.target.value)} /></label>
-        {!editing && <label className="tk-field"><span className="tk-field-label" id="tk-expiry-label">Expires <span className="tk-opt">(optional)</span></span>
-          <DatePicker aria-labelledby="tk-expiry-label" className="h-9" placeholder="Never" value={expiry || null} min={today} disabled={busy}
-            onChange={(next) => setExpiry(next ?? '')} /></label>}
+        {!editing && <label className="tk-field"><span className="tk-field-label">Expires <span className="tk-opt">(optional)</span></span>
+          <input type="date" value={expiry} min={today} disabled={busy} onChange={(e) => setExpiry(e.target.value)} /></label>}
       </div>
       <dl className="tk-summary">
         {TOKEN_MODULES.filter((m) => chosen.includes(m.key)).map((m) => {
