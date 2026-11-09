@@ -412,8 +412,8 @@ describe('module gating', () => {
     const t = { secret: res.body.secret as string };
     const listed = await rpc(bearer(t.secret), 'tools/list', {});
     assert.equal(listed.status, 200, listed.text);
-    // No module this token reaches registers any tool yet, so the server never turns on the
-    // tools capability at all — the SDK answers "Method not found" rather than an empty list.
+    // A List token now has List tools. Should a token ever reach no tool at all, the SDK
+    // answers "Method not found" rather than an empty list, so both shapes are accepted.
     // Either way, none of the wiki tools are reachable.
     const names = listed.body.result
       ? (listed.body.result.tools as Array<{ name: string }>).map((x) => x.name)
