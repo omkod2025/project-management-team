@@ -10,7 +10,7 @@ export function mcpPageContent(current: string, input: { markdown?: string; rich
     try {
       if (typeof input.rich_content !== 'string' || !decodeRich(input.rich_content)) throw new Error('Not rich content');
     } catch {
-      throw domainError('E_INVALID_DOC', 'Send valid fieldbook-rich-v1 content from read_page with include_rich_content.');
+      throw domainError('E_INVALID_DOC', 'Send valid fieldbook-rich-v1 content. Read it again with include_rich_content: true and edit rich_content.');
     }
     return input.rich_content;
   }

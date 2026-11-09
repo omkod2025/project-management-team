@@ -1,6 +1,9 @@
 /**
- * The MCP connection guide (wiki Task 11): one Markdown source, shown in the
- * repo at docs/guides/wiki-mcp.md and inside the app at /wiki/tokens/guide.
+ * The MCP connection guide (central MCP tokens design): one Markdown source,
+ * shown in the repo at docs/guides/mcp.md and inside the app at
+ * /tokens/guide. It moved out of the Wiki along with Tokens / MCP, and now
+ * covers List, Docs and the Wiki together; the old /wiki/tokens/guide
+ * redirects here.
  *
  * The page tests defend that the in-app copy names the real origin rather
  * than a placeholder, and that it is for signed-in people only.
@@ -19,7 +22,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { setup, signIn, makeUser, BASE_URL, type Fixture, type Jar } from '../helpers/harness.ts';
 
-const GUIDE = new URL('../../docs/guides/wiki-mcp.md', import.meta.url);
+const GUIDE = new URL('../../docs/guides/mcp.md', import.meta.url);
 
 let fx: Fixture;
 let jar: Jar;
@@ -91,7 +94,7 @@ function splitHeader(raw: string) {
 
 describe('the guide page', () => {
   test('a signed-in reader gets the guide with the real origin, never the placeholder', async () => {
-    const res = await fetch(`${BASE_URL}/wiki/tokens/guide`, { headers: { cookie: jar.header }, redirect: 'manual' });
+    const res = await fetch(`${BASE_URL}/tokens/guide`, { headers: { cookie: jar.header }, redirect: 'manual' });
     assert.equal(res.status, 200);
     const html = await res.text();
     assert.ok(html.includes('claude mcp add'), 'the Claude Code command is on the page');
@@ -101,15 +104,21 @@ describe('the guide page', () => {
   });
 
   test('signed out, the guide sends you to sign in', async () => {
-    const res = await fetch(`${BASE_URL}/wiki/tokens/guide`, { redirect: 'manual' });
+    const res = await fetch(`${BASE_URL}/tokens/guide`, { redirect: 'manual' });
     assert.ok(res.status >= 300 && res.status < 400, `expected a redirect, got ${res.status}`);
     assert.match(res.headers.get('location') ?? '', /\/sign-in/);
   });
 
+  test('the old /wiki/tokens/guide address redirects to /tokens/guide', async () => {
+    const res = await fetch(`${BASE_URL}/wiki/tokens/guide`, { headers: { cookie: jar.header }, redirect: 'manual' });
+    assert.ok(res.status >= 300 && res.status < 400, `expected a redirect, got ${res.status}`);
+    assert.match(res.headers.get('location') ?? '', /\/tokens\/guide$/);
+  });
+
   test('the tokens page links to the guide', async () => {
-    const res = await fetch(`${BASE_URL}/wiki/tokens`, { headers: { cookie: jar.header } });
+    const res = await fetch(`${BASE_URL}/tokens`, { headers: { cookie: jar.header } });
     assert.equal(res.status, 200);
-    assert.ok((await res.text()).includes('href="/wiki/tokens/guide"'));
+    assert.ok((await res.text()).includes('href="/tokens/guide"'));
   });
 });
 
