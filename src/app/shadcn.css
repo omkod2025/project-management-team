@@ -1,0 +1,99 @@
+/*
+ * shadcn/ui, drawn in the house style. See DESIGN.md.
+ *
+ * Tailwind v4 is here for the shadcn components in `src/components/ui` and
+ * nothing else, so three things are deliberately held back:
+ *
+ *   - No preflight. Every existing sheet was written against the browser's
+ *     defaults plus globals.css; a reset would restyle all of them at once.
+ *   - Utilities are generated from `src/components` only (`source(none)` plus
+ *     one `@source`), so a word that happens to be a utility name elsewhere in
+ *     the tree never becomes a rule.
+ *   - Utilities are `important`. The legacy sheets are unlayered and would
+ *     otherwise beat any layered utility — `.rs-task-modal button` would
+ *     repaint every day in a calendar opened inside the task modal.
+ *
+ * The shadcn variables below are not a second palette: each one names a house
+ * token from tokens.css, so the components speak in the house's one blue,
+ * hairlines and paper. Tailwind's own `--radius-*` and `--font-*` lose to the
+ * unlayered house values of the same name, so `rounded-md` is the house's 8px.
+ * Don't use `font-sans`: the house `--font-sans` is Inter alone, and Thai
+ * needs the whole stack, which every component inherits from <body>.
+ * There is no dark theme (DESIGN.md
+ * § 2, rule 4), so there is no `.dark` block.
+ */
+@layer theme, base, components, utilities;
+
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities) important source(none);
+
+@source '../components';
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
+/*
+ * The reset preflight would have given these controls, and only these. It is
+ * unlayered and two attributes deep, so it outranks a container's own button
+ * rules (`.rs-task-modal button`, `.settings button`, both 0,1,1) for every
+ * property a utility does not set, while the `important` utilities still win
+ * where they do.
+ */
+:is([data-slot='calendar'][data-slot] :is(button, select), button[data-slot][data-slot]) {
+  min-width: 0;
+  min-height: 0;
+  height: auto;
+  margin: 0;
+  padding: 0;
+  border: 0 solid;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+/* A popover rises 4px and settles, the dialog's motion at a smaller scale. */
+@keyframes popover-in {
+  from { opacity: 0; transform: translateY(4px) scale(0.98); }
+}
+
+:root {
+  --background: var(--color-canvas);
+  --foreground: var(--color-ink);
+  --popover: var(--color-canvas);
+  --popover-foreground: var(--color-ink);
+  /* The house blue: the chosen day, the primary action, focus. */
+  --primary: var(--color-primary);
+  --primary-foreground: #fff;
+  --secondary: var(--color-paper);
+  --secondary-foreground: var(--color-ink);
+  --muted: var(--color-paper);
+  --muted-foreground: var(--color-ink-muted);
+  /* The hover ground on quiet controls (DESIGN.md § 2, Structure). */
+  --accent: rgb(0 0 0 / 4%);
+  --accent-foreground: var(--color-ink);
+  /* Deletion and refusals. Never vermilion, which means out of closure. */
+  --destructive: var(--color-danger);
+  --border: var(--color-hairline);
+  --input: var(--color-field-line);
+  --ring: var(--color-primary);
+}

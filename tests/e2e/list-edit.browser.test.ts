@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { chromium, expect } from '@playwright/test';
 import { setup, signIn, BASE_URL } from '../helpers/harness.ts';
+import { pickDate } from '../helpers/date-picker.ts';
 
 test('Task and Defect cells edit only through their pencil buttons', async () => {
   const fx = await setup();
@@ -41,17 +42,22 @@ test('Task and Defect cells edit only through their pencil buttons', async () =>
       await date.click({ position: { x: 8, y: 12 } });
       await date.press('Enter');
       await expect(date.locator('input')).toHaveCount(0);
+      await expect(page.locator('[data-slot=calendar]')).toHaveCount(0);
       await row.getByRole('button', { name: 'Rename Module', exact: true }).click();
       await expect(name.locator('input.cell-input')).toBeVisible();
       await name.locator('input.cell-input').fill('Renamed module');
       await name.locator('input.cell-input').press('Enter');
       await expect(row.locator('.name-text')).toHaveText('Renamed module');
       await row.getByRole('button', { name: 'Edit Estimate Start for Renamed module', exact: true }).click();
-      const input = row.locator('input[type=date]');
-      await expect(input).toBeVisible();
-      await input.fill('2026-09-02');
-      await input.press('Enter');
-      await expect(input).toHaveCount(0);
+      // The shared date picker opens at once; choosing a day commits it.
+      await pickDate(page, '2026-09-02');
+      const picker = page.locator('[data-slot=popover-content]');
+      await expect(row.locator('td').filter({ has: page.getByRole('button', { name: 'Edit Estimate Start for Renamed module', exact: true }) })).toContainText('02 Sep');
+      // Escape closes the picker without writing anything.
+      await row.getByRole('button', { name: 'Edit Estimate Start for Renamed module', exact: true }).click();
+      await expect(picker).toBeVisible();
+      await page.keyboard.press('Escape');
+      await expect(picker).toHaveCount(0);
       await row.getByRole('button', { name: 'Open Details', exact: true }).click();
       const dialog = page.getByRole('dialog', { name: 'Details', exact: true });
       await expect(dialog).toBeVisible();

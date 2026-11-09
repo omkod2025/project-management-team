@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { chromium, expect } from '@playwright/test';
 import { setup, signIn, BASE_URL } from '../helpers/harness.ts';
+import { datePicker, pickDate } from '../helpers/date-picker.ts';
 
 test('roster opens, saves and refreshes a task, while viewers can only read', async () => {
   const fx = await setup();
@@ -33,7 +34,7 @@ test('roster opens, saves and refreshes a task, while viewers can only read', as
     const modal = page.getByRole('dialog', { name: 'Task details' });
     await expect(modal).toBeVisible();
     await modal.getByLabel('Task name', { exact: true }).fill('Updated from roster');
-    await modal.getByLabel('Estimate end', { exact: true }).fill('2026-09-18');
+    await pickDate(page, '2026-09-18', datePicker(modal, 'Estimate end'));
     await modal.getByLabel('Task Status', { exact: true }).selectOption(fx.options.running);
     await page.route('**/api/nodes/*', async (route) => {
       if (route.request().method() === 'PATCH') {
@@ -67,7 +68,7 @@ test('roster opens, saves and refreshes a task, while viewers can only read', as
     await page.locator('.rs-name.unassigned').click();
     await task.locator('.bar').first().click();
     await expect(modal.getByLabel('Task name', { exact: true })).toBeDisabled();
-    await expect(modal.getByLabel('Estimate end', { exact: true })).toBeDisabled();
+    await expect(datePicker(modal, 'Estimate end')).toBeDisabled();
     await expect(modal.getByRole('button', { name: 'Save changes' })).toHaveCount(0);
     await page.setViewportSize({ width: 390, height: 844 });
     const box = await modal.boundingBox();

@@ -5,6 +5,7 @@ import type { TaskDetail } from '@/lib/task-detail';
 import type { NodePatch } from '@/lib/nodes';
 import { ImageLinks } from '../p/[slug]/image-field';
 import { FileLinks } from '../p/[slug]/file-field';
+import { DatePicker } from '@/components/date-picker';
 
 const dateFields = [
   ['estimateStart', 'led_estimate_start', 'Estimate start'],
@@ -81,10 +82,11 @@ export default function TaskModal({ nodeId, onClose, onSaved }: {
         <fieldset disabled={saving}>
           <label>Task name<input required value={patch.name ?? detail.row.led_name}
             disabled={!detail.permissions.rename} onChange={(e) => setPatch((p) => ({ ...p, name: e.target.value }))} /></label>
-          <div className="rs-task-dates">{dateFields.map(([key, column, label]) => <label key={key}>{label}
-            <input type="date" disabled={!detail.permissions.dates}
-              value={(patch[key] !== undefined ? patch[key] : detail.row[column]) ?? ''}
-              onChange={(e) => setPatch((p) => ({ ...p, [key]: e.target.value || null }))} />
+          <div className="rs-task-dates">{dateFields.map(([key, column, label]) => <label key={key}>
+            <span id={`rs-task-${key}`}>{label}</span>
+            <DatePicker aria-labelledby={`rs-task-${key}`} disabled={!detail.permissions.dates}
+              value={patch[key] !== undefined ? patch[key] : detail.row[column]}
+              onChange={(next) => setPatch((p) => ({ ...p, [key]: next }))} />
           </label>)}</div>
           {detail.fields.filter((f) => !f.archived).map((f) => {
             const value = patch.values && f.id in patch.values ? patch.values[f.id] : detail.row.led_custom_values[f.id];
@@ -110,11 +112,14 @@ export default function TaskModal({ nodeId, onClose, onSaved }: {
               checked={value === true} onChange={(e) => setValue(f.id, e.target.checked)} />{f.name}</label>;
             if (f.kind === 'long_text') return <label key={f.id}>{f.name}<textarea disabled={disabled} rows={4}
               value={String(value ?? '')} onChange={(e) => setValue(f.id, e.target.value || null)} /></label>;
+            if (f.kind === 'date') return <label key={f.id}><span id={`rs-task-${f.id}`}>{f.name}</span>
+              <DatePicker aria-labelledby={`rs-task-${f.id}`} disabled={disabled}
+                value={typeof value === 'string' ? value : null} onChange={(next) => setValue(f.id, next)} /></label>;
             const money = f.kind === 'money';
             const numeric = money || f.kind === 'number';
             const amount = money ? (value as { amount?: number } | null)?.amount : value;
             return <label key={f.id}>{f.name}{money ? ` (${f.settings.currency ?? 'THB'})` : ''}
-              <input disabled={disabled} type={numeric ? 'number' : f.kind === 'date' ? 'date' : 'text'} step={numeric ? 'any' : undefined}
+              <input disabled={disabled} type={numeric ? 'number' : 'text'} step={numeric ? 'any' : undefined}
                 value={String(amount ?? '')} onChange={(e) => setValue(f.id, e.target.value === '' ? null : money
                   ? { amount: Number(e.target.value), currency: f.settings.currency ?? 'THB' }
                   : numeric ? Number(e.target.value) : e.target.value)} />
