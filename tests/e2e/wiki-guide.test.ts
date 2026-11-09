@@ -79,7 +79,7 @@ async function initialize(url: string, header: { name: string; value: string }) 
   });
   const text = await res.text();
   assert.equal(res.status, 200, `${url}: ${text}`);
-  assert.equal(JSON.parse(text).result.serverInfo.name, 't-timeline-wiki');
+  assert.equal(JSON.parse(text).result.serverInfo.name, 't-timeline');
 }
 
 /** "Name: value" or "Name:value", split on the first colon the way clients do. */

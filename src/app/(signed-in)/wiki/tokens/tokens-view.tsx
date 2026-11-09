@@ -21,12 +21,12 @@ const endOfDay = (date: string) => (date ? `${date}T23:59:59+07:00` : null);
 
 function mcpConfig(origin: string, secret: string): string {
   return JSON.stringify({
-    mcpServers: { 't-timeline-wiki': { type: 'http', url: `${origin}/api/mcp`, headers: { Authorization: `Bearer ${secret}` } } },
+    mcpServers: { 't-timeline': { type: 'http', url: `${origin}/api/mcp`, headers: { Authorization: `Bearer ${secret}` } } },
   }, null, 2);
 }
 
 const mcpCommand = (origin: string, secret: string) =>
-  `claude mcp add --transport http t-timeline-wiki ${origin}/api/mcp --header "Authorization: Bearer ${secret}"`;
+  `claude mcp add --transport http t-timeline ${origin}/api/mcp --header "Authorization: Bearer ${secret}"`;
 
 /** One busy flag and one message line, and the server render refreshed after each change. */
 function useRunner() {

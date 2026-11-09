@@ -1,62 +1,17 @@
 import 'server-only';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '@/db/client';
 import { wikiPages, wikis } from '@/db/schema';
 import { contentMarkdown, decodeRich } from '@/lib/doc-rich-content';
 import { activeWikiPages, searchWikiIds, type WikiPage } from '@/lib/wiki';
-import { isUuid, pageBreadcrumb, type WikiTokenPermission } from '@/lib/wiki-rules';
-import { takeRateSlot } from '@/lib/token-rules';
-import { DomainError } from '@/lib/errors';
-import { createMcpWiki, createMcpPage, updateMcpWiki, updateMcpPage, type McpWriteContext } from '@/lib/wiki-mcp-writes';
-import { resolveBearer } from '@/lib/access-tokens';
+import { isUuid, pageBreadcrumb } from '@/lib/wiki-rules';
+import { hasGrant } from '@/lib/token-rules';
+import { createMcpWiki, createMcpPage, updateMcpWiki, updateMcpPage } from './wiki-writes';
+import { answer, outOfScope, readOnly, writes, type McpContext } from './tool-kit';
 
-/**
- * The wiki's MCP endpoint (spec §7): the only way AI reaches the wiki, and
- * optionally writable under explicit token grants. Authentication is the Bearer token alone — cookies are never
- * read here, and a session cannot reach this code path.
- *
- * Every lookup is filtered to the token's effective wikis, resolved fresh on
- * this request (scope ∩ what the owner can see now), and to wikis and pages
- * that are not archived. Anything outside that is "Not found." — the same
- * answer as an id that never existed (spec §8, existence leaks).
- */
-
-const RATE_LIMIT = 60;
-const RATE_WINDOW_MS = 60_000;
 const MAX_SEARCH = 20;
-const NOT_FOUND = 'Not found.';
-
-/**
- * Per-token hit times for the last minute. In memory, which is right for the
- * one-container deployment (spec §7). Entries whose newest hit has left the
- * window are swept at most once a window, so the map holds only tokens used
- * in roughly the last two minutes.
- */
-const hitsByToken = new Map<string, number[]>();
-let lastSweep = 0;
-
-function takeSlot(tokenId: string, now: number): boolean {
-  if (now - lastSweep > RATE_WINDOW_MS) {
-    for (const [id, hits] of hitsByToken) {
-      if (!hits.length || hits[hits.length - 1]! <= now - RATE_WINDOW_MS) hitsByToken.delete(id);
-    }
-    lastSweep = now;
-  }
-  const { allowed, hits } = takeRateSlot(hitsByToken.get(tokenId) ?? [], now, RATE_LIMIT, RATE_WINDOW_MS);
-  hitsByToken.set(tokenId, hits);
-  return allowed;
-}
-
-const json = (body: unknown, status: number, headers: Record<string, string> = {}) =>
-  new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', ...headers } });
-
-/* ------------------------------------------------------------ the reads */
-
-class OutOfScope extends Error {}
-const outOfScope = () => new OutOfScope(NOT_FOUND);
 
 type LiveWiki = { id: string; title: string; description: string; pageCount: number };
 
@@ -131,36 +86,16 @@ async function search(wikiIds: readonly string[], args: { query: string; wiki_id
   return searchWikiIds(ids, args.query, limit);
 }
 
-/* ------------------------------------------------------------- the server */
-
-type ToolResult = { content: Array<{ type: 'text'; text: string }>; isError?: boolean };
-
 /**
- * Runs one tool body. "Not found." for anything out of scope; any other
- * failure is logged here and reported to the client without its message, so
- * no stack trace or database text crosses the wire.
+ * The wiki module's tools (spec §7): reads are always registered for a
+ * token that reaches the wiki module at all; the write tools are gated one
+ * by one on the matching Create/Write grant. Tool names stay exactly
+ * `list_wikis`, `list_pages`, `read_page`, `search`, `create_wiki`,
+ * `create_page`, `update_wiki` and `update_page`, so configured clients keep
+ * working after the central MCP tokens move.
  */
-async function answer(name: string, run: () => Promise<unknown>): Promise<ToolResult> {
-  try {
-    return { content: [{ type: 'text', text: JSON.stringify(await run()) }] };
-  } catch (err) {
-    if (err instanceof DomainError) {
-      if (err.code === 'E_NOT_FOUND') return { content: [{ type: 'text', text: NOT_FOUND }], isError: true };
-      const message = err.code === 'E_DOC_CONFLICT'
-        ? 'This page changed. Read it again before retrying your edit.' : err.message;
-      return { content: [{ type: 'text', text: JSON.stringify({ error: { code: err.code, message } }) }], isError: true };
-    }
-    if (err instanceof OutOfScope) return { content: [{ type: 'text', text: NOT_FOUND }], isError: true };
-    console.error(`[mcp] ${name} failed`, err);
-    return { content: [{ type: 'text', text: 'The wiki could not answer this request.' }], isError: true };
-  }
-}
-
-const readOnly = { readOnlyHint: true } as const;
-
-function buildServer(ctx: McpWriteContext): McpServer {
-  const { wikiIds, permissions } = ctx;
-  const server = new McpServer({ name: 't-timeline-wiki', version: '1.0.0' });
+export function registerWikiTools(server: McpServer, ctx: McpContext): void {
+  const wikiIds = ctx.scope.wikiIds;
 
   server.registerTool('list_wikis', {
     description: 'List the wikis this token can read: id, title, description and number of pages.',
@@ -197,18 +132,17 @@ function buildServer(ctx: McpWriteContext): McpServer {
     annotations: readOnly,
   }, (args) => answer('search', () => search(wikiIds, args)));
 
-  const writes = { readOnlyHint: false, destructiveHint: false, idempotentHint: false } as const;
-  if (permissions.includes('create_wiki')) server.registerTool('create_wiki', {
+  if (hasGrant(ctx.grants, 'wiki', 'create_wiki')) server.registerTool('create_wiki', {
     description: 'Create a wiki owned by this token owner and add it to this token scope. Retrying may create another wiki.',
     inputSchema: z.object({ title: z.string(), description: z.string().optional() }).strict(),
     annotations: writes,
   }, (args) => answer('create_wiki', () => createMcpWiki(ctx, args)));
-  if (permissions.includes('create_page')) server.registerTool('create_page', {
+  if (hasGrant(ctx.grants, 'wiki', 'create_page')) server.registerTool('create_page', {
     description: 'Create a page with initial Markdown in a scoped wiki you can write. Retrying may create another page.',
     inputSchema: z.object({ wiki_id: z.string(), title: z.string(), markdown: z.string(), parent_id: z.string().optional(), slug: z.string().optional() }).strict(),
     annotations: writes,
   }, (args) => answer('create_page', () => createMcpPage(ctx, args)));
-  if (permissions.includes('write_wiki')) {
+  if (hasGrant(ctx.grants, 'wiki', 'write_wiki')) {
     server.registerTool('update_wiki', {
       description: 'Update only wiki title or description. Requires this token owner to manage the scoped wiki. Empty description clears it.',
       inputSchema: z.object({ wiki_id: z.string(), title: z.string().optional(), description: z.string().optional() }).strict(),
@@ -219,31 +153,5 @@ function buildServer(ctx: McpWriteContext): McpServer {
       inputSchema: z.object({ page_id: z.string(), markdown: z.string().optional(), rich_content: z.string().optional(), title: z.string().optional(), updatedAt: z.string() }).strict(),
       annotations: { ...writes, destructiveHint: true },
     }, (args) => answer('update_page', () => updateMcpPage(ctx, args)));
-  }
-  return server;
-}
-
-/** POST /api/mcp. */
-export async function handleMcp(req: Request): Promise<Response> {
-  const auth = await resolveBearer(req.headers.get('authorization'));
-  if (!auth) return json({ error: 'invalid_token' }, 401, { 'WWW-Authenticate': 'Bearer' });
-  if (!takeSlot(auth.tokenId, Date.now())) {
-    return json({ error: 'rate_limited' }, 429, { 'Retry-After': String(RATE_WINDOW_MS / 1000) });
-  }
-
-  // The Wiki tools still take the wiki-only context; Task 4 moves them onto McpAuth.
-  const server = buildServer({
-    tokenId: auth.tokenId, ownerId: auth.ownerId,
-    wikiIds: auth.scope.wikiIds, permissions: (auth.grants.wiki ?? []) as WikiTokenPermission[],
-  });
-  const transport = new WebStandardStreamableHTTPServerTransport({
-    sessionIdGenerator: undefined,
-    enableJsonResponse: true,
-  });
-  await server.connect(transport);
-  try {
-    return await transport.handleRequest(req);
-  } finally {
-    await server.close();
   }
 }

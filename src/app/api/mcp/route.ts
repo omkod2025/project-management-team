@@ -1,8 +1,8 @@
-import { handleMcp } from '@/lib/wiki-mcp';
+import { handleMcp } from '@/lib/mcp/server';
 
 /**
- * The wiki's MCP endpoint (wiki spec §7): Streamable HTTP, stateless, JSON
- * responses. Bearer token only — this route never calls `handle()` or
+ * The MCP endpoint (central MCP tokens design): Streamable HTTP, stateless,
+ * JSON responses. Bearer token only — this route never calls `handle()` or
  * `currentUserId()`, so a session cookie reaches nothing here.
  */
 export const dynamic = 'force-dynamic';

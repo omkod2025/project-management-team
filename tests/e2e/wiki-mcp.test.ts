@@ -20,11 +20,13 @@ import assert from 'node:assert/strict';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { setup, signIn, makeUser, BASE_URL, type Fixture, type Jar } from '../helpers/harness.ts';
 import { hashPassword } from '../../src/lib/password.ts';
+import { hashTokenSecret, newTokenSecret } from '../../src/lib/token-rules.ts';
 
 const INSTALL_EMAIL = 'admin@cit.com';
 const SKIP_INSTALL = 'set E2E_INSTALL_ADMIN_PASSWORD to run install-admin cases';
 const MCP = `${BASE_URL}/api/mcp`;
 const TOOLS = ['list_pages', 'list_wikis', 'read_page', 'search'];
+const WIKI_WRITE_TOOLS = ['create_wiki', 'create_page', 'update_wiki', 'update_page'];
 const INJECTION = [
   "'); DROP TABLE pmt_wikis; --",
   `' OR '1'='1`,
@@ -242,7 +244,7 @@ describe('authentication', () => {
       clientInfo: { name: 'e2e', version: '0' },
     });
     assert.equal(res.status, 200, res.text);
-    assert.equal(res.body.result.serverInfo.name, 't-timeline-wiki');
+    assert.equal(res.body.result.serverInfo.name, 't-timeline');
     assert.ok(res.body.result.capabilities.tools);
   });
 
@@ -400,6 +402,52 @@ describe('tools', () => {
       assert.ok(res.body.error || res.body.result?.isError, res.text);
       assert.ok(!/at \w+ \(|node_modules|pmt_|postgres|syntax error/i.test(res.text), res.text);
     }
+  });
+});
+
+describe('module gating', () => {
+  test('a token without the wiki module lists no wiki tools', async () => {
+    const res = await call(aliceJar, 'POST', '/api/tokens', { label: 'list only', grants: { list: [] }, scope: {} });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    const t = { secret: res.body.secret as string };
+    const listed = await rpc(bearer(t.secret), 'tools/list', {});
+    assert.equal(listed.status, 200, listed.text);
+    // No module this token reaches registers any tool yet, so the server never turns on the
+    // tools capability at all — the SDK answers "Method not found" rather than an empty list.
+    // Either way, none of the wiki tools are reachable.
+    const names = listed.body.result
+      ? (listed.body.result.tools as Array<{ name: string }>).map((x) => x.name)
+      : [];
+    if (!listed.body.result) assert.equal(listed.body.error?.code, -32601, listed.text);
+    for (const name of [...TOOLS, ...WIKI_WRITE_TOOLS]) assert.ok(!names.includes(name), name);
+  });
+
+  test('a token migrated from the legacy shape keeps its tools', async () => {
+    const { secret: legacySecret, hash, prefix } = newTokenSecret();
+    assert.equal(hashTokenSecret(legacySecret), hash);
+    const inserted = await fx.client.query(
+      `INSERT INTO pmt_access_tokens (access_token_owner_id, access_token_label, access_token_hash, access_token_prefix)
+       VALUES ($1, 'legacy wiki token', $2, $3) RETURNING access_token_id`,
+      [alice.id, hash, prefix],
+    );
+    const legacyTokenId = inserted.rows[0].access_token_id as string;
+    await fx.client.query(
+      `INSERT INTO pmt_access_token_grants (token_grant_token_id, token_grant_module, token_grant_permission)
+       VALUES ($1, 'wiki', 'read'), ($1, 'wiki', 'create_page')`,
+      [legacyTokenId],
+    );
+    await fx.client.query(
+      'INSERT INTO pmt_access_token_scopes (token_scope_token_id, token_scope_wiki_id) VALUES ($1, $2)',
+      [legacyTokenId, mine],
+    );
+
+    const listed = await rpc(bearer(legacySecret), 'tools/list', {});
+    assert.equal(listed.status, 200, listed.text);
+    const names = (listed.body.result.tools as Array<{ name: string }>).map((x) => x.name).sort();
+    assert.deepEqual(names, [...TOOLS, 'create_page'].sort());
+
+    const created = await payload(legacySecret, 'create_page', { wiki_id: mine, title: 'legacy page', markdown: 'เนื้อหา' });
+    assert.ok(created.id);
   });
 });
 

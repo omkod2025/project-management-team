@@ -4,24 +4,21 @@ import { db } from '@/db/client';
 import { wikiPages, wikis } from '@/db/schema';
 import { domainError } from '@/lib/errors';
 import { createWikiForToken, createWikiPage, requireWiki, saveWikiPage } from '@/lib/wiki';
-import { isUuid, parseWikiUpdate, type WikiTokenPermission } from '@/lib/wiki-rules';
+import { isUuid, parseWikiUpdate } from '@/lib/wiki-rules';
+import { hasGrant } from '@/lib/token-rules';
+import type { McpContext } from './tool-kit';
 import { mcpPageContent } from '@/lib/wiki-mcp-content';
-
-export type McpWriteContext = {
-  tokenId: string;
-  ownerId: string;
-  wikiIds: readonly string[];
-  permissions: readonly WikiTokenPermission[];
-};
 
 const notFound = () => domainError('E_NOT_FOUND', 'Not found.');
 
-function grant(ctx: McpWriteContext, permission: WikiTokenPermission) {
-  if (!ctx.permissions.includes(permission)) throw domainError('E_FORBIDDEN', 'This token does not grant this operation.');
+function grant(ctx: McpContext, permission: string) {
+  if (!hasGrant(ctx.grants, 'wiki', permission)) {
+    throw domainError('E_FORBIDDEN', 'This token does not grant this operation.');
+  }
 }
 
-async function targetWiki(ctx: McpWriteContext, id: string, need: 'write' | 'manage') {
-  if (!isUuid(id) || !ctx.wikiIds.includes(id.toLowerCase())) throw notFound();
+async function targetWiki(ctx: McpContext, id: string, need: 'write' | 'manage') {
+  if (!isUuid(id) || !ctx.scope.wikiIds.includes(id.toLowerCase())) throw notFound();
   // Check archived before role-dependent errors so it never reveals an archived target.
   const [row] = await db.select({ id: wikis.id }).from(wikis)
     .where(and(eq(wikis.id, id.toLowerCase()), isNull(wikis.archivedAt))).limit(1);
@@ -29,13 +26,13 @@ async function targetWiki(ctx: McpWriteContext, id: string, need: 'write' | 'man
   return requireWiki(ctx.ownerId, row.id, need);
 }
 
-export async function createMcpWiki(ctx: McpWriteContext, input: { title: string; description?: string }) {
+export async function createMcpWiki(ctx: McpContext, input: { title: string; description?: string }) {
   grant(ctx, 'create_wiki');
   const wiki = await createWikiForToken(ctx.ownerId, ctx.tokenId, input);
   return { id: wiki.id, title: wiki.title, description: wiki.description };
 }
 
-export async function createMcpPage(ctx: McpWriteContext, input: {
+export async function createMcpPage(ctx: McpContext, input: {
   wiki_id: string; title: string; markdown: string; parent_id?: string; slug?: string;
 }) {
   grant(ctx, 'create_page');
@@ -46,7 +43,7 @@ export async function createMcpPage(ctx: McpWriteContext, input: {
   return { id: page.id, wikiId: wiki.id, slug: page.slug, title: page.title, updatedAt: page.updatedAt };
 }
 
-export async function updateMcpWiki(ctx: McpWriteContext, input: { wiki_id: string; title?: string; description?: string }) {
+export async function updateMcpWiki(ctx: McpContext, input: { wiki_id: string; title?: string; description?: string }) {
   grant(ctx, 'write_wiki');
   const { wiki } = await targetWiki(ctx, input.wiki_id, 'manage');
   if (input.title === undefined && input.description === undefined) {
@@ -65,7 +62,7 @@ export async function updateMcpWiki(ctx: McpWriteContext, input: { wiki_id: stri
   return saved;
 }
 
-export async function updateMcpPage(ctx: McpWriteContext, input: {
+export async function updateMcpPage(ctx: McpContext, input: {
   page_id: string; markdown?: string; rich_content?: string; updatedAt: string; title?: string;
 }) {
   grant(ctx, 'write_wiki');
