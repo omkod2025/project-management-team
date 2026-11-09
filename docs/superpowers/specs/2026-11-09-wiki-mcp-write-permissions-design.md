@@ -1,7 +1,9 @@
 # Wiki MCP create and update permissions
 
 Date: 2026-11-09
-Status: Awaiting user approval
+Status: Approved by user on 2026-11-09; SRS requested before implementation
+
+Requirements baseline: [Wiki MCP Write Permissions SRS](../../spec/13-wiki-mcp-write-srs.md).
 
 ## Intent and agreed behavior
 
