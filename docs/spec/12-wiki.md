@@ -70,9 +70,11 @@ wiki         ← title, description, owner, members, optional public link
 
 The page experience is the Docs one, reused rather than copied: the tree with move/reorder/archive/restore, slugs set once (`D-62`), the rich editor with Mermaid, a stale save refused with 409 (`D-60`), revision history (`D-59`), the authenticated asset registry and its cleanup (`D-56`, `D-57`), every Docs import/export format, and the page outline. Write members manage page structure as well as content — there is no project admin above them.
 
-Tables (`db/migrations/021_wiki.sql`, `db/schema.sql`, `db/tests.sql` group O), none shared with Docs: `pmt_wikis`, `pmt_wiki_members` (`wiki_access_kind` `'read' | 'write'`), `pmt_wiki_pages`, `pmt_wiki_page_revisions`, `pmt_wiki_assets` with its removal and deletion queues, `pmt_wiki_tokens`, `pmt_wiki_token_scopes`. The owner is never a row in `pmt_wiki_members`: ownership already means write, and keeping it apart means the owner cannot be removed by mistake. A page body is one `text` column, legacy Markdown or the `fieldbook-rich-v1:` string.
+Tables (`db/migrations/021_wiki.sql`, `db/schema.sql`, `db/tests.sql` group O), none shared with Docs: `pmt_wikis`, `pmt_wiki_members` (`wiki_access_kind` `'read' | 'write'`), `pmt_wiki_pages`, `pmt_wiki_page_revisions`, `pmt_wiki_assets` with its removal and deletion queues. The owner is never a row in `pmt_wiki_members`: ownership already means write, and keeping it apart means the owner cannot be removed by mistake. A page body is one `text` column, legacy Markdown or the `fieldbook-rich-v1:` string.
 
-Rules live in the pure module `src/lib/wiki-rules.ts` (`tests/wiki-rules.test.ts`); `src/lib/wiki.ts`, `wiki-tokens.ts`, `wiki-publish.ts` and `wiki-mcp.ts` are the adapters. No triggers.
+Tokens are no longer wiki-only: a token became system-wide (`pmt_access_tokens`, `pmt_access_token_grants`, `pmt_access_token_scopes`), one per owner, reaching List, Docs and the Wiki alike — see `docs/spec/14-mcp-tokens.md`. The MCP surface lives in `src/lib/mcp/` (`server.ts`, `wiki-tools.ts`, `wiki-writes.ts`, `list-tools.ts`, `docs-tools.ts`) with `src/lib/access-tokens.ts` as the adapter over the token tables.
+
+Rules live in the pure module `src/lib/wiki-rules.ts` (`tests/wiki-rules.test.ts`); `src/lib/wiki.ts` and `wiki-publish.ts` are the adapters. No triggers.
 
 ### Search
 

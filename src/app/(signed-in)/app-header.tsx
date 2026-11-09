@@ -59,7 +59,7 @@ export function crossViews(current: 'All Timeline' | 'People' | 'Tokens / MCP' |
  * Settings for the people who may open them.
  */
 export function wikiViews(
-  current: 'Wikis' | 'Mermaid guide' | 'Pages' | 'Settings',
+  current: 'Wikis' | 'Mermaid guide' | 'Pages' | 'Settings' | 'Tokens / MCP',
   wiki?: { id: string; canSettings: boolean },
 ): HeaderView[] {
   const views: HeaderView[] = [
@@ -70,5 +70,8 @@ export function wikiViews(
     views.push({ label: 'Pages', href: `/wiki/${wiki.id}` });
     if (wiki.canSettings) views.push({ label: 'Settings', href: `/wiki/${wiki.id}/settings` });
   }
+  // Tokens / MCP lives outside any one wiki, but it is where an existing
+  // user is most likely to look for it, so the Wiki menu carries a way out.
+  views.push({ label: 'Tokens / MCP', href: '/tokens' });
   return views.map((v) => (v.label === current ? { ...v, current: true } : v));
 }

@@ -97,27 +97,44 @@ test('026 turns legacy wiki tokens into access tokens with grants and scopes', a
       `INSERT INTO pmt_wiki_tokens (wiki_token_owner_id, wiki_token_label, wiki_token_hash, wiki_token_prefix, wiki_token_revoked_at, wiki_token_revoked_by)
        VALUES ($1, 'B', 'hash-b', 'prefix-b', now(), $1) RETURNING wiki_token_id`, [userId],
     )).rows[0];
+    // A token with an expiry, to check the migration carries it across untouched.
+    const expiresAt = new Date('2030-01-01T00:00:00Z');
+    const c = (await client.query(
+      `INSERT INTO pmt_wiki_tokens (wiki_token_owner_id, wiki_token_label, wiki_token_hash, wiki_token_prefix, wiki_token_expires_at)
+       VALUES ($1, 'C', 'hash-c', 'prefix-c', $2) RETURNING wiki_token_id`, [userId, expiresAt],
+    )).rows[0];
     await client.query('INSERT INTO pmt_wiki_token_scopes (wiki_token_scope_token_id, wiki_token_scope_wiki_id) VALUES ($1, $2)', [a.wiki_token_id, w1]);
 
     const migration = await readFile('db/migrations/026_access_tokens.sql', 'utf8');
     await client.query(migration);
 
     const tokens = await client.query('SELECT * FROM pmt_access_tokens ORDER BY access_token_label');
-    assert.equal(tokens.rows.length, 2);
+    assert.equal(tokens.rows.length, 3);
     assert.equal(tokens.rows[0].access_token_id, a.wiki_token_id);
     assert.equal(tokens.rows[0].access_token_hash, 'hash-a');
     assert.equal(tokens.rows[0].access_token_revoked_at, a.wiki_token_revoked_at);
     assert.ok(tokens.rows[1].access_token_revoked_at, 'B stays revoked');
     assert.equal(tokens.rows[1].access_token_revoked_by, userId);
-    for (const key of ['access_token_can_create_wiki', 'access_token_can_create_page', 'access_token_can_write_wiki']) {
-      assert.ok(!(key in tokens.rows[0]), `${key} is dropped`);
-    }
+    const cRow = tokens.rows.find((r) => r.access_token_id === c.wiki_token_id);
+    assert.ok(cRow, 'C is migrated');
+    assert.equal(cRow.access_token_expires_at?.toISOString(), expiresAt.toISOString(), 'C keeps its expiry across the migration');
+    // The three legacy boolean columns are not carried onto pmt_access_tokens
+    // at all — checked against the catalogue rather than the row object,
+    // since `key in row` is true for every column `SELECT *` returns, and
+    // would pass even if the columns had never been dropped.
+    const legacyColumns = await client.query(
+      `SELECT column_name FROM information_schema.columns
+        WHERE table_name = 'pmt_access_tokens'
+          AND column_name IN ('wiki_token_can_create_wiki', 'wiki_token_can_create_page', 'wiki_token_can_write_wiki')`,
+    );
+    assert.equal(legacyColumns.rows.length, 0, 'the legacy wiki_token_can_* columns are dropped');
 
     const grants = async (id: string) => grantSet((await client!.query(
       'SELECT token_grant_module, token_grant_permission FROM pmt_access_token_grants WHERE token_grant_token_id = $1', [id],
     )).rows);
     assert.deepEqual(await grants(a.wiki_token_id), new Set(['wiki:read', 'wiki:create_page']));
     assert.deepEqual(await grants(b.wiki_token_id), new Set(['wiki:read']));
+    assert.deepEqual(await grants(c.wiki_token_id), new Set(['wiki:read']));
 
     const scopes = await client.query('SELECT * FROM pmt_access_token_scopes');
     assert.equal(scopes.rows.length, 1);

@@ -43,6 +43,11 @@ test('Tokens / MCP: make a token across three modules, edit one away, and the ol
     page.setDefaultTimeout(15000);
     const errors: string[] = []; page.on('pageerror', (err) => errors.push(err.message));
 
+    // Reachable from the Projects home page's rail, not only the cross-place
+    // header and the Wiki menu.
+    await page.goto(`${BASE_URL}/`);
+    await page.getByRole('link', { name: 'Tokens / MCP', exact: true }).waitFor();
+
     // The old address is a redirect now.
     await page.goto(`${BASE_URL}/wiki/tokens`);
     await page.waitForURL(`${BASE_URL}/tokens`);
