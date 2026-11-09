@@ -7,7 +7,7 @@ import { requireWiki, visibleWikiIds, wikiViewer } from '@/lib/wiki';
 import {
   LAST_USED_GRANULARITY_MS, MAX_ACTIVE_TOKENS, bearerSecret, effectiveTokenWikis, hashTokenSecret,
   isInstallAdmin, isUuid, newTokenSecret, parseTokenInput, shouldTouchLastUsed, tokenStatus,
-  type TokenStatus,
+  parseTokenPermissions, type WikiTokenPermission, type TokenStatus,
 } from '@/lib/wiki-rules';
 
 /**
@@ -23,6 +23,7 @@ export type TokenRow = {
   wikis: Array<{ id: string; title: string }>;
   createdAt: string; lastUsedAt: string | null; expiresAt: string | null;
   status: TokenStatus;
+  permissions: WikiTokenPermission[];
 };
 
 const noToken = () => domainError('E_NOT_FOUND', 'No such token.');
@@ -33,6 +34,7 @@ const visibleColumns = {
   createdAt: wikiTokens.createdAt, lastUsedAt: wikiTokens.lastUsedAt,
   expiresAt: wikiTokens.expiresAt, revokedAt: wikiTokens.revokedAt,
   ownerName: users.fullName, ownerEmail: users.email,
+  canCreateWiki: wikiTokens.canCreateWiki, canCreatePage: wikiTokens.canCreatePage, canWriteWiki: wikiTokens.canWriteWiki,
 };
 
 /** Live means neither revoked nor past its expiry, as one predicate (≡ `tokenStatus(...) === 'active'`). */
@@ -72,6 +74,7 @@ async function tokenRows(viewerId: string, where: SQL): Promise<TokenRow[]> {
     id: r.id, label: r.label, prefix: r.prefix,
     ownerId: r.ownerId, ownerName: r.ownerName, ownerEmail: r.ownerEmail,
     wikis: byToken.get(r.id) ?? [],
+    permissions: permissionsOf(r),
     createdAt: r.createdAt.toISOString(),
     lastUsedAt: r.lastUsedAt?.toISOString() ?? null,
     expiresAt: r.expiresAt?.toISOString() ?? null,
@@ -99,6 +102,7 @@ export async function createToken(userId: string, input: unknown): Promise<{ tok
   const viewer = await wikiViewer(userId);
   if (!viewer.active) throw domainError('E_FORBIDDEN', 'This account is not active.');
   const data = parseTokenInput(input, await visibleWikiIds(userId));
+  const permissions = parsePermissionsField(input, []);
   const { secret, hash, prefix } = newTokenSecret();
 
   const tokenId = await db.transaction(async (tx) => {
@@ -110,7 +114,7 @@ export async function createToken(userId: string, input: unknown): Promise<{ tok
       throw domainError('E_INVALID_DOC', `You already have ${MAX_ACTIVE_TOKENS} active tokens. Revoke one first.`);
     }
     const [row] = await tx.insert(wikiTokens)
-      .values({ ownerId: userId, label: data.label, hash, prefix, expiresAt: data.expiresAt })
+      .values({ ownerId: userId, label: data.label, hash, prefix, expiresAt: data.expiresAt, ...permissionColumns(permissions) })
       .returning({ id: wikiTokens.id });
     if (data.wikiIds.length) {
       await tx.insert(wikiTokenScopes).values(data.wikiIds.map((wikiId) => ({ tokenId: row!.id, wikiId })));
@@ -140,8 +144,10 @@ export async function updateToken(userId: string, tokenId: string, input: unknow
   const visible = await visibleWikiIds(userId);
   const { label, wikiIds } = parseTokenInput({ ...((input ?? {}) as object), expiresAt: null }, visible);
 
+  const permissions = input && typeof input === 'object' && Object.hasOwn(input, 'permissions')
+    ? permissionColumns(parsePermissionsField(input, [])) : {};
   await db.transaction(async (tx) => {
-    await tx.update(wikiTokens).set({ label }).where(eq(wikiTokens.id, tokenId));
+    await tx.update(wikiTokens).set({ label, ...permissions }).where(eq(wikiTokens.id, tokenId));
     const dropped = [...visible].filter((id) => !wikiIds.includes(id));
     if (dropped.length) {
       await tx.delete(wikiTokenScopes)
@@ -208,11 +214,12 @@ export async function revokeToken(userId: string, tokenId: string): Promise<void
  * `last_used_at` is written only for a token that was accepted, and at most
  * once a minute, so a busy client does not turn every read into a write.
  */
-export async function resolveBearer(header: string | null): Promise<{ tokenId: string; ownerId: string; wikiIds: string[] } | null> {
+export async function resolveBearer(header: string | null): Promise<{ tokenId: string; ownerId: string; wikiIds: string[]; permissions: WikiTokenPermission[] } | null> {
   const secret = bearerSecret(header);
   if (!secret) return null;
   const [row] = await db.select({
     id: wikiTokens.id, ownerId: wikiTokens.ownerId, lastUsedAt: wikiTokens.lastUsedAt,
+    canCreateWiki: wikiTokens.canCreateWiki, canCreatePage: wikiTokens.canCreatePage, canWriteWiki: wikiTokens.canWriteWiki,
     expiresAt: wikiTokens.expiresAt, revokedAt: wikiTokens.revokedAt, ownerActive: users.isActive,
   }).from(wikiTokens)
     .innerJoin(users, eq(users.id, wikiTokens.ownerId))
@@ -236,5 +243,23 @@ export async function resolveBearer(header: string | null): Promise<{ tokenId: s
       or(isNull(wikiTokens.lastUsedAt), lt(wikiTokens.lastUsedAt, new Date(now.getTime() - LAST_USED_GRANULARITY_MS))),
     ));
   }
-  return { tokenId: row.id, ownerId: row.ownerId, wikiIds };
+  return { tokenId: row.id, ownerId: row.ownerId, wikiIds, permissions: permissionsOf(row) };
+}
+
+
+function parsePermissionsField(input: unknown, fallback: WikiTokenPermission[]): WikiTokenPermission[] {
+  if (!input || typeof input !== 'object' || !Object.hasOwn(input, 'permissions')) return fallback;
+  return parseTokenPermissions((input as Record<string, unknown>).permissions);
+}
+
+function permissionColumns(permissions: readonly WikiTokenPermission[]) {
+  return { canCreateWiki: permissions.includes('create_wiki'), canCreatePage: permissions.includes('create_page'), canWriteWiki: permissions.includes('write_wiki') };
+}
+
+function permissionsOf(row: { canCreateWiki: boolean; canCreatePage: boolean; canWriteWiki: boolean }): WikiTokenPermission[] {
+  return [
+    ...(row.canCreateWiki ? ['create_wiki' as const] : []),
+    ...(row.canCreatePage ? ['create_page' as const] : []),
+    ...(row.canWriteWiki ? ['write_wiki' as const] : []),
+  ];
 }

@@ -580,3 +580,14 @@ export function pageBreadcrumb(
   }
   return trail.reverse();
 }
+
+
+export const WIKI_TOKEN_PERMISSIONS = ['create_wiki', 'create_page', 'write_wiki'] as const;
+export type WikiTokenPermission = typeof WIKI_TOKEN_PERMISSIONS[number];
+
+export function parseTokenPermissions(input: unknown): WikiTokenPermission[] {
+  if (!Array.isArray(input) || input.some((value) => !WIKI_TOKEN_PERMISSIONS.includes(value))) {
+    throw domainError('E_INVALID_DOC', 'Choose valid token permissions.');
+  }
+  return [...new Set(input)] as WikiTokenPermission[];
+}

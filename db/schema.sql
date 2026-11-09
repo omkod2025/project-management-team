@@ -1279,6 +1279,9 @@ CREATE TABLE pmt_wiki_tokens (
     wiki_token_hash          text NOT NULL UNIQUE,
     -- First 8 characters of the secret, for display only.
     wiki_token_prefix        text NOT NULL,
+    wiki_token_can_create_wiki boolean NOT NULL DEFAULT false,
+    wiki_token_can_create_page boolean NOT NULL DEFAULT false,
+    wiki_token_can_write_wiki boolean NOT NULL DEFAULT false,
     wiki_token_created_at    timestamptz NOT NULL DEFAULT now(),
     wiki_token_last_used_at  timestamptz,
     wiki_token_expires_at    timestamptz,

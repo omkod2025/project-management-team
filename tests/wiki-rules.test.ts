@@ -13,7 +13,7 @@ import {
   isInstallAdmin, wikiRole, canSeeWiki, canWriteWiki, canManageWiki, canDeleteWiki, wikiAbilities,
   parseNewWiki, parseMemberGrant, parseMemberRef, parseWikiUpdate, assertNotOwner, isUuid,
   TOKEN_PREFIX, MAX_ACTIVE_TOKENS, newTokenSecret, hashTokenSecret, bearerSecret,
-  effectiveTokenWikis, parseTokenInput, tokenStatus, shouldTouchLastUsed, parseTokenIds,
+  parseTokenPermissions, effectiveTokenWikis, parseTokenInput, tokenStatus, shouldTouchLastUsed, parseTokenIds,
   searchTerms, likePattern, searchSnippet, takeRateSlot, publicWikiToken, pageSearchText,
   parsePageSlug, generatedPageSlug, parseNewWikiPage, parsePageMove, pageBreadcrumb,
   type WikiViewer, type WikiFacts,
@@ -579,5 +579,21 @@ describe('breadcrumb (MCP read_page)', () => {
     assert.deepEqual(pageBreadcrumb(pages, 'd'), []);
     const cyclic = [{ id: 'x', parentId: 'y', title: 'X' }, { id: 'y', parentId: 'x', title: 'Y' }];
     assert.deepEqual(pageBreadcrumb(cyclic, 'x'), ['Y']);
+  });
+});
+
+
+describe('optional token permissions', () => {
+  test('permissions are independent and duplicates normalize', () => {
+    assert.deepEqual(parseTokenPermissions([]), []);
+    for (const key of ['create_wiki', 'create_page', 'write_wiki']) {
+      assert.deepEqual(parseTokenPermissions([key, key]), [key]);
+    }
+    assert.deepEqual(parseTokenPermissions(['create_page', 'write_wiki']), ['create_page', 'write_wiki']);
+  });
+  test('unknown and malformed permissions are rejected', () => {
+    for (const value of [null, undefined, 'create_wiki', {}, ['delete_wiki'], [true]]) {
+      refuses('E_INVALID_DOC', () => parseTokenPermissions(value));
+    }
   });
 });

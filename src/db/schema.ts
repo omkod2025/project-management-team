@@ -484,6 +484,9 @@ export const wikiTokens = pgTable('pmt_wiki_tokens', {
   hash: text('wiki_token_hash').notNull().unique(),
   /** First 8 characters of the secret, for display only. */
   prefix: text('wiki_token_prefix').notNull(),
+  canCreateWiki: boolean('wiki_token_can_create_wiki').notNull().default(false),
+  canCreatePage: boolean('wiki_token_can_create_page').notNull().default(false),
+  canWriteWiki: boolean('wiki_token_can_write_wiki').notNull().default(false),
   createdAt: timestamp('wiki_token_created_at', { withTimezone: true }).notNull().defaultNow(),
   lastUsedAt: timestamp('wiki_token_last_used_at', { withTimezone: true }),
   expiresAt: timestamp('wiki_token_expires_at', { withTimezone: true }),
