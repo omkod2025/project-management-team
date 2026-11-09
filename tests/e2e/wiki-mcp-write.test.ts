@@ -26,7 +26,7 @@ async function api(method: string, path: string, body?: unknown, as = jar) {
 }
 
 async function mint(grants: string[] = [], wikiScope = [wiki]) {
-  const r = await api('POST', '/api/wiki-tokens', { label: 'MCP write test', permissions: grants, wikiIds: wikiScope });
+  const r = await api('POST', '/api/tokens', { label: 'MCP write test', grants: { wiki: grants }, scope: { wikiIds: wikiScope } });
   assert.equal(r.status, 200, JSON.stringify(r.body));
   tokens.push(r.body.token.id);
   return { id: r.body.token.id as string, secret: r.body.secret as string, row: r.body.token };
@@ -75,7 +75,7 @@ before(async () => {
 });
 
 afterEach(async () => {
-  if (tokens.length) await fx.client.query('DELETE FROM pmt_wiki_tokens WHERE wiki_token_id = ANY($1)', [tokens.splice(0)]);
+  if (tokens.length) await fx.client.query('DELETE FROM pmt_access_tokens WHERE access_token_id = ANY($1)', [tokens.splice(0)]);
 });
 
 after(async () => {
@@ -88,13 +88,13 @@ after(async () => {
 describe('MCP token permissions and writes', () => {
   test('token API preserves omitted permissions, clears explicit empty set and refuses invalid grants', async () => {
     const t = await mint(['create_page']);
-    assert.deepEqual(t.row.permissions, ['create_page']);
-    const legacy = await api('PATCH', `/api/wiki-tokens/${t.id}`, { label: 'legacy', wikiIds: [wiki] });
-    assert.deepEqual(legacy.body.permissions, ['create_page']);
-    const cleared = await api('PATCH', `/api/wiki-tokens/${t.id}`, { label: 'cleared', wikiIds: [wiki], permissions: [] });
-    assert.deepEqual(cleared.body.permissions, []);
-    assert.equal((await api('PATCH', `/api/wiki-tokens/${t.id}`, { label: 'bad', wikiIds: [wiki], permissions: ['delete_wiki'] })).status, 422);
-    assert.equal((await api('PATCH', `/api/wiki-tokens/${t.id}`, { label: 'intruder', wikiIds: [], permissions }, otherJar)).status, 404);
+    assert.deepEqual(t.row.grants.wiki, ['create_page']);
+    const legacy = await api('PATCH', `/api/tokens/${t.id}`, { label: 'legacy', scope: { wikiIds: [wiki] } });
+    assert.deepEqual(legacy.body.grants.wiki, ['create_page']);
+    const cleared = await api('PATCH', `/api/tokens/${t.id}`, { label: 'cleared', grants: { wiki: [] }, scope: { wikiIds: [wiki] } });
+    assert.deepEqual(cleared.body.grants.wiki, []);
+    assert.equal((await api('PATCH', `/api/tokens/${t.id}`, { label: 'bad', grants: { wiki: ['delete_wiki'] }, scope: { wikiIds: [wiki] } })).status, 422);
+    assert.equal((await api('PATCH', `/api/tokens/${t.id}`, { label: 'intruder', grants: { wiki: permissions }, scope: { wikiIds: [] } }, otherJar)).status, 404);
   });
 
   test('all eight permission sets advertise exact capabilities', async () => {
@@ -127,11 +127,11 @@ describe('MCP token permissions and writes', () => {
     }
     const t = await mint(['create_wiki'], []);
     const title = `rollback-${randomUUID()}`;
-    await fx.client.query(`ALTER TABLE pmt_wiki_token_scopes ADD CONSTRAINT mcp_write_fault CHECK (wiki_token_scope_token_id <> '${t.id}'::uuid)`);
+    await fx.client.query(`ALTER TABLE pmt_access_token_scopes ADD CONSTRAINT mcp_write_fault CHECK (token_scope_token_id <> '${t.id}'::uuid)`);
     try {
       assert.equal((await call(t.secret, 'create_wiki', { title })).isError, true);
       assert.equal((await fx.client.query('SELECT wiki_id FROM pmt_wikis WHERE wiki_title = $1', [title])).rowCount, 0);
-    } finally { await fx.client.query('ALTER TABLE pmt_wiki_token_scopes DROP CONSTRAINT mcp_write_fault'); }
+    } finally { await fx.client.query('ALTER TABLE pmt_access_token_scopes DROP CONSTRAINT mcp_write_fault'); }
   });
 
   test('create and update pages are independent, retain Thai and Mermaid and detect stale writes', async () => {
@@ -140,7 +140,7 @@ describe('MCP token permissions and writes', () => {
     const p = await ok(t.secret, 'create_page', { wiki_id: wiki, title: 'สร้างหน้า', markdown });
     assert.equal((await ok(t.secret, 'read_page', { page_id: p.id })).markdown, markdown);
     assert.equal((await call(t.secret, 'update_page', { page_id: p.id, markdown: 'ห้าม', updatedAt: p.updatedAt })).isError, true);
-    await api('PATCH', `/api/wiki-tokens/${t.id}`, { label: 'write only', wikiIds: [wiki], permissions: ['write_wiki'] });
+    await api('PATCH', `/api/tokens/${t.id}`, { label: 'write only', grants: { wiki: ['write_wiki'] }, scope: { wikiIds: [wiki] } });
     assert.equal((await call(t.secret, 'create_page', { wiki_id: wiki, title: 'ห้าม', markdown: '' })).isError, true);
     const saved = await ok(t.secret, 'update_page', { page_id: p.id, markdown: markdown + '\n\nแก้ไขล่าสุด', title: 'แก้ชื่อ', updatedAt: p.updatedAt });
     const conflict = await call(t.secret, 'update_page', { page_id: p.id, markdown: 'ทับข้อมูล', updatedAt: p.updatedAt });
@@ -192,7 +192,7 @@ describe('MCP token permissions and writes', () => {
       assert.equal((await call(t.secret, 'update_wiki', { wiki_id: wiki, title: 'no', action })).isError, true);
     }
     const a = await api('POST', '/api/wikis', { title: 'archived target' });
-    await api('PATCH', `/api/wiki-tokens/${t.id}`, { label: 'archived', wikiIds: [a.body.id], permissions });
+    await api('PATCH', `/api/tokens/${t.id}`, { label: 'archived', grants: { wiki: permissions }, scope: { wikiIds: [a.body.id] } });
     await api('PATCH', `/api/wikis/${a.body.id}`, { action: 'archive' });
     assert.equal((await call(t.secret, 'update_wiki', { wiki_id: a.body.id, title: 'no' })).content[0].text, 'Not found.');
   });
@@ -200,9 +200,9 @@ describe('MCP token permissions and writes', () => {
   test('cached client loses removed grants and revoked token cannot write', async () => {
     const t = await mint(permissions);
     await rpc(t.secret, 'tools/list');
-    await api('PATCH', `/api/wiki-tokens/${t.id}`, { label: 'removed', wikiIds: [wiki], permissions: [] });
+    await api('PATCH', `/api/tokens/${t.id}`, { label: 'removed', grants: { wiki: [] }, scope: { wikiIds: [wiki] } });
     assert.equal((await call(t.secret, 'create_wiki', { title: 'no' })).isError, true);
-    await api('DELETE', `/api/wiki-tokens/${t.id}`);
+    await api('DELETE', `/api/tokens/${t.id}`);
     assert.equal((await rpc(t.secret, 'tools/call', { name: 'create_wiki', arguments: { title: 'no' } })).status, 401);
   });
 
@@ -210,9 +210,9 @@ describe('MCP token permissions and writes', () => {
     const t = await mint(['create_page'], []);
     const r = await api('PUT', `/api/wikis/${wiki}/tokens`, { tokenIds: [t.id] });
     assert.equal(r.status, 200, JSON.stringify(r.body));
-    const list = await api('GET', '/api/wiki-tokens');
+    const list = await api('GET', '/api/tokens');
     const row = list.body.find((v: { id: string }) => v.id === t.id);
-    assert.deepEqual(row.permissions, ['create_page']);
+    assert.deepEqual(row.grants.wiki, ['create_page']);
     assert.ok(row.wikis.some((v: { id: string }) => v.id === wiki));
   });
 
@@ -249,7 +249,7 @@ describe('MCP token permissions and writes', () => {
     const t = await mint(permissions);
     await api('POST', `/api/wiki-pages/${p.id}`, { action: 'archive' });
     assert.equal((await call(t.secret, 'update_page', { page_id: p.id, markdown: '', updatedAt: p.updatedAt })).content[0].text, 'Not found.');
-    await fx.client.query('UPDATE pmt_wiki_tokens SET wiki_token_expires_at = now() - interval \'1 minute\' WHERE wiki_token_id = $1', [t.id]);
+    await fx.client.query('UPDATE pmt_access_tokens SET access_token_expires_at = now() - interval \'1 minute\' WHERE access_token_id = $1', [t.id]);
     assert.equal((await rpc(t.secret, 'tools/call', { name: 'create_wiki', arguments: { title: 'no' } })).status, 401);
     const active = await mint(permissions);
     await fx.client.query('UPDATE pmt_users SET user_is_active = false WHERE user_id = $1', [owner.id]);

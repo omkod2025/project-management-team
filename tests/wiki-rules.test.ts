@@ -1,10 +1,10 @@
 /**
  * Pure wiki rule tests (wiki plan Task 2).
  *
- * Covers the §5a role/visibility matrix, token effective-scope computation,
- * input parsing, search term/snippet handling, and the LIKE escape. The
- * shared token/secret/status/rate-limiter helpers moved to
- * `tests/token-rules.test.ts` alongside `src/lib/token-rules.ts`.
+ * Covers the §5a role/visibility matrix, input parsing, search term/snippet
+ * handling, and the LIKE escape. The token rules (effective scope, token
+ * input, secrets, status, rate limiter) live in `tests/token-rules.test.ts`
+ * alongside `src/lib/token-rules.ts`.
  */
 
 import test, { describe } from 'node:test';
@@ -13,7 +13,6 @@ import assert from 'node:assert/strict';
 import {
   isInstallAdmin, wikiRole, canSeeWiki, canWriteWiki, canManageWiki, canDeleteWiki, wikiAbilities,
   parseNewWiki, parseMemberGrant, parseMemberRef, parseWikiUpdate, assertNotOwner, isUuid,
-  parseTokenPermissions, effectiveTokenWikis, parseTokenInput,
   searchTerms, likePattern, searchSnippet, publicWikiToken, pageSearchText,
   parsePageSlug, generatedPageSlug, parseNewWikiPage, parsePageMove, pageBreadcrumb,
   type WikiViewer, type WikiFacts,
@@ -271,95 +270,6 @@ describe('isUuid', () => {
   });
 });
 
-describe('tokens', () => {
-  describe('effectiveTokenWikis', () => {
-    const now = new Date('2026-11-04T12:00:00Z');
-    const live = { revokedAt: null, expiresAt: null, ownerActive: true };
-
-    test('intersects scopes with what is currently visible', () => {
-      assert.deepEqual(effectiveTokenWikis(live, ['a', 'b', 'c'], new Set(['a', 'c']), now), ['a', 'c']);
-    });
-
-    test('a revoked token reads nothing', () => {
-      assert.deepEqual(
-        effectiveTokenWikis({ ...live, revokedAt: new Date('2026-01-01') }, ['a'], new Set(['a']), now),
-        [],
-      );
-    });
-
-    test('an expired token reads nothing', () => {
-      assert.deepEqual(
-        effectiveTokenWikis({ ...live, expiresAt: new Date('2026-01-01') }, ['a'], new Set(['a']), now),
-        [],
-      );
-    });
-
-    test('an inactive owner reads nothing', () => {
-      assert.deepEqual(
-        effectiveTokenWikis({ ...live, ownerActive: false }, ['a'], new Set(['a']), now),
-        [],
-      );
-    });
-
-    test('visibility regained later includes the wiki again', () => {
-      assert.deepEqual(effectiveTokenWikis(live, ['a', 'b'], new Set(['a']), now), ['a']);
-      assert.deepEqual(effectiveTokenWikis(live, ['a', 'b'], new Set(['a', 'b']), now), ['a', 'b']);
-    });
-  });
-
-  describe('parseTokenInput', () => {
-    const visible = new Set([OWNER_ID, READ_MEMBER_ID]);
-
-    test('a valid token input passes through', () => {
-      const result = parseTokenInput({ label: 'laptop', wikiIds: [OWNER_ID] }, visible);
-      assert.equal(result.label, 'laptop');
-      assert.deepEqual(result.wikiIds, [OWNER_ID]);
-      assert.equal(result.expiresAt, null);
-    });
-
-    test('a wiki outside what is visible throws E_NOT_FOUND', () => {
-      refuses('E_NOT_FOUND', () => parseTokenInput({ label: 'laptop', wikiIds: [STRANGER_ID] }, visible));
-    });
-
-    test('a malformed wiki id also throws E_NOT_FOUND, not E_INVALID_DOC', () => {
-      refuses('E_NOT_FOUND', () => parseTokenInput({ label: 'laptop', wikiIds: ['not-a-uuid'] }, visible));
-    });
-
-    test('an empty label throws E_INVALID_DOC', () => {
-      refuses('E_INVALID_DOC', () => parseTokenInput({ label: '  ', wikiIds: [] }, visible));
-    });
-
-    test('a 101-character label throws', () => {
-      refuses('E_INVALID_DOC', () => parseTokenInput({ label: 'x'.repeat(101), wikiIds: [] }, visible));
-    });
-
-    test('dedupes wiki ids', () => {
-      const result = parseTokenInput({ label: 'laptop', wikiIds: [OWNER_ID, OWNER_ID] }, visible);
-      assert.deepEqual(result.wikiIds, [OWNER_ID]);
-    });
-
-    test('expiresAt accepts a future ISO date', () => {
-      const future = new Date(Date.now() + 86_400_000).toISOString();
-      const result = parseTokenInput({ label: 'laptop', wikiIds: [], expiresAt: future }, visible);
-      assert.ok(result.expiresAt instanceof Date);
-    });
-
-    test('expiresAt rejects a past date', () => {
-      refuses('E_INVALID_DOC', () => parseTokenInput(
-        { label: 'laptop', wikiIds: [], expiresAt: '2000-01-01T00:00:00Z' },
-        visible,
-      ));
-    });
-
-    test('expiresAt rejects garbage', () => {
-      refuses('E_INVALID_DOC', () => parseTokenInput(
-        { label: 'laptop', wikiIds: [], expiresAt: 'not-a-date' },
-        visible,
-      ));
-    });
-  });
-});
-
 describe('search', () => {
   test('searchTerms trims, splits, dedupes, and drops empties', () => {
     assert.deepEqual(searchTerms('  ปลั๊ก   ไฟ ปลั๊ก '), ['ปลั๊ก', 'ไฟ']);
@@ -495,21 +405,5 @@ describe('breadcrumb (MCP read_page)', () => {
     assert.deepEqual(pageBreadcrumb(pages, 'd'), []);
     const cyclic = [{ id: 'x', parentId: 'y', title: 'X' }, { id: 'y', parentId: 'x', title: 'Y' }];
     assert.deepEqual(pageBreadcrumb(cyclic, 'x'), ['Y']);
-  });
-});
-
-
-describe('optional token permissions', () => {
-  test('permissions are independent and duplicates normalize', () => {
-    assert.deepEqual(parseTokenPermissions([]), []);
-    for (const key of ['create_wiki', 'create_page', 'write_wiki']) {
-      assert.deepEqual(parseTokenPermissions([key, key]), [key]);
-    }
-    assert.deepEqual(parseTokenPermissions(['create_page', 'write_wiki']), ['create_page', 'write_wiki']);
-  });
-  test('unknown and malformed permissions are rejected', () => {
-    for (const value of [null, undefined, 'create_wiki', {}, ['delete_wiki'], [true]]) {
-      refuses('E_INVALID_DOC', () => parseTokenPermissions(value));
-    }
   });
 });

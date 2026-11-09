@@ -1,16 +1,19 @@
 import { handle } from '@/lib/api';
 import { domainError } from '@/lib/errors';
-import { revokeToken, updateToken } from '@/lib/wiki-tokens';
+import { revokeToken, updateToken } from '@/lib/access-tokens';
 
 type Context = { params: Promise<{ id: string }> };
 
-/** Rename and rescope one of your own tokens: `{ label, wikiIds }`. */
+/**
+ * Rename, regrant and rescope one of your own tokens: `{ label, grants?, scope? }`.
+ * An omitted `grants` or `scope` keeps what the token has; `expiresAt` is ignored.
+ */
 export async function PATCH(req: Request, { params }: Context) {
   const { id } = await params;
-  return handle(`PATCH /api/wiki-tokens/${id}`, async (userId) => {
+  return handle(`PATCH /api/tokens/${id}`, async (userId) => {
     let body: unknown;
     try { body = await req.json(); }
-    catch { throw domainError('E_INVALID_DOC', 'Send the token label and wikis as JSON.'); }
+    catch { throw domainError('E_INVALID_DOC', 'Send the token label, grants and scope as JSON.'); }
     return updateToken(userId, id, body);
   });
 }
@@ -18,7 +21,7 @@ export async function PATCH(req: Request, { params }: Context) {
 /** Revoke — yours, or any token for the install admin. Cannot be undone. */
 export async function DELETE(_req: Request, { params }: Context) {
   const { id } = await params;
-  return handle(`DELETE /api/wiki-tokens/${id}`, async (userId) => {
+  return handle(`DELETE /api/tokens/${id}`, async (userId) => {
     await revokeToken(userId, id);
     return { ok: true };
   });

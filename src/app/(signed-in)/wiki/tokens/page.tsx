@@ -1,6 +1,6 @@
 import { listWikis, wikiViewer } from '@/lib/wiki';
 import { isInstallAdmin } from '@/lib/wiki-rules';
-import { listAllTokens, listMyTokens } from '@/lib/wiki-tokens';
+import { listAllTokens, listMyTokens } from '@/lib/access-tokens';
 import AppHeader, { wikiViews } from '../../app-header';
 import { requireReader } from '../load-workspace';
 import { requestOrigin } from './request-origin';

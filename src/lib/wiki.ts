@@ -1,7 +1,7 @@
 import 'server-only';
 import { and, desc, eq, inArray, isNotNull, isNull, sql, type SQL } from 'drizzle-orm';
 import { db } from '@/db/client';
-import { users, wikiMembers, wikiPages, wikiRevisions, wikiTokenScopes, wikis } from '@/db/schema';
+import { accessTokenScopes, users, wikiMembers, wikiPages, wikiRevisions, wikis } from '@/db/schema';
 import { DomainError, domainError } from '@/lib/errors';
 import { extendRevision, nextPageDepth, parsePageContent, type DocPage } from '@/lib/doc-rules';
 import {
@@ -192,7 +192,7 @@ async function createWikiRecord(userId: string, input: unknown, tokenId?: string
   const data = parseNewWiki(input);
   const wiki = await db.transaction(async (tx) => {
     const [created] = await tx.insert(wikis).values({ ...data, ownerId: userId }).returning();
-    if (tokenId) await tx.insert(wikiTokenScopes).values({ tokenId, wikiId: created!.id });
+    if (tokenId) await tx.insert(accessTokenScopes).values({ tokenId, wikiId: created!.id });
     return created!;
   });
   const role = wikiRole(v, factsOf(wiki!, null))!;

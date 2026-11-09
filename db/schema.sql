@@ -1271,27 +1271,52 @@ CREATE TABLE pmt_wiki_asset_deletions (
 );
 CREATE INDEX pmt_wiki_asset_deletions_wiki_idx ON pmt_wiki_asset_deletions(wiki_asset_deletion_wiki_id);
 
-CREATE TABLE pmt_wiki_tokens (
-    wiki_token_id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    wiki_token_owner_id      uuid NOT NULL REFERENCES pmt_users(user_id) ON DELETE CASCADE,
-    wiki_token_label         text NOT NULL CHECK (char_length(btrim(wiki_token_label)) BETWEEN 1 AND 100),
+-- Personal access tokens, system-wide (central MCP tokens design). What a
+-- token may do is rows in pmt_access_token_grants — one (module, 'read') row
+-- for every module it reaches, plus one row per Create/Write permission — and
+-- what it may reach is rows in pmt_access_token_scopes. Adding a module adds
+-- rows, never columns.
+CREATE TABLE pmt_access_tokens (
+    access_token_id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    access_token_owner_id      uuid NOT NULL REFERENCES pmt_users(user_id) ON DELETE CASCADE,
+    access_token_label         text NOT NULL CHECK (char_length(btrim(access_token_label)) BETWEEN 1 AND 100),
     -- SHA-256 of the secret. The secret itself is never stored.
-    wiki_token_hash          text NOT NULL UNIQUE,
+    access_token_hash          text NOT NULL UNIQUE,
     -- First 8 characters of the secret, for display only.
-    wiki_token_prefix        text NOT NULL,
-    wiki_token_can_create_wiki boolean NOT NULL DEFAULT false,
-    wiki_token_can_create_page boolean NOT NULL DEFAULT false,
-    wiki_token_can_write_wiki boolean NOT NULL DEFAULT false,
-    wiki_token_created_at    timestamptz NOT NULL DEFAULT now(),
-    wiki_token_last_used_at  timestamptz,
-    wiki_token_expires_at    timestamptz,
-    wiki_token_revoked_at    timestamptz,
-    wiki_token_revoked_by    uuid REFERENCES pmt_users(user_id) ON DELETE SET NULL
+    access_token_prefix        text NOT NULL,
+    access_token_created_at    timestamptz NOT NULL DEFAULT now(),
+    access_token_last_used_at  timestamptz,
+    access_token_expires_at    timestamptz,
+    access_token_revoked_at    timestamptz,
+    access_token_revoked_by    uuid REFERENCES pmt_users(user_id) ON DELETE SET NULL
 );
-CREATE INDEX pmt_wiki_tokens_owner_idx ON pmt_wiki_tokens(wiki_token_owner_id);
+CREATE INDEX pmt_access_tokens_owner_idx ON pmt_access_tokens(access_token_owner_id);
 
-CREATE TABLE pmt_wiki_token_scopes (
-    wiki_token_scope_token_id uuid NOT NULL REFERENCES pmt_wiki_tokens(wiki_token_id) ON DELETE CASCADE,
-    wiki_token_scope_wiki_id  uuid NOT NULL REFERENCES pmt_wikis(wiki_id) ON DELETE CASCADE,
-    PRIMARY KEY (wiki_token_scope_token_id, wiki_token_scope_wiki_id)
+CREATE TABLE pmt_access_token_grants (
+    token_grant_token_id   uuid NOT NULL REFERENCES pmt_access_tokens(access_token_id) ON DELETE CASCADE,
+    token_grant_module     text NOT NULL CHECK (token_grant_module ~ '^[a-z][a-z0-9_]{0,31}$'),
+    token_grant_permission text NOT NULL CHECK (token_grant_permission ~ '^[a-z][a-z0-9_]{0,31}$'),
+    PRIMARY KEY (token_grant_token_id, token_grant_module, token_grant_permission)
 );
+
+-- One nullable foreign key per scope kind rather than one target-id column:
+-- deleting a project or a wiki must remove its scope rows, and only a
+-- foreign-key cascade does that without a trigger.
+CREATE TABLE pmt_access_token_scopes (
+    token_scope_id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    token_scope_token_id   uuid NOT NULL REFERENCES pmt_access_tokens(access_token_id) ON DELETE CASCADE,
+    token_scope_project_id uuid REFERENCES pmt_projects(project_id) ON DELETE CASCADE,
+    token_scope_wiki_id    uuid REFERENCES pmt_wikis(wiki_id) ON DELETE CASCADE,
+    CHECK (num_nonnulls(token_scope_project_id, token_scope_wiki_id) = 1)
+);
+CREATE UNIQUE INDEX pmt_access_token_scopes_project_uq
+    ON pmt_access_token_scopes (token_scope_token_id, token_scope_project_id)
+    WHERE token_scope_project_id IS NOT NULL;
+CREATE UNIQUE INDEX pmt_access_token_scopes_wiki_uq
+    ON pmt_access_token_scopes (token_scope_token_id, token_scope_wiki_id)
+    WHERE token_scope_wiki_id IS NOT NULL;
+-- The cascades from a project or a wiki look rows up by the target.
+CREATE INDEX pmt_access_token_scopes_project_idx ON pmt_access_token_scopes (token_scope_project_id)
+    WHERE token_scope_project_id IS NOT NULL;
+CREATE INDEX pmt_access_token_scopes_wiki_idx ON pmt_access_token_scopes (token_scope_wiki_id)
+    WHERE token_scope_wiki_id IS NOT NULL;

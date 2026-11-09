@@ -4,9 +4,8 @@
  * Same split as `node-rules.ts` / `wiki-rules.ts`: these are decisions — what
  * a module declares, what a token may be granted, what it may currently
  * reach — so they live where a test can reach them without a database.
- * `wiki-tokens.ts` and the token adapters the rest of the central MCP tokens
- * work adds are the pieces that load a row, call these, and write the result
- * back.
+ * `access-tokens.ts` is the adapter that loads a row, calls these, and writes
+ * the result back.
  *
  * This module also carries the token/secret/status/rate-limiter helpers that
  * used to live in `wiki-rules.ts`, now that a token is a system-wide facility
@@ -181,6 +180,11 @@ export type TokenScope = { projectIds: string[]; wikiIds: string[] };
 export type Visible = { project: ReadonlySet<string>; wiki: ReadonlySet<string> };
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Whether a string is uuid-shaped. A malformed id can never name a row, so callers answer it like one that does not exist. */
+export function isUuid(id: string): boolean {
+  return UUID_RE.test(id);
+}
 
 /**
  * One scope list: lowercased, deduplicated in order. A malformed id and one

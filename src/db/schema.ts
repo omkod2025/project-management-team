@@ -16,6 +16,7 @@ import {
   pgTable, pgEnum, uuid, text, boolean, integer, smallint,
   doublePrecision, date, timestamp, jsonb, primaryKey, index, uniqueIndex,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 
 /* ---------------------------------------------------------------- enums */
 
@@ -476,25 +477,48 @@ export const wikiAssetDeletions = pgTable('pmt_wiki_asset_deletions', {
   queuedAt: timestamp('wiki_asset_deletion_queued_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [index('pmt_wiki_asset_deletions_wiki_idx').on(t.wikiId)]);
 
-export const wikiTokens = pgTable('pmt_wiki_tokens', {
-  id: uuid('wiki_token_id').primaryKey().defaultRandom(),
-  ownerId: uuid('wiki_token_owner_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  label: text('wiki_token_label').notNull(),
-  /** SHA-256 of the secret. The secret itself is never stored. */
-  hash: text('wiki_token_hash').notNull().unique(),
-  /** First 8 characters of the secret, for display only. */
-  prefix: text('wiki_token_prefix').notNull(),
-  canCreateWiki: boolean('wiki_token_can_create_wiki').notNull().default(false),
-  canCreatePage: boolean('wiki_token_can_create_page').notNull().default(false),
-  canWriteWiki: boolean('wiki_token_can_write_wiki').notNull().default(false),
-  createdAt: timestamp('wiki_token_created_at', { withTimezone: true }).notNull().defaultNow(),
-  lastUsedAt: timestamp('wiki_token_last_used_at', { withTimezone: true }),
-  expiresAt: timestamp('wiki_token_expires_at', { withTimezone: true }),
-  revokedAt: timestamp('wiki_token_revoked_at', { withTimezone: true }),
-  revokedBy: uuid('wiki_token_revoked_by').references(() => users.id, { onDelete: 'set null' }),
-}, (t) => [index('pmt_wiki_tokens_owner_idx').on(t.ownerId)]);
+/* ---------------------------------------------------------- access tokens */
 
-export const wikiTokenScopes = pgTable('pmt_wiki_token_scopes', {
-  tokenId: uuid('wiki_token_scope_token_id').notNull().references(() => wikiTokens.id, { onDelete: 'cascade' }),
-  wikiId: uuid('wiki_token_scope_wiki_id').notNull().references(() => wikis.id, { onDelete: 'cascade' }),
-}, (t) => [primaryKey({ columns: [t.tokenId, t.wikiId] })]);
+/**
+ * Personal access tokens, system-wide (central MCP tokens design). What a
+ * token may do lives in `accessTokenGrants`, what it may reach in
+ * `accessTokenScopes`; adding a module adds rows, never columns.
+ */
+export const accessTokens = pgTable('pmt_access_tokens', {
+  id: uuid('access_token_id').primaryKey().defaultRandom(),
+  ownerId: uuid('access_token_owner_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  label: text('access_token_label').notNull(),
+  /** SHA-256 of the secret. The secret itself is never stored. */
+  hash: text('access_token_hash').notNull().unique(),
+  /** First 8 characters of the secret, for display only. */
+  prefix: text('access_token_prefix').notNull(),
+  createdAt: timestamp('access_token_created_at', { withTimezone: true }).notNull().defaultNow(),
+  lastUsedAt: timestamp('access_token_last_used_at', { withTimezone: true }),
+  expiresAt: timestamp('access_token_expires_at', { withTimezone: true }),
+  revokedAt: timestamp('access_token_revoked_at', { withTimezone: true }),
+  revokedBy: uuid('access_token_revoked_by').references(() => users.id, { onDelete: 'set null' }),
+}, (t) => [index('pmt_access_tokens_owner_idx').on(t.ownerId)]);
+
+/** One `(module, 'read')` row per module the token reaches, plus one row per Create/Write permission (`token-rules.ts` `grantRows`). */
+export const accessTokenGrants = pgTable('pmt_access_token_grants', {
+  tokenId: uuid('token_grant_token_id').notNull().references(() => accessTokens.id, { onDelete: 'cascade' }),
+  module: text('token_grant_module').notNull(),
+  permission: text('token_grant_permission').notNull(),
+}, (t) => [primaryKey({ columns: [t.tokenId, t.module, t.permission] })]);
+
+/**
+ * One row per scoped item, with exactly one of `projectId` / `wikiId` set
+ * (a CHECK in `db/schema.sql`). A foreign key per kind lets deleting a
+ * project or a wiki remove its scope rows by cascade, with no trigger.
+ */
+export const accessTokenScopes = pgTable('pmt_access_token_scopes', {
+  id: uuid('token_scope_id').primaryKey().defaultRandom(),
+  tokenId: uuid('token_scope_token_id').notNull().references(() => accessTokens.id, { onDelete: 'cascade' }),
+  projectId: uuid('token_scope_project_id').references(() => projects.id, { onDelete: 'cascade' }),
+  wikiId: uuid('token_scope_wiki_id').references(() => wikis.id, { onDelete: 'cascade' }),
+}, (t) => [
+  uniqueIndex('pmt_access_token_scopes_project_uq').on(t.tokenId, t.projectId).where(sql`token_scope_project_id IS NOT NULL`),
+  uniqueIndex('pmt_access_token_scopes_wiki_uq').on(t.tokenId, t.wikiId).where(sql`token_scope_wiki_id IS NOT NULL`),
+  index('pmt_access_token_scopes_project_idx').on(t.projectId).where(sql`token_scope_project_id IS NOT NULL`),
+  index('pmt_access_token_scopes_wiki_idx').on(t.wikiId).where(sql`token_scope_wiki_id IS NOT NULL`),
+]);

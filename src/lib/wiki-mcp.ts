@@ -7,11 +7,11 @@ import { db } from '@/db/client';
 import { wikiPages, wikis } from '@/db/schema';
 import { contentMarkdown, decodeRich } from '@/lib/doc-rich-content';
 import { activeWikiPages, searchWikiIds, type WikiPage } from '@/lib/wiki';
-import { isUuid, pageBreadcrumb } from '@/lib/wiki-rules';
+import { isUuid, pageBreadcrumb, type WikiTokenPermission } from '@/lib/wiki-rules';
 import { takeRateSlot } from '@/lib/token-rules';
 import { DomainError } from '@/lib/errors';
 import { createMcpWiki, createMcpPage, updateMcpWiki, updateMcpPage, type McpWriteContext } from '@/lib/wiki-mcp-writes';
-import { resolveBearer } from '@/lib/wiki-tokens';
+import { resolveBearer } from '@/lib/access-tokens';
 
 /**
  * The wiki's MCP endpoint (spec §7): the only way AI reaches the wiki, and
@@ -231,7 +231,11 @@ export async function handleMcp(req: Request): Promise<Response> {
     return json({ error: 'rate_limited' }, 429, { 'Retry-After': String(RATE_WINDOW_MS / 1000) });
   }
 
-  const server = buildServer(auth);
+  // The Wiki tools still take the wiki-only context; Task 4 moves them onto McpAuth.
+  const server = buildServer({
+    tokenId: auth.tokenId, ownerId: auth.ownerId,
+    wikiIds: auth.scope.wikiIds, permissions: (auth.grants.wiki ?? []) as WikiTokenPermission[],
+  });
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
     enableJsonResponse: true,

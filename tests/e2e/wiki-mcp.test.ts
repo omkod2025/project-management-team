@@ -36,12 +36,12 @@ const INJECTION = [
 test('install admin write tokens still cannot archive or delete and admin listing shows permissions', async (t) => {
   if (!installJar) { t.skip(SKIP_INSTALL); return; }
   const token = await mintToken(installJar, [mine], 'admin write permissions');
-  const patched = await call(installJar, 'PATCH', `/api/wiki-tokens/${token.id}`, {
-    label: 'admin write permissions', wikiIds: [mine], permissions: ['write_wiki'],
+  const patched = await call(installJar, 'PATCH', `/api/tokens/${token.id}`, {
+    label: 'admin write permissions', grants: { wiki: ['write_wiki'] }, scope: { wikiIds: [mine] },
   });
   assert.equal(patched.status, 200, JSON.stringify(patched.body));
-  const all = await call(installJar, 'GET', '/api/wiki-tokens?all=1');
-  assert.deepEqual(all.body.find((row: { id: string }) => row.id === token.id).permissions, ['write_wiki']);
+  const all = await call(installJar, 'GET', '/api/tokens?all=1');
+  assert.deepEqual(all.body.find((row: { id: string }) => row.id === token.id).grants.wiki, ['write_wiki']);
   assert.equal((await tool(token.secret, 'update_wiki', { wiki_id: mine, title: 'forbidden', action: 'archive' })).isError, true);
   for (const name of ['delete_wiki', 'archive_wiki', 'delete_page', 'archive_page']) {
     assert.equal((await tool(token.secret, name, { wiki_id: mine })).isError, true);
@@ -112,7 +112,7 @@ async function newPage(jar: Jar, wiki: string, input: Record<string, unknown>) {
 }
 
 async function mintToken(jar: Jar, scope: string[], label = 'mcp') {
-  const res = await call(jar, 'POST', '/api/wiki-tokens', { label, wikiIds: scope });
+  const res = await call(jar, 'POST', '/api/tokens', { label, grants: { wiki: [] }, scope: { wikiIds: scope } });
   assert.equal(res.status, 200, JSON.stringify(res.body));
   return { id: res.body.token.id as string, secret: res.body.secret as string };
 }
@@ -162,8 +162,8 @@ async function assertNotFound(sec: string, name: string, args: Record<string, un
 }
 
 async function lastUsed(tokenId: string): Promise<number | null> {
-  const { rows } = await fx.client.query('SELECT wiki_token_last_used_at FROM pmt_wiki_tokens WHERE wiki_token_id = $1', [tokenId]);
-  const v = rows[0]?.wiki_token_last_used_at as Date | null;
+  const { rows } = await fx.client.query('SELECT access_token_last_used_at FROM pmt_access_tokens WHERE access_token_id = $1', [tokenId]);
+  const v = rows[0]?.access_token_last_used_at as Date | null;
   return v ? v.getTime() : null;
 }
 
@@ -203,7 +203,7 @@ before(async () => {
   // A scope row on a wiki alice cannot see. The API refuses to create one;
   // forcing it proves the intersection is computed on read, not trusted.
   await fx.client.query(
-    'INSERT INTO pmt_wiki_token_scopes (wiki_token_scope_token_id, wiki_token_scope_wiki_id) VALUES ($1, $2)', [t.id, hidden],
+    'INSERT INTO pmt_access_token_scopes (token_scope_token_id, token_scope_wiki_id) VALUES ($1, $2)', [t.id, hidden],
   );
   assert.equal((await call(aliceJar, 'PATCH', `/api/wikis/${archived}`, { action: 'archive' })).status, 200);
 
@@ -423,9 +423,9 @@ describe('token life cycle', () => {
     const t = await mintToken(aliceJar, [shared], 'revoke-own');
     assert.equal((await rpc(bearer(t.secret), 'tools/list')).status, 200);
     // Push last_used_at back so a call that was (wrongly) accepted would rewrite it.
-    await fx.client.query(`UPDATE pmt_wiki_tokens SET wiki_token_last_used_at = now() - interval '1 hour' WHERE wiki_token_id = $1`, [t.id]);
+    await fx.client.query(`UPDATE pmt_access_tokens SET access_token_last_used_at = now() - interval '1 hour' WHERE access_token_id = $1`, [t.id]);
     const stamped = await lastUsed(t.id);
-    assert.equal((await call(aliceJar, 'DELETE', `/api/wiki-tokens/${t.id}`)).status, 200);
+    assert.equal((await call(aliceJar, 'DELETE', `/api/tokens/${t.id}`)).status, 200);
     assert.equal((await rpc(bearer(t.secret), 'tools/list')).status, 401);
     assert.equal(await lastUsed(t.id), stamped);
   });
@@ -434,9 +434,9 @@ describe('token life cycle', () => {
     if (!installJar) return t.skip(SKIP_INSTALL);
     const tok = await mintToken(aliceJar, [shared], 'revoke-admin');
     assert.equal((await rpc(bearer(tok.secret), 'tools/list')).status, 200);
-    await fx.client.query(`UPDATE pmt_wiki_tokens SET wiki_token_last_used_at = now() - interval '1 hour' WHERE wiki_token_id = $1`, [tok.id]);
+    await fx.client.query(`UPDATE pmt_access_tokens SET access_token_last_used_at = now() - interval '1 hour' WHERE access_token_id = $1`, [tok.id]);
     const stamped = await lastUsed(tok.id);
-    assert.equal((await call(installJar, 'DELETE', `/api/wiki-tokens/${tok.id}`)).status, 200);
+    assert.equal((await call(installJar, 'DELETE', `/api/tokens/${tok.id}`)).status, 200);
     assert.equal((await rpc(bearer(tok.secret), 'tools/list')).status, 401);
     assert.equal(await lastUsed(tok.id), stamped);
   });
@@ -444,7 +444,7 @@ describe('token life cycle', () => {
   test('an expired token is 401', async () => {
     const t = await mintToken(aliceJar, [shared], 'expired');
     assert.equal((await rpc(bearer(t.secret), 'tools/list')).status, 200);
-    await fx.client.query(`UPDATE pmt_wiki_tokens SET wiki_token_expires_at = now() - interval '1 minute' WHERE wiki_token_id = $1`, [t.id]);
+    await fx.client.query(`UPDATE pmt_access_tokens SET access_token_expires_at = now() - interval '1 minute' WHERE access_token_id = $1`, [t.id]);
     assert.equal((await rpc(bearer(t.secret), 'tools/list')).status, 401);
   });
 
@@ -465,7 +465,7 @@ describe('token life cycle', () => {
     await new Promise((r) => setTimeout(r, 20));
     assert.equal((await rpc(bearer(t.secret), 'tools/list')).status, 200);
     assert.equal(await lastUsed(t.id), first, 'the second call within 60 s does not write');
-    await fx.client.query(`UPDATE pmt_wiki_tokens SET wiki_token_last_used_at = now() - interval '2 minutes' WHERE wiki_token_id = $1`, [t.id]);
+    await fx.client.query(`UPDATE pmt_access_tokens SET access_token_last_used_at = now() - interval '2 minutes' WHERE access_token_id = $1`, [t.id]);
     const old = await lastUsed(t.id);
     assert.equal((await rpc(bearer(t.secret), 'tools/list')).status, 200);
     assert.ok((await lastUsed(t.id))! > old!, 'a call after a minute writes again');

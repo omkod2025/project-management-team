@@ -369,7 +369,7 @@ BEGIN
 END $$;
 
 -- ---------------------------------------------------------------------
--- O. Wiki tree and tokens                                   (wiki spec §4a)
+-- O. Wiki tree and access tokens       (wiki spec §4a, central MCP tokens)
 -- ---------------------------------------------------------------------
 DO $$
 DECLARE
@@ -380,6 +380,7 @@ DECLARE
     v_page2      uuid;
     v_page3      uuid;
     v_token      uuid;
+    v_project    uuid;
     n            integer;
 BEGIN
     INSERT INTO pmt_users (user_email, user_full_name)
@@ -428,19 +429,63 @@ BEGIN
     SELECT count(*) INTO n FROM pmt_wiki_pages WHERE wiki_page_slug = 'root';
     ASSERT n = 2, format('the same slug exists once per wiki, got %s', n);
 
-    -- deleting a token cascades its scopes
-    INSERT INTO pmt_wiki_tokens (wiki_token_owner_id, wiki_token_label, wiki_token_hash, wiki_token_prefix)
+    -- access tokens: a scope row names exactly one thing
+    INSERT INTO pmt_projects (project_name, project_slug)
+    VALUES ('Token scope project', 'token-scope-test') RETURNING project_id INTO v_project;
+    INSERT INTO pmt_access_tokens (access_token_owner_id, access_token_label, access_token_hash, access_token_prefix)
     VALUES (v_owner, 'My token', 'hash-o-group', 'pmw_abcd')
-    RETURNING wiki_token_id INTO v_token;
-    INSERT INTO pmt_wiki_token_scopes (wiki_token_scope_token_id, wiki_token_scope_wiki_id)
+    RETURNING access_token_id INTO v_token;
+    INSERT INTO pmt_access_token_grants (token_grant_token_id, token_grant_module, token_grant_permission)
+    VALUES (v_token, 'wiki', 'read'), (v_token, 'list', 'read'), (v_token, 'list', 'write_task');
+
+    BEGIN
+        INSERT INTO pmt_access_token_scopes (token_scope_token_id, token_scope_project_id, token_scope_wiki_id)
+        VALUES (v_token, v_project, v_wiki_a);
+        ASSERT false, 'a scope row with both a project and a wiki must be rejected';
+    EXCEPTION WHEN check_violation THEN NULL;
+    END;
+    BEGIN
+        INSERT INTO pmt_access_token_scopes (token_scope_token_id) VALUES (v_token);
+        ASSERT false, 'a scope row naming nothing must be rejected';
+    EXCEPTION WHEN check_violation THEN NULL;
+    END;
+
+    INSERT INTO pmt_access_token_scopes (token_scope_token_id, token_scope_wiki_id)
     VALUES (v_token, v_wiki_a), (v_token, v_wiki_b);
+    INSERT INTO pmt_access_token_scopes (token_scope_token_id, token_scope_project_id)
+    VALUES (v_token, v_project);
+    BEGIN
+        INSERT INTO pmt_access_token_scopes (token_scope_token_id, token_scope_wiki_id) VALUES (v_token, v_wiki_a);
+        ASSERT false, 'the same wiki twice on one token must be rejected';
+    EXCEPTION WHEN unique_violation THEN NULL;
+    END;
 
-    SELECT count(*) INTO n FROM pmt_wiki_token_scopes WHERE wiki_token_scope_token_id = v_token;
-    ASSERT n = 2, 'both scopes were recorded';
+    -- a module or permission name is a lowercase key
+    BEGIN
+        INSERT INTO pmt_access_token_grants (token_grant_token_id, token_grant_module, token_grant_permission)
+        VALUES (v_token, 'Bad-Name', 'read');
+        ASSERT false, 'a module key that is not lowercase snake case must be rejected';
+    EXCEPTION WHEN check_violation THEN NULL;
+    END;
 
-    DELETE FROM pmt_wiki_tokens WHERE wiki_token_id = v_token;
-    SELECT count(*) INTO n FROM pmt_wiki_token_scopes WHERE wiki_token_scope_token_id = v_token;
+    -- deleting a wiki deletes its scope rows, never the token
+    DELETE FROM pmt_wikis WHERE wiki_id = v_wiki_b;
+    SELECT count(*) INTO n FROM pmt_access_token_scopes WHERE token_scope_token_id = v_token;
+    ASSERT n = 2, format('the wiki B scope went with the wiki, got %s rows', n);
+    SELECT count(*) INTO n FROM pmt_access_tokens WHERE access_token_id = v_token;
+    ASSERT n = 1, 'deleting a wiki keeps the token';
+
+    -- deleting a project deletes its scope rows too
+    DELETE FROM pmt_projects WHERE project_id = v_project;
+    SELECT count(*) INTO n FROM pmt_access_token_scopes WHERE token_scope_token_id = v_token;
+    ASSERT n = 1, format('the project scope went with the project, got %s rows', n);
+
+    -- deleting a token cascades its grants and scopes
+    DELETE FROM pmt_access_tokens WHERE access_token_id = v_token;
+    SELECT count(*) INTO n FROM pmt_access_token_scopes WHERE token_scope_token_id = v_token;
     ASSERT n = 0, 'deleting a token cascades its scopes';
+    SELECT count(*) INTO n FROM pmt_access_token_grants WHERE token_grant_token_id = v_token;
+    ASSERT n = 0, 'deleting a token cascades its grants';
 
     -- pg_trgm is installed
     SELECT count(*) INTO n FROM pg_extension WHERE extname = 'pg_trgm';
@@ -453,7 +498,7 @@ BEGIN
      WHERE wiki_page_id = v_page2 AND wiki_page_search_text ILIKE '%ปลั๊ก%';
     ASSERT n = 1, 'ILIKE finds a Thai substring with no surrounding spaces';
 
-    RAISE NOTICE 'PASS  O  wiki tree and tokens';
+    RAISE NOTICE 'PASS  O  wiki tree and access tokens';
 END $$;
 
 ROLLBACK;

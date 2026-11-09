@@ -2,10 +2,10 @@
  * Wiki rules, as pure functions.
  *
  * Same split as `node-rules.ts` / `admin-rules.ts`: these are decisions — who
- * sees a wiki, who may write it, what a token may read, what a search term
- * means at the database boundary — so they live where a test can reach them
- * without a database. `wiki.ts` and `wiki-tokens.ts` are the adapters that
- * load a row, call these, and write the result back.
+ * sees a wiki, who may write it, what a search term means at the database
+ * boundary — so they live where a test can reach them without a database.
+ * `wiki.ts` is the adapter that loads a row, calls these, and writes the
+ * result back. What a token may read is `token-rules.ts`'s decision.
  *
  * The rule everything else is computed from (spec §5c):
  *
@@ -19,7 +19,7 @@ import { randomBytes } from 'node:crypto';
 import { domainError } from './errors.ts';
 import { PROTECTED_EMAIL } from './admin-rules.ts';
 import { contentMarkdown } from './doc-rich-content.ts';
-import { parseTokenBasics, type TokenFacts } from './token-rules.ts';
+import { isUuid } from './token-rules.ts';
 
 /* -------------------------------------------------------------- identity */
 
@@ -167,17 +167,13 @@ export function parseWikiUpdate(input: unknown): WikiUpdate {
 
 /* ---------------------------------------------------------------- members */
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 /** Whether an id from a URL could name a row at all — a malformed one is a 404, never a 500. */
-export function isUuid(id: string): boolean {
-  return UUID_RE.test(id);
-}
+export { isUuid };
 
 export function parseMemberGrant(input: unknown): { userId: string; access: WikiAccess } {
   const obj = (input ?? {}) as Record<string, unknown>;
   const userId = typeof obj.userId === 'string' ? obj.userId : '';
-  if (!UUID_RE.test(userId)) {
+  if (!isUuid(userId)) {
     throw domainError('E_INVALID_DOC', 'That is not a user.', { userId: obj.userId });
   }
   const access = obj.access;
@@ -191,7 +187,7 @@ export function parseMemberGrant(input: unknown): { userId: string; access: Wiki
 export function parseMemberRef(input: unknown): { userId: string } {
   const obj = (input ?? {}) as Record<string, unknown>;
   const userId = typeof obj.userId === 'string' ? obj.userId : '';
-  if (!UUID_RE.test(userId)) {
+  if (!isUuid(userId)) {
     throw domainError('E_INVALID_DOC', 'That is not a user.', { userId: obj.userId });
   }
   return { userId };
@@ -208,74 +204,6 @@ export function assertNotOwner(targetUserId: string, ownerId: string | null): vo
   if (ownerId !== null && targetUserId === ownerId) {
     throw domainError('E_INVALID_DOC', 'That person already owns this wiki.');
   }
-}
-
-/* ----------------------------------------------------------------- tokens */
-
-/**
- * What a token may read right now (spec §6b):
- *
- * > effective wikis = token scopes ∩ wikis the token's owner can see right
- * > now
- *
- * — and nothing at all if the token is revoked, expired, or its owner is
- * inactive. Scope rows are never consulted for existence on their own; they
- * only ever narrow what is already visible, so losing and regaining
- * membership take effect immediately with nothing to clean up.
- */
-export function effectiveTokenWikis(
-  t: TokenFacts,
-  scopes: readonly string[],
-  visible: ReadonlySet<string>,
-  now: Date,
-): string[] {
-  if (t.revokedAt !== null) return [];
-  if (t.expiresAt !== null && t.expiresAt.getTime() <= now.getTime()) return [];
-  if (!t.ownerActive) return [];
-  const seen = new Set<string>();
-  const result: string[] = [];
-  for (const id of scopes) {
-    if (visible.has(id) && !seen.has(id)) {
-      seen.add(id);
-      result.push(id);
-    }
-  }
-  return result;
-}
-
-/**
- * A token being created or edited. Label and expiry are `parseTokenBasics`'s
- * job, shared with the rest of the central MCP tokens work; only the wiki
- * scope list is wiki-specific here.
- *
- * A wiki id that is not uuid-shaped and one that is simply not visible to
- * the caller are refused identically, with `E_NOT_FOUND` — the same
- * existence-leak rule as everywhere else in the product (spec §8): telling
- * the two apart would tell a caller whether a wiki they cannot see exists at
- * all.
- */
-export function parseTokenInput(
-  input: unknown,
-  visible: ReadonlySet<string>,
-): { label: string; wikiIds: string[]; expiresAt: Date | null } {
-  const { label, expiresAt } = parseTokenBasics(input);
-  const obj = (input ?? {}) as Record<string, unknown>;
-
-  const rawIds = Array.isArray(obj.wikiIds) ? obj.wikiIds : [];
-  const seen = new Set<string>();
-  const wikiIds: string[] = [];
-  for (const raw of rawIds) {
-    const id = typeof raw === 'string' ? raw : '';
-    if (!UUID_RE.test(id) || !visible.has(id)) {
-      throw domainError('E_NOT_FOUND', 'That wiki does not exist.');
-    }
-    if (!seen.has(id)) {
-      seen.add(id);
-      wikiIds.push(id);
-    }
-  }
-
-  return { label, wikiIds, expiresAt };
 }
 
 /* ----------------------------------------------------------------- search */
@@ -480,13 +408,9 @@ export function pageBreadcrumb(
   return trail.reverse();
 }
 
-
-export const WIKI_TOKEN_PERMISSIONS = ['create_wiki', 'create_page', 'write_wiki'] as const;
-export type WikiTokenPermission = typeof WIKI_TOKEN_PERMISSIONS[number];
-
-export function parseTokenPermissions(input: unknown): WikiTokenPermission[] {
-  if (!Array.isArray(input) || input.some((value) => !WIKI_TOKEN_PERMISSIONS.includes(value))) {
-    throw domainError('E_INVALID_DOC', 'Choose valid token permissions.');
-  }
-  return [...new Set(input)] as WikiTokenPermission[];
-}
+/**
+ * The Create/Write permissions a token's Wiki grant can carry — the `wiki`
+ * entry of `TOKEN_MODULES` in `token-rules.ts`, as a type for the Wiki MCP
+ * write tools.
+ */
+export type WikiTokenPermission = 'create_wiki' | 'create_page' | 'write_wiki';

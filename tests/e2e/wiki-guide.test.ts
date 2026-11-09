@@ -33,10 +33,10 @@ before(async () => {
   // Missing guide reads as empty, so each test fails on its own assertion.
   guide = await readFile(GUIDE, 'utf8').catch(() => '');
   // A token with no wiki still authenticates: `initialize` needs no scope.
-  const res = await fetch(`${BASE_URL}/api/wiki-tokens`, {
+  const res = await fetch(`${BASE_URL}/api/tokens`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', cookie: jar.header },
-    body: JSON.stringify({ label: 'guide examples', wikiIds: [] }),
+    body: JSON.stringify({ label: 'guide examples', grants: { wiki: [] }, scope: { wikiIds: [] } }),
   });
   const body = await res.json() as { secret: string };
   assert.equal(res.status, 200, JSON.stringify(body));

@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { WikiTokenPermission } from '@/lib/wiki-rules';
-import type { TokenRow } from '@/lib/wiki-tokens';
+import type { TokenRow } from '@/lib/access-tokens';
 import DocIcon from '../../p/[slug]/docs/doc-icon';
 import ConfirmDelete, { TrashIcon } from '../../confirm-delete';
 import { problem, wikiCall } from '../wiki-api';
@@ -66,8 +66,10 @@ const PERMISSION_LABELS: Record<WikiTokenPermission, string> = {
   create_wiki: 'Create wiki', create_page: 'Create page', write_wiki: 'Write wiki',
 };
 const PERMISSION_KEYS: WikiTokenPermission[] = ['create_wiki', 'create_page', 'write_wiki'];
-const permissionSummary = (token: TokenRow) => token.permissions.length
-  ? token.permissions.map((key) => PERMISSION_LABELS[key]).join(', ') : 'Read only';
+/** This page edits only the Wiki grant of a token; the rest of its grants and scope are carried through untouched. */
+const wikiPermissions = (token: TokenRow) => (token.grants.wiki ?? []) as WikiTokenPermission[];
+const permissionSummary = (token: TokenRow) => wikiPermissions(token).length
+  ? wikiPermissions(token).map((key) => PERMISSION_LABELS[key]).join(', ') : 'Read only';
 
 function PermissionChoices({ chosen, onChange, disabled }: {
   chosen: WikiTokenPermission[]; onChange: (permissions: WikiTokenPermission[]) => void; disabled: boolean;
@@ -133,7 +135,7 @@ function CreateForm({ wikis, busy, run, onCreated }: { wikis: Wiki[]; busy: bool
     e.preventDefault();
     if (busy) return;
     setSending(true);
-    const created = await run(() => wikiCall<Created>('/api/wiki-tokens', 'POST', { label, wikiIds: chosen, permissions, expiresAt: endOfDay(expiry) }), 'Token created.');
+    const created = await run(() => wikiCall<Created>('/api/tokens', 'POST', { label, grants: { wiki: permissions }, scope: { wikiIds: chosen }, expiresAt: endOfDay(expiry) }), 'Token created.');
     setSending(false);
     if (created) { onCreated(created); setLabel(''); setChosen([]); setPermissions([]); setExpiry(''); }
   }
@@ -153,13 +155,16 @@ function CreateForm({ wikis, busy, run, onCreated }: { wikis: Wiki[]; busy: bool
 function EditForm({ token, wikis, busy, run, onClose }: { token: TokenRow; wikis: Wiki[]; busy: boolean; run: Run; onClose: () => void }) {
   const [label, setLabel] = useState(token.label);
   const [chosen, setChosen] = useState(token.wikis.map((w) => w.id));
-  const [permissions, setPermissions] = useState<WikiTokenPermission[]>(token.permissions);
+  const [permissions, setPermissions] = useState<WikiTokenPermission[]>(wikiPermissions(token));
   const [sending, setSending] = useState(false);
   async function save(e: React.FormEvent) {
     e.preventDefault();
     if (busy) return;
     setSending(true);
-    const saved = await run(() => wikiCall(`/api/wiki-tokens/${token.id}`, 'PATCH', { label, wikiIds: chosen, permissions }), 'Token saved.');
+    const saved = await run(() => wikiCall(`/api/tokens/${token.id}`, 'PATCH', {
+      label, grants: { ...token.grants, wiki: permissions },
+      scope: { projectIds: token.projects.map((p) => p.id), wikiIds: chosen },
+    }), 'Token saved.');
     setSending(false);
     if (saved) onClose();
   }
@@ -182,7 +187,7 @@ function RevokeButton({ token, busy, run }: { token: TokenRow; busy: boolean; ru
     <button type="button" className="delete-control icon-only" aria-label={`Delete token ${token.label}`} title="Delete token" disabled={busy} onClick={() => setConfirming(true)}><TrashIcon /></button>
     {confirming && <ConfirmDelete title="Delete token" name={token.label}
       note="This cannot be undone. Any client using it stops working now." onCancel={() => setConfirming(false)}
-      onConfirm={async () => { await run(() => wikiCall(`/api/wiki-tokens/${token.id}`, 'DELETE'), 'Token revoked. It stops working now.'); setConfirming(false); }}>
+      onConfirm={async () => { await run(() => wikiCall(`/api/tokens/${token.id}`, 'DELETE'), 'Token revoked. It stops working now.'); setConfirming(false); }}>
       <p>{prefixOf(token)}</p>
     </ConfirmDelete>}
   </>;
