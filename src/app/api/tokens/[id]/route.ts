@@ -1,6 +1,6 @@
 import { handle } from '@/lib/api';
 import { domainError } from '@/lib/errors';
-import { revokeToken, updateToken } from '@/lib/access-tokens';
+import { deleteToken, updateToken } from '@/lib/access-tokens';
 
 type Context = { params: Promise<{ id: string }> };
 
@@ -22,7 +22,7 @@ export async function PATCH(req: Request, { params }: Context) {
 export async function DELETE(_req: Request, { params }: Context) {
   const { id } = await params;
   return handle(`DELETE /api/tokens/${id}`, async (userId) => {
-    await revokeToken(userId, id);
+    await deleteToken(userId, id);
     return { ok: true };
   });
 }

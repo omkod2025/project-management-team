@@ -163,6 +163,15 @@ async function assertNotFound(sec: string, name: string, args: Record<string, un
   assert.equal(r.content[0]?.text, 'Not found.');
 }
 
+async function tokenRows(tokenId: string): Promise<number> {
+  const { rows } = await fx.client.query(
+    `SELECT (SELECT count(*) FROM pmt_access_tokens WHERE access_token_id = $1)
+          + (SELECT count(*) FROM pmt_access_token_grants WHERE token_grant_token_id = $1)
+          + (SELECT count(*) FROM pmt_access_token_scopes WHERE token_scope_token_id = $1) AS n`, [tokenId],
+  );
+  return Number(rows[0].n);
+}
+
 async function lastUsed(tokenId: string): Promise<number | null> {
   const { rows } = await fx.client.query('SELECT access_token_last_used_at FROM pmt_access_tokens WHERE access_token_id = $1', [tokenId]);
   const v = rows[0]?.access_token_last_used_at as Date | null;
@@ -467,26 +476,28 @@ describe('effective scope is decided on every request', () => {
 });
 
 describe('token life cycle', () => {
-  test('a token revoked by its owner is 401 next call, and the refused call leaves last_used_at alone', async () => {
+  test('a token deleted by its owner is 401 next call, and its row is gone', async () => {
     const t = await mintToken(aliceJar, [shared], 'revoke-own');
     assert.equal((await rpc(bearer(t.secret), 'tools/list')).status, 200);
     // Push last_used_at back so a call that was (wrongly) accepted would rewrite it.
     await fx.client.query(`UPDATE pmt_access_tokens SET access_token_last_used_at = now() - interval '1 hour' WHERE access_token_id = $1`, [t.id]);
     const stamped = await lastUsed(t.id);
+    assert.notEqual(stamped, null);
     assert.equal((await call(aliceJar, 'DELETE', `/api/tokens/${t.id}`)).status, 200);
     assert.equal((await rpc(bearer(t.secret), 'tools/list')).status, 401);
-    assert.equal(await lastUsed(t.id), stamped);
+    assert.equal(await tokenRows(t.id), 0, 'the deleted token is still stored');
   });
 
-  test('a token revoked by the install admin is 401 next call, last_used_at unchanged', async (t) => {
+  test('a token deleted by the install admin is 401 next call, and its row is gone', async (t) => {
     if (!installJar) return t.skip(SKIP_INSTALL);
     const tok = await mintToken(aliceJar, [shared], 'revoke-admin');
     assert.equal((await rpc(bearer(tok.secret), 'tools/list')).status, 200);
     await fx.client.query(`UPDATE pmt_access_tokens SET access_token_last_used_at = now() - interval '1 hour' WHERE access_token_id = $1`, [tok.id]);
     const stamped = await lastUsed(tok.id);
+    assert.notEqual(stamped, null);
     assert.equal((await call(installJar, 'DELETE', `/api/tokens/${tok.id}`)).status, 200);
     assert.equal((await rpc(bearer(tok.secret), 'tools/list')).status, 401);
-    assert.equal(await lastUsed(tok.id), stamped);
+    assert.equal(await tokenRows(tok.id), 0, 'the deleted token is still stored');
   });
 
   test('an expired token is 401', async () => {

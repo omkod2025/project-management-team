@@ -909,7 +909,7 @@ describe('access tokens', () => {
     assert.equal((await call(writerJar, 'POST', '/api/tokens', { label: 'old', expiresAt: '2001-01-01', grants: { wiki: [] } })).status, 422);
   });
 
-  test('the 21st active token is 422; a revoked one frees a slot', async () => {
+  test('the 21st token is 422; a deleted one frees a slot', async () => {
     for (let i = 0; i < 20; i++) {
       const r = await call(hoarderJar, 'POST', '/api/tokens', { label: `t${i}`, grants: { wiki: [] }, scope: { wikiIds: [] } });
       assert.equal(r.status, 200, JSON.stringify(r.body));
@@ -922,7 +922,7 @@ describe('access tokens', () => {
     assert.equal((await call(hoarderJar, 'POST', '/api/tokens', { label: 't20', grants: { wiki: [] }, scope: { wikiIds: [] } })).status, 200);
   });
 
-  test('the owner renames and rescopes; someone else gets 404 on edit and revoke', async () => {
+  test('the owner renames and rescopes; someone else gets 404 on edit and delete', async () => {
     const res = await call(writerJar, 'PATCH', `/api/tokens/${writerToken}`, { label: 'เครื่องใหม่', scope: { wikiIds: [] } });
     assert.equal(res.status, 200, JSON.stringify(res.body));
     assert.equal(res.body.label, 'เครื่องใหม่');
@@ -970,7 +970,7 @@ describe('access tokens', () => {
     assert.equal((await call(projectAdminJar, 'GET', '/api/tokens?all=1')).status, 404);
   });
 
-  test("the install admin sees every token with its owner email and revokes another user's", async (t) => {
+  test("the install admin sees every token with its owner email and deletes another user's", async (t) => {
     if (!installJar) return t.skip(SKIP_INSTALL);
     const all = await call(installJar, 'GET', '/api/tokens?all=1');
     assert.equal(all.status, 200);
@@ -979,22 +979,20 @@ describe('access tokens', () => {
     assert.equal(row.ownerEmail, owner.email);
     assert.ok(!JSON.stringify(all.body).includes('"secret"'));
     assert.equal((await call(installJar, 'DELETE', `/api/tokens/${ownerToken}`)).status, 200);
-    const { rows } = await fx.client.query(
-      'SELECT access_token_revoked_at, access_token_revoked_by FROM pmt_access_tokens WHERE access_token_id = $1', [ownerToken],
-    );
-    assert.ok(rows[0].access_token_revoked_at);
-    assert.equal(rows[0].access_token_revoked_by, installId);
+    const { rows } = await fx.client.query('SELECT 1 FROM pmt_access_tokens WHERE access_token_id = $1', [ownerToken]);
+    assert.equal(rows.length, 0, 'the deleted token is still stored');
   });
 
-  test('revoking is irreversible: the row records who and when, and the token cannot be edited back', async () => {
+  test('deleting is for good: no row, grant or scope is kept, it leaves the list, and it cannot be edited back', async () => {
     assert.equal((await call(writerJar, 'DELETE', `/api/tokens/${writerToken}`)).status, 200);
     const { rows } = await fx.client.query(
-      'SELECT access_token_revoked_at, access_token_revoked_by FROM pmt_access_tokens WHERE access_token_id = $1', [writerToken],
+      `SELECT (SELECT count(*) FROM pmt_access_tokens WHERE access_token_id = $1)
+            + (SELECT count(*) FROM pmt_access_token_grants WHERE token_grant_token_id = $1)
+            + (SELECT count(*) FROM pmt_access_token_scopes WHERE token_scope_token_id = $1) AS n`, [writerToken],
     );
-    assert.ok(rows[0].access_token_revoked_at);
-    assert.equal(rows[0].access_token_revoked_by, writer.id);
-    const t = (await call(writerJar, 'GET', '/api/tokens')).body.find((x: Row) => x.id === writerToken);
-    assert.equal(t.status, 'revoked');
+    assert.equal(Number(rows[0].n), 0, 'something of the deleted token is still stored');
+    assert.equal((await call(writerJar, 'GET', '/api/tokens')).body.some((x: Row) => x.id === writerToken), false);
+    assert.equal((await call(writerJar, 'DELETE', `/api/tokens/${writerToken}`)).status, 404);
     assert.equal((await call(writerJar, 'PUT', `/api/wikis/${tw}/tokens`, { tokenIds: [writerToken] })).status, 404);
     assert.equal((await call(writerJar, 'PATCH', `/api/tokens/${writerToken}`, { label: 'back', scope: { wikiIds: [] } })).status, 404);
   });

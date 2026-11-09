@@ -8,6 +8,7 @@ import {
   TOKEN_MODULES, scopeKindsInUse,
   type ModuleKey, type ScopeKind, type TokenGrants, type TokenModule,
 } from '@/lib/token-modules';
+import { DatePicker } from '@/components/date-picker';
 import { createToken, problem, updateToken, type CreatedToken } from './token-api';
 
 type Wiki = { id: string; title: string; role: WikiRole };
@@ -27,7 +28,11 @@ const PROJECT_ROLE: Record<VisibleProject['role'], string> = { admin: 'Admin', m
 const WIKI_ROLE: Record<WikiRole, string> = { install: 'Install admin', owner: 'Owner', write: 'Editor', read: 'Reader' };
 
 /** Today in Bangkok, as the `YYYY-MM-DD` a date input takes. */
-const todayInBangkok = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' }).format(new Date());
+const bangkokDay = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' });
+const todayInBangkok = () => bangkokDay.format(new Date());
+
+/** The Bangkok day a stored expiry falls on — the day the person picked, since it is stored as that day's end. */
+const dayInBangkok = (iso: string) => bangkokDay.format(new Date(iso));
 
 /** The end of the chosen day in Bangkok, which is the day the person picked. */
 const endOfDay = (date: string) => (date ? `${date}T23:59:59+07:00` : null);
@@ -103,6 +108,17 @@ function ModuleCard({ mod, checked, onChange }: { mod: TokenModule; checked: boo
   </label>;
 }
 
+/** Select all with its count. It follows the boxes below it: part-ticked is indeterminate, all ticked is checked. */
+function SelectAll({ picked, total, hint, onChange, className }: {
+  picked: number; total: number; hint?: string; onChange: (on: boolean) => void; className?: string;
+}) {
+  return <div className={`tk-all-row${className ? ` ${className}` : ''}`}>
+    <Check all label="Select all" hint={hint} checked={total > 0 && picked === total}
+      indeterminate={picked > 0 && picked < total} onChange={onChange} />
+    <span className="tk-count">{picked} of {total} selected</span>
+  </div>;
+}
+
 /** One scope kind's list: Select all with its count, then every item the owner can see. */
 function ScopeGroup({ title, usedBy, items, chosen, onChange, empty }: {
   title: string; usedBy: string;
@@ -113,11 +129,7 @@ function ScopeGroup({ title, usedBy, items, chosen, onChange, empty }: {
   return <fieldset className="tk-grp">
     <legend><span>{title}</span> <span className="tk-grp-for">for {usedBy}</span></legend>
     {items.length ? <>
-      <div className="tk-all-row">
-        <Check all label="Select all" checked={picked === items.length} indeterminate={picked > 0 && picked < items.length}
-          onChange={(on) => onChange(on ? items.map((i) => i.id) : [])} />
-        <span className="tk-count">{picked} of {items.length} selected</span>
-      </div>
+      <SelectAll picked={picked} total={items.length} onChange={(on) => onChange(on ? items.map((i) => i.id) : [])} />
       {items.map((i) => <Check key={i.id} label={i.name} badge={i.badge} note={i.note} checked={chosen.includes(i.id)}
         onChange={(on) => onChange(toggle(chosen, i.id, on))} />)}
     </> : <p className="tk-empty-line">{empty}</p>}
@@ -165,6 +177,15 @@ export default function TokenStepper({ projects, wikis, token, onDone }: Props) 
     setPermissions((p) => ({ ...p, [key]: toggle(p[key] ?? [], permission, on) }));
   }
 
+  /** Select all, for the given modules: every Create/Write permission, or none. Read is not one of them. */
+  function chooseEveryPermission(mods: readonly TokenModule[], on: boolean) {
+    setPermissions((p) => {
+      const next = { ...p };
+      for (const m of mods) next[m.key] = on ? m.permissions.map((x) => x.key) : [];
+      return next;
+    });
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (busy) return;
@@ -186,6 +207,11 @@ export default function TokenStepper({ projects, wikis, token, onDone }: Props) 
       setBusy(false);
     }
   }
+
+  const chosenModules = TOKEN_MODULES.filter((m) => chosen.includes(m.key));
+  const pickedIn = (m: TokenModule) => m.permissions.filter((x) => (permissions[m.key] ?? []).includes(x.key)).length;
+  const permissionTotal = chosenModules.reduce((n, m) => n + m.permissions.length, 0);
+  const permissionPicked = chosenModules.reduce((n, m) => n + pickedIn(m), 0);
 
   const canNext = step === 0 ? chosen.length > 0 : step === 3 ? label.trim().length > 0 : true;
   const usedBy = (kind: ScopeKind) => joinNames(modulesOfKind(chosen, kind).map((m) => m.label));
@@ -210,33 +236,49 @@ export default function TokenStepper({ projects, wikis, token, onDone }: Props) 
     {step === 1 && <div className="tk-step">
       <h3 className="tk-step-head">What can it do in each module?</h3>
       <p className="tk-step-hint">Read is always on. Create and Write are chosen per module, and never exceed your own access.</p>
-      {TOKEN_MODULES.filter((m) => chosen.includes(m.key)).map((m) => <fieldset key={m.key} className="tk-grp">
-        <legend>{m.label}</legend>
-        <Check locked label="Read" hint={m.readHint} checked />
-        {m.permissions.map((p) => <Check key={p.key} label={p.label} hint={p.hint}
-          checked={(permissions[m.key] ?? []).includes(p.key)} onChange={(on) => choosePermission(m.key, p.key, on)} />)}
-      </fieldset>)}
+      {permissionTotal > 0 && <SelectAll className="tk-all-global" picked={permissionPicked} total={permissionTotal}
+        hint="Every Create and Write permission, in every module chosen" onChange={(on) => chooseEveryPermission(chosenModules, on)} />}
+      <div className="tk-grps tk-grps-mods">
+        {chosenModules.map((m) => <fieldset key={m.key} className="tk-grp">
+          <legend>{m.label}</legend>
+          {m.permissions.length > 0 && <SelectAll picked={pickedIn(m)} total={m.permissions.length}
+            onChange={(on) => chooseEveryPermission([m], on)} />}
+          <Check locked label="Read" hint={m.readHint} checked />
+          {m.permissions.map((p) => <Check key={p.key} label={p.label} hint={p.hint}
+            checked={(permissions[m.key] ?? []).includes(p.key)} onChange={(on) => choosePermission(m.key, p.key, on)} />)}
+        </fieldset>)}
+      </div>
     </div>}
 
     {step === 2 && <div className="tk-step">
       <h3 className="tk-step-head">Where can it be used?</h3>
       <p className="tk-step-hint">Only what you can see is offered. Select all chooses what is listed now; a project or wiki made later is not added.</p>
+      <div className="tk-grps tk-grps-scope">
       {kinds.has('project') && <ScopeGroup title="Projects" usedBy={usedBy('project')}
         items={projects.map((p) => ({ id: p.id, name: p.name, badge: PROJECT_ROLE[p.role], note: projectNote(p.role, grants) }))}
         chosen={projectIds} onChange={setProjectIds} empty="You are not in any project, so this token reaches none." />}
       {kinds.has('wiki') && <ScopeGroup title="Wikis" usedBy={usedBy('wiki')}
         items={wikis.map((w) => ({ id: w.id, name: w.title, badge: WIKI_ROLE[w.role], note: wikiNote(w.role, grants) }))}
         chosen={wikiIds} onChange={setWikiIds} empty="You cannot see any wiki yet, so this token reaches none." />}
+      </div>
     </div>}
 
     {step === 3 && <div className="tk-step">
       <h3 className="tk-step-head">Name it and check</h3>
       <div className="tk-fields">
-        <label className="tk-field"><span className="tk-field-label">Label</span>
-          <input value={label} required maxLength={MAX_LABEL} disabled={busy} placeholder="e.g. Work laptop"
+        <label className="tk-field"><span className="tk-field-label"><span id={`${headId}-label`}>Label</span><span className="tk-req" aria-hidden="true">*</span></span>
+          <input aria-labelledby={`${headId}-label`} value={label} required maxLength={MAX_LABEL} disabled={busy} placeholder="e.g. Work laptop"
             onChange={(e) => setLabel(e.target.value)} /></label>
-        {!editing && <label className="tk-field"><span className="tk-field-label">Expires <span className="tk-opt">(optional)</span></span>
-          <input type="date" value={expiry} min={today} disabled={busy} onChange={(e) => setExpiry(e.target.value)} /></label>}
+        {editing ? <div className="tk-field">
+          <span id={`${headId}-expires`} className="tk-field-label">Expires</span>
+          <DatePicker value={token.expiresAt ? dayInBangkok(token.expiresAt) : null} disabled placeholder="Never"
+            aria-labelledby={`${headId}-expires`} className="h-9" onChange={() => undefined} />
+          <span id={`${headId}-expires-note`} className="tk-field-note">Set when the token was made. It cannot be changed.</span>
+        </div> : <div className="tk-field">
+          <span id={`${headId}-expires`} className="tk-field-label">Expires <span className="tk-opt">(optional)</span></span>
+          <DatePicker value={expiry || null} min={today} disabled={busy} placeholder="Never"
+            aria-labelledby={`${headId}-expires`} className="h-9" onChange={(next) => setExpiry(next ?? '')} />
+        </div>}
       </div>
       <dl className="tk-summary">
         {TOKEN_MODULES.filter((m) => chosen.includes(m.key)).map((m) => {

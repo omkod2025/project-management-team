@@ -120,20 +120,14 @@
 .docs-tools { display: flex; flex-wrap: wrap; align-items: end; gap: 16px; margin: 24px 0 12px; }
 .docs-search { display: grid; gap: 6px; font-size: 13px; width: 300px; max-width: 100%; }
 .docs-tools > span { padding-bottom: 8px; }
-/* Registers: a white panel on paper, the header row on the house table head. */
-.docs-table-wrap { overflow-x: auto; background: var(--color-canvas); border: 1px solid var(--color-hairline); border-radius: var(--radius-lg); }
-.docs-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 14px; }
-.docs-table th, .docs-table td { padding: 12px 16px; border-bottom: 1px solid var(--color-hairline); overflow-wrap: anywhere; }
+/* Registers are DataTable (src/components/data-table.css); this is only what
+   a docs register adds — the title column's share, its link, the date. */
 .docs-table th:first-child { width: 45%; }
-/* Column heads are English chrome: the 12px eyebrow with its tracking. */
-.docs-table thead th { background: var(--color-table-head); border-bottom-color: var(--color-table-head-line); color: var(--color-ink-muted); font-weight: 600; font-size: 12px; letter-spacing: .125px; white-space: nowrap; }
-.docs-table tbody th { font-weight: 500; line-height: 1.6; }
-.docs-table tbody tr:hover { background: var(--cu-hover); }
-.docs-table tbody tr:last-child :is(th, td) { border-bottom: 0; }
+.docs-table :is(th, td) { overflow-wrap: anywhere; }
+.data-table.docs-table tbody th { font-weight: 500; line-height: 1.6; }
 .docs-table tbody th a { color: var(--color-ink); font-weight: 600; text-decoration: none; }
 .docs-table tbody th a:hover { color: var(--color-primary); text-decoration: underline; text-underline-offset: 3px; }
 .docs-table td:last-child { white-space: nowrap; }
-.docs-table :is(td, th) { font-variant-numeric: tabular-nums; }
 .docs-empty { padding: 32px; border: 1px solid var(--color-hairline); border-radius: var(--radius-xl); background: var(--color-canvas); }
 .docs-empty h2 { font-size: 17px; font-weight: 600; margin: 0 0 6px; }
 .docs-empty p { margin: 0; color: var(--color-ink-muted); }

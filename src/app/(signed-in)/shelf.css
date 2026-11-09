@@ -46,8 +46,9 @@
   /* One gutter, obeyed by the head, the block heads and every cell, so the
      title, the block names and the first project name sit on one line. */
   --sh-pad: 28px;
-  --sh-measure: 1240px;
-  --sh-gutter: max(var(--sh-pad), (100% - var(--sh-measure)) / 2);
+  /* A table page: the work takes 90% of its pane, centred (DataTable's
+     `.data-page`, read here as a gutter because the rail shares the window). */
+  --sh-gutter: max(var(--sh-pad), 5%);
 
   display: grid;
   grid-template-columns: 264px minmax(0, 1fr);
@@ -302,48 +303,15 @@
 
 /* ---- the run ---- */
 
-table.sh-run {
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-  background: var(--sh-panel);
-  border: 1px solid var(--sh-line);
-  border-radius: var(--sh-r-block);
-  /* So the first and last rows' grounds are clipped to the block's corners
-     rather than squaring them off on hover. */
-  overflow: hidden;
-}
-
-.sh-run thead th {
-  height: 34px;
-  padding: 0 14px;
-  text-align: left;
-  white-space: nowrap;
-  background: var(--color-table-head);
-  color: var(--sh-ink-soft);
-  border-bottom: 1px solid var(--color-table-head-line);
-  font-family: var(--font-read), system-ui, sans-serif;
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: normal;
-  text-transform: none;
-}
-.sh-run tbody td {
-  height: 56px;
-  padding: 0 14px;
-  vertical-align: middle;
-  border-bottom: 1px solid var(--sh-line-soft);
-}
-.sh-run tbody tr:last-child td { border-bottom: 0; }
-.sh-run tbody tr:hover td { background: var(--sh-hover); }
-
-.sh-run th:first-child, .sh-run td:first-child { padding-left: 16px; }
-.sh-run th:last-child, .sh-run td:last-child { padding-right: 16px; }
+/* The skin is DataTable's (src/components/data-table.css); a run adds only
+   its taller rows, so a tile and a meter sit in each without crowding. */
+.sh-run tbody td { height: 56px; padding-block: 0; vertical-align: middle; }
 
 /* The name takes the slack, so the three facts about a project are given all
    the width they can use before it does — otherwise a five-row shelf on a wide
    monitor puts a hand's width of nothing between a project and its counts. */
-.sh-col-num { width: 110px; text-align: right; }
+.sh-col-num { width: 110px; }
+.sh-run .sh-col-num { text-align: right; }
 .sh-run thead th.sh-col-num { text-align: right; }
 .sh-col-meter { width: 230px; }
 .sh-col-crew { width: 190px; }
@@ -422,7 +390,7 @@ table.sh-run {
   letter-spacing: 0.01em;
 }
 .sh-crew .sh-avatar + .sh-avatar { margin-left: -7px; }
-.sh-run tbody tr:hover .sh-avatar { box-shadow: 0 0 0 2px var(--sh-hover); }
+.sh-run tbody tr:hover .sh-avatar { box-shadow: 0 0 0 2px rgb(0 0 0 / 3%); }
 .sh-avatar-rest { background: var(--sh-panel-soft); color: var(--sh-ink-faint); }
 .sh-avatar-lg {
   width: 32px;

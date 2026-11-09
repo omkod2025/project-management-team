@@ -3,6 +3,7 @@ import DocIcon from "./doc-icon";
 
 import { useRef, useState } from 'react';
 import type { DocSummary } from '@/lib/doc-rules';
+import { DataTable } from '@/components/data-table';
 import '../list.css';
 import './docs.css';
 import AppHeader from '../../../app-header';
@@ -69,7 +70,7 @@ export default function DocsView({ project, initialDocs, canCreate }: Props) {
         <AppHeader title={project.name} navLabel="Project views"
           views={projectViews(project.slug, 'Docs', { canSettings: canCreate })} />
 
-        <div className="docs-content">
+        <div className="docs-content data-page">
           <div className="docs-heading">
             <div><h1>Docs</h1><p>Scope, decisions and reference material for {project.name}.</p></div>
             {canCreate && <button ref={newButton} className="docs-primary" type="button"
@@ -99,23 +100,20 @@ export default function DocsView({ project, initialDocs, canCreate }: Props) {
             <span className="docs-muted" role="status">{visible.length} {visible.length === 1 ? 'document' : 'documents'}</span>
             {query && <button type="button" onClick={() => setQuery('')}><DocIcon name="close" />Clear search</button>}
           </div>
-          <div className="docs-table-wrap">
-            <table className="docs-table">
-              <caption className="docs-sr-only">Documents in {project.name}</caption>
+          {visible.length > 0 && <DataTable caption={`Documents in ${project.name}`} className="docs-table">
               <thead><tr><th scope="col">Document</th><th scope="col">Version</th><th scope="col">Created by</th><th scope="col">Updated</th></tr></thead>
               <tbody>{visible.map((doc) => <tr key={doc.id}>
                 <th scope="row"><a href={`${base}/docs?doc=${doc.id}`}>{doc.title}</a></th><td>{doc.version || '—'}</td>
                 <td>{doc.createdByName ?? 'Former member'}</td>
                 <td><time dateTime={doc.updatedAt}>{new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeZone: 'Asia/Bangkok' }).format(new Date(doc.updatedAt))}</time></td>
               </tr>)}</tbody>
-            </table>
-            {visible.length === 0 && <div className="docs-empty">
+          </DataTable>}
+          {visible.length === 0 && <div className="docs-empty">
               <h2>{query.trim() ? 'No matching documents' : 'No documents yet'}</h2>
               <p>{query.trim() ? 'Try another title or version, or clear the search.' : canCreate
                 ? 'Create the first document to keep this project’s knowledge together.'
                 : 'A project admin can create the first document.'}</p>
             </div>}
-          </div>
         </div>
       </main>
     </div>

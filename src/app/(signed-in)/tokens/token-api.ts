@@ -36,7 +36,7 @@ export function updateToken(id: string, body: { label: string; grants: TokenGran
   return tokenCall<TokenRow>(`/api/tokens/${id}`, 'PATCH', body);
 }
 
-export function revokeToken(id: string) {
+export function deleteToken(id: string) {
   return tokenCall<unknown>(`/api/tokens/${id}`, 'DELETE');
 }
 

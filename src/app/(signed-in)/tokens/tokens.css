@@ -22,13 +22,31 @@
 }
 .tk-page > header.head.app-head { margin: 0 -24px 0; }
 
-.tk-body { max-width: 1080px; margin: 0 auto; padding-top: 28px; }
+/* The list is a table page (`.data-page`, 90%); the editor pages take 80% of
+   the window. Both centred; a phone takes the full width inside its gutter. */
+.tk-body { margin: 0 auto; padding-top: 28px; }
+.tk-body-narrow { width: 80vw; max-width: 100%; }
 
 /* ---- intro ---- */
 
-.tk-intro { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; max-width: 780px; }
+.tk-intro { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
 .tk-intro p { margin: 0; max-width: 60ch; color: var(--color-ink-muted); }
 .tk-intro-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 8px; }
+/* The editor pages: a quiet way back to the list, where the intro text was. */
+.tk-back {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  color: var(--color-ink-muted);
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+}
+.tk-back:hover { color: var(--color-ink); }
+.tk-back:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; border-radius: var(--radius-xs); }
+.tk-intro + .tk-panel { margin-top: 16px; }
+a.tk-primary { text-decoration: none; }
+
 .tk-notice { min-height: 1.5em; margin: 12px 0 0; color: var(--color-ink-muted); font-size: 13px; }
 .tk-notice:empty { min-height: 0; margin: 0; }
 
@@ -93,7 +111,6 @@
 /* ---- panels: the stepper and the secret ---- */
 
 .tk-panel {
-  max-width: 780px;
   margin-top: 20px;
   padding: 24px;
   box-sizing: border-box;
@@ -113,8 +130,10 @@
   color: var(--color-ink-faint);
   font-size: 13px;
 }
-.tk-steps li { display: flex; flex: 0 1 auto; align-items: center; gap: 6px; min-width: 0; white-space: nowrap; }
-.tk-steps li + li::before { content: ''; flex: 0 1 32px; min-width: 8px; height: 1px; margin-right: 2px; background: var(--color-hairline); }
+.tk-steps li { display: flex; flex: 0 0 auto; align-items: center; gap: 6px; min-width: 0; white-space: nowrap; }
+/* The rail runs the panel's width: each later step's connector takes the slack. */
+.tk-steps li + li { flex: 1 1 auto; }
+.tk-steps li + li::before { content: ''; flex: 1 1 32px; min-width: 8px; height: 1px; margin-right: 2px; background: var(--color-hairline); }
 .tk-step-n {
   display: inline-flex;
   flex: 0 0 auto;
@@ -136,7 +155,7 @@
 
 .tk-step { min-width: 0; margin: 0; padding: 0; border: 0; }
 .tk-step-head { display: block; margin: 0 0 4px; padding: 0; font-size: 17px; font-weight: 600; line-height: 1.4; }
-.tk-step-hint { margin: 0 0 16px; color: var(--color-ink-muted); font-size: 14px; }
+.tk-step-hint { max-width: 72ch; margin: 0 0 16px; color: var(--color-ink-muted); font-size: 14px; }
 
 /* Step 1: one card per module. The checkbox stays real and visible, so the
    card is a large label for it rather than a fake control. */
@@ -169,10 +188,14 @@
 }
 .tk-page input[type='checkbox']:disabled { cursor: default; }
 
-/* Steps 2 and 3: a group per module or scope kind. */
+/* Steps 2 and 3: a group per module or scope kind, side by side at the
+   panel's full width — modules three across, scope kinds two. */
+.tk-grps { display: grid; gap: 12px; }
+.tk-grps-mods { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.tk-grps-scope { grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
 .tk-grp {
   min-width: 0;
-  margin: 0 0 10px;
+  margin: 0;
   padding: 10px 16px 12px;
   border: 1px solid var(--color-hairline);
   border-radius: var(--radius-md);
@@ -190,6 +213,9 @@
 
 .tk-all-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 4px; border-bottom: 1px solid var(--color-hairline); }
 .tk-all .tk-chk-label { font-weight: 500; }
+.tk-all .tk-chk-hint { font-weight: 400; }
+/* The Permissions step's own Select all, over every module group. */
+.tk-all-global { margin: 0 0 12px; padding: 2px 16px 4px; border: 1px solid var(--color-hairline); border-radius: var(--radius-md); }
 .tk-count { flex: 0 0 auto; color: var(--color-ink-muted); font-size: 13px; font-variant-numeric: tabular-nums; }
 
 /* A role, as the neutral flag: paper wash, hairline border, Stone 12px/600. */
@@ -217,6 +243,9 @@
 .tk-field { display: grid; gap: 6px; }
 .tk-field-label { color: var(--color-ink-secondary); font-size: 13px; font-weight: 500; }
 .tk-opt { color: var(--color-ink-faint); font-weight: 400; }
+.tk-field-note { color: var(--color-ink-muted); font-size: 13px; }
+/* Required: a caution, so danger red — never vermilion (CLAUDE.md, colour law). */
+.tk-req { margin-left: 2px; color: var(--color-danger); }
 .tk-field input {
   height: 36px;
   min-width: 0;
@@ -254,12 +283,12 @@
 /* ---- the secret, once ---- */
 
 .tk-secret h2 { margin: 0 0 6px; font-size: 17px; font-weight: 600; }
-.tk-secret > p { margin: 0 0 8px; color: var(--color-ink-secondary); }
+.tk-secret > p { max-width: 72ch; margin: 0 0 8px; color: var(--color-ink-secondary); }
 .tk-snippet { margin-top: 14px; }
 .tk-snippet-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; font-weight: 500; }
 .tk-snippet-head .tk-btn { min-height: 30px; padding: 2px 12px; font-size: 13px; }
 .tk-snippet pre { margin: 6px 0 0; padding: 10px 12px; border: 1px solid var(--color-hairline); border-radius: var(--radius-xs); background: var(--color-paper); }
-.tk-snippet code, .tk-table code { font-family: var(--font-mono); font-size: 13px; }
+.tk-snippet code { font-family: var(--font-mono); font-size: 13px; }
 .tk-snippet pre code { white-space: pre-wrap; overflow-wrap: anywhere; }
 .tk-copied { min-height: 1.4em; margin: 4px 0 0; color: var(--color-ink-muted); font-size: 13px; }
 .tk-guide-line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 14px 0 0; color: var(--color-ink-muted); font-size: 14px; }
@@ -271,21 +300,8 @@
 .tk-muted { color: var(--color-ink-muted); font-size: 14px; }
 .tk-empty { margin: 0; padding: 24px; border: 1px solid var(--color-hairline); border-radius: var(--radius-xl); background: var(--color-canvas); color: var(--color-ink-muted); }
 
-.tk-table-wrap { position: relative; overflow-x: auto; border: 1px solid var(--color-hairline); border-radius: var(--radius-lg); background: var(--color-canvas); }
-.tk-table { width: 100%; border-collapse: collapse; font-size: 14px; }
-.tk-table thead th {
-  padding: 10px 16px;
-  border-bottom: 1px solid var(--color-table-head-line);
-  background: var(--color-table-head);
-  color: var(--color-ink-muted);
-  font-size: 12px;
-  font-weight: 600;
-  text-align: left;
-  white-space: nowrap;
-}
-.tk-table td, .tk-table tbody th { padding: 12px 16px; border-bottom: 1px solid var(--color-hairline); text-align: left; vertical-align: top; }
-.tk-table tbody tr:last-child > * { border-bottom: 0; }
-.tk-table tbody th { font-weight: 600; overflow-wrap: anywhere; }
+/* The skin is DataTable's (src/components/data-table.css); this is only what the token table adds. */
+.tk-table :is(td, tbody th) { vertical-align: top; }
 .tk-table time { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .tk-cell-list { margin: 0; padding: 0; list-style: none; }
 .tk-cell-list li + li { margin-top: 2px; }
@@ -303,23 +319,24 @@
   .tk-page { padding: 0 16px 40px; }
   .tk-page > header.head.app-head { margin: 0 -16px; }
   .tk-body { padding-top: 20px; }
+  .tk-body-narrow { width: auto; }
   .tk-intro { flex-direction: column; gap: 14px; }
   .tk-panel { padding: 18px 16px; }
   .tk-steps li:not(.on) > span:last-child { display: none; }
-  .tk-mods { grid-template-columns: 1fr; }
+  .tk-mods, .tk-grps-mods, .tk-grps-scope { grid-template-columns: 1fr; }
   .tk-fields { grid-template-columns: 1fr; }
   .tk-foot { flex-wrap: wrap; }
 
   /* One record per row: the head goes, each cell names itself. */
-  .tk-table-wrap { overflow: visible; border: 0; background: transparent; }
-  .tk-table, .tk-table tbody, .tk-table tr, .tk-table td, .tk-table tbody th { display: block; }
-  .tk-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-  .tk-table tbody tr { margin-bottom: 10px; padding: 6px 0; border: 1px solid var(--color-hairline); border-radius: var(--radius-lg); background: var(--color-canvas); }
-  .tk-table td, .tk-table tbody th { display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: 10px; padding: 6px 16px; border: 0; }
-  .tk-table tbody th { display: block; padding-top: 10px; font-size: 15px; }
-  .tk-table td::before { content: attr(data-label); color: var(--color-ink-muted); font-size: 13px; }
-  .tk-table td.tk-actions-cell { display: block; width: auto; padding-bottom: 10px; }
-  .tk-table code { overflow-wrap: anywhere; }
+  .tk-page .data-table-wrap { overflow: visible; border: 0; background: transparent; }
+  .tk-page .tk-table tbody tr:hover > * { background: transparent; }
+  .tk-page .tk-table, .tk-page .tk-table tbody, .tk-page .tk-table tr, .tk-page .tk-table td, .tk-page .tk-table tbody th { display: block; }
+  .tk-page .tk-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .tk-page .tk-table tbody tr { margin-bottom: 10px; padding: 6px 0; border: 1px solid var(--color-hairline); border-radius: var(--radius-lg); background: var(--color-canvas); }
+  .tk-page .tk-table td, .tk-page .tk-table tbody th { display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: 10px; padding: 6px 16px; border: 0; }
+  .tk-page .tk-table tbody th { display: block; padding-top: 10px; font-size: 15px; }
+  .tk-page .tk-table td::before { content: attr(data-label); color: var(--color-ink-muted); font-size: 13px; }
+  .tk-page .tk-table td.tk-actions-cell { display: block; width: auto; padding-bottom: 10px; }
 }
 
 @media (max-width: 650px) {

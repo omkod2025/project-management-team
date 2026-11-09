@@ -14,6 +14,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { chromium, type Browser, type BrowserContext } from '@playwright/test';
 import { setup, signIn, BASE_URL, type Jar } from '../helpers/harness.ts';
+import { datePicker, pickDate } from '../helpers/date-picker.ts';
 
 const LABEL = 'แล็ปท็อปที่ทำงาน';
 const WIKI_TITLE = 'คู่มือโทเค็น';
@@ -52,9 +53,12 @@ test('Tokens / MCP: make a token across three modules, edit one away, and the ol
     await page.goto(`${BASE_URL}/wiki/tokens`);
     await page.waitForURL(`${BASE_URL}/tokens`);
 
-    await page.getByRole('button', { name: 'Make a token', exact: true }).click();
+    // Making a token is a page of its own, with no token tables on it.
+    await page.getByRole('link', { name: 'Make a token', exact: true }).click();
+    await page.waitForURL(`${BASE_URL}/tokens/new`);
     const stepper = page.getByRole('form', { name: 'New token' });
     await stepper.waitFor();
+    assert.equal(await page.getByRole('table').count(), 0, 'the new-token page still shows a token table');
 
     // 1. Modules: Next waits for a choice.
     const next = stepper.getByRole('button', { name: 'Next', exact: true });
@@ -68,8 +72,38 @@ test('Tokens / MCP: make a token across three modules, edit one away, and the ol
       const read = group(name).getByRole('checkbox', { name: 'Read', exact: true });
       assert.equal(await read.isChecked() && await read.isDisabled(), true, `${name}: Read is not ticked and locked`);
     }
-    await group('List').getByRole('checkbox', { name: 'Write', exact: true }).check();
-    await group('Wiki').getByRole('checkbox', { name: 'Create page', exact: true }).check();
+
+    // Select all, both forms. It controls Create and Write only (2 + 3 + 3 here),
+    // and follows the boxes: part-ticked is indeterminate, all ticked is checked.
+    const everyAll = stepper.locator('.tk-all-global').getByRole('checkbox', { name: 'Select all', exact: true });
+    const moduleAll = (name: string) => group(name).getByRole('checkbox', { name: 'Select all', exact: true });
+    const state = async (box: typeof everyAll) =>
+      box.evaluate((el: HTMLInputElement) => (el.indeterminate ? 'some' : el.checked ? 'all' : 'none'));
+    const box = (mod: string, name: string) => group(mod).getByRole('checkbox', { name, exact: true });
+    await stepper.getByText('0 of 8 selected', { exact: true }).waitFor();
+    assert.equal(await state(everyAll), 'none');
+
+    await box('List', 'Write').check();
+    assert.equal(await state(moduleAll('List')), 'some', 'List: one of two is not indeterminate');
+    assert.equal(await state(everyAll), 'some', 'one of eight is not indeterminate');
+    await box('List', 'Create task').check();
+    assert.equal(await state(moduleAll('List')), 'all', 'List: ticking both one by one does not check its Select all');
+
+    await moduleAll('Docs').check();
+    for (const name of ['Create doc', 'Create page', 'Write']) assert.equal(await box('Docs', name).isChecked(), true, `Docs: ${name}`);
+    await group('Docs').getByText('3 of 3 selected', { exact: true }).waitFor();
+    assert.equal(await state(moduleAll('Wiki')), 'none');
+
+    await everyAll.check();
+    await stepper.locator('.tk-all-global').getByText('8 of 8 selected', { exact: true }).waitFor();
+    for (const name of ['List', 'Docs', 'Wiki']) assert.equal(await state(moduleAll(name)), 'all', `${name}: global Select all missed it`);
+    assert.equal(await box('Wiki', 'Read').isChecked(), true, 'Read came unticked');
+    await everyAll.uncheck();
+    assert.equal(await box('Wiki', 'Create wiki').isChecked(), false);
+    assert.equal(await box('Wiki', 'Read').isChecked(), true, 'Select all unticked Read');
+
+    await box('List', 'Write').check();
+    await box('Wiki', 'Create page').check();
     await next.click();
 
     // 3. Where: Select all chooses every listed project and counts it.
@@ -88,7 +122,7 @@ test('Tokens / MCP: make a token across three modules, edit one away, and the ol
     await stepper.getByLabel('Label', { exact: true }).fill(LABEL);
     // Expiry is the end of the chosen day in Bangkok: 23:59:59+07:00.
     const expiry = new Date(Date.now() + 30 * 86_400_000).toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
-    await stepper.getByLabel(/^Expires/).fill(expiry);
+    await pickDate(page, expiry, datePicker(stepper, 'Expires'));
     await stepper.getByRole('button', { name: 'Create token', exact: true }).click();
 
     await page.getByRole('heading', { name: 'Copy your token now' }).waitFor();
@@ -99,6 +133,7 @@ test('Tokens / MCP: make a token across three modules, edit one away, and the ol
     assert.match(await page.locator('.tk-snippet code').nth(2).innerText(), /^claude mcp add --transport http t-timeline /);
     assert.ok(config.includes(secret));
     await page.getByRole('button', { name: 'Done, I have copied it' }).click();
+    await page.waitForURL(`${BASE_URL}/tokens`);
     assert.equal((await page.content()).includes(secret), false, 'the secret is still on the page after Done');
     await page.reload();
     assert.equal((await page.content()).includes(secret), false, 'the secret came back on reload');
@@ -107,11 +142,15 @@ test('Tokens / MCP: make a token across three modules, edit one away, and the ol
     await row.waitFor();
     const text = await row.innerText();
     for (const word of ['List', 'Docs', 'Wiki', WIKI_TITLE]) assert.ok(text.includes(word), `the row does not show ${word}`);
+    // The table has its own Expired column, with the end of the chosen Bangkok day.
+    assert.equal(await row.locator('td[data-label="Expired"] time').getAttribute('datetime'), `${expiry}T16:59:59.000Z`);
 
-    // Edit opens prefilled at step 1; dropping the Wiki drops its scope.
-    await row.getByRole('button', { name: 'Edit', exact: true }).click();
+    // Edit opens its own page prefilled at step 1; dropping the Wiki drops its scope.
+    await row.getByRole('link', { name: 'Edit', exact: true }).click();
+    await page.waitForURL(/\/tokens\/[0-9a-f-]{36}\/edit$/);
     const edit = page.getByRole('form', { name: `Edit ${LABEL}` });
     await edit.waitFor();
+    assert.equal(await page.getByRole('table').count(), 0, 'the edit page still shows a token table');
     assert.equal(await edit.getByRole('checkbox', { name: 'Wiki', exact: true }).isChecked(), true);
     await edit.getByRole('checkbox', { name: 'Wiki', exact: true }).uncheck();
     const editNext = edit.getByRole('button', { name: 'Next', exact: true });
@@ -120,8 +159,12 @@ test('Tokens / MCP: make a token across three modules, edit one away, and the ol
     await editNext.click();
     assert.equal(await edit.getByRole('group', { name: /^Wikis/ }).count(), 0, 'Where still offers wikis without the Wiki module');
     await editNext.click();
+    // Step 4 shows the expiry it was made with, and it cannot be changed.
+    const shown = datePicker(edit, 'Expires');
+    assert.equal(await shown.getAttribute('data-value'), expiry);
+    assert.equal(await shown.isDisabled(), true, 'the expiry can be edited');
     await edit.getByRole('button', { name: 'Save', exact: true }).click();
-    await edit.waitFor({ state: 'detached' });
+    await page.waitForURL(`${BASE_URL}/tokens`);
     await row.getByRole('cell').filter({ hasText: 'List' }).first().waitFor();
     await page.waitForFunction((title) => {
       const cells = [...document.querySelectorAll('tr')].find((tr) => tr.textContent?.includes('แล็ปท็อปที่ทำงาน'));

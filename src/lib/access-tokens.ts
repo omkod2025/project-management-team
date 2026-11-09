@@ -304,20 +304,19 @@ export async function allowWikiOnMyTokens(userId: string, wikiId: string, tokenI
 }
 
 /**
- * Revoke, irreversibly (spec §6a): the owner, or the install admin for any
- * token. Anyone else learns nothing — the same 404 as an unknown id.
- * Revoking an already revoked token keeps the first revocation's record.
+ * Delete, for good (D-102): the owner, or the install admin for any token.
+ * The row goes, and its grants and scopes with it (ON DELETE CASCADE); no
+ * revoked copy is kept. Anyone else learns nothing — the same 404 as an
+ * unknown id.
  */
-export async function revokeToken(userId: string, tokenId: string): Promise<void> {
+export async function deleteToken(userId: string, tokenId: string): Promise<void> {
   if (!isUuid(tokenId)) throw noToken();
   const [viewer, [row]] = await Promise.all([
     wikiViewer(userId),
     db.select({ ownerId: accessTokens.ownerId }).from(accessTokens).where(eq(accessTokens.id, tokenId)).limit(1),
   ]);
   if (!row || (row.ownerId !== userId && !isInstallAdmin(viewer))) throw noToken();
-  await db.update(accessTokens)
-    .set({ revokedAt: new Date(), revokedBy: userId })
-    .where(and(eq(accessTokens.id, tokenId), isNull(accessTokens.revokedAt)));
+  await db.delete(accessTokens).where(eq(accessTokens.id, tokenId));
 }
 
 /**

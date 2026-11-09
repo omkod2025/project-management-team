@@ -1,3 +1,4 @@
+import { DataTable } from '@/components/data-table';
 import { listWikis, type WikiSummary } from '@/lib/wiki';
 import AppHeader, { wikiViews } from '../app-header';
 import { requireReader } from './load-workspace';
@@ -13,9 +14,7 @@ const ACCESS: Record<WikiSummary['role'], string> = {
 const day = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeZone: 'Asia/Bangkok' });
 
 function WikiTable({ wikis, caption }: { wikis: WikiSummary[]; caption: string }) {
-  return <div className="docs-table-wrap">
-    <table className="docs-table wiki-index">
-      <caption className="docs-sr-only">{caption}</caption>
+  return <DataTable caption={caption} className="docs-table wiki-index">
       <thead><tr><th scope="col">Wiki</th><th scope="col">Owner</th><th scope="col">Your access</th><th scope="col">Updated</th></tr></thead>
       <tbody>{wikis.map((w) => <tr key={w.id}>
         <th scope="row"><a href={`/wiki/${w.id}`}>{w.title}</a>{w.description && <span className="wiki-row-description">{w.description}</span>}</th>
@@ -23,8 +22,7 @@ function WikiTable({ wikis, caption }: { wikis: WikiSummary[]; caption: string }
         <td>{ACCESS[w.role]}</td>
         <td><time dateTime={w.updatedAt}>{day.format(new Date(w.updatedAt))}</time></td>
       </tr>)}</tbody>
-    </table>
-  </div>;
+  </DataTable>;
 }
 
 /**
@@ -41,7 +39,7 @@ export default async function WikiIndex() {
 
   return <div className="book docs-book wiki-book"><main className="docs-main">
     <AppHeader title="Wiki" navLabel="Wiki menu" views={wikiViews('Wikis')} />
-    <div className="docs-content">
+    <div className="docs-content data-page">
       <div className="docs-heading">
         <div><h1>Wiki</h1><p lang="th">คลังความรู้ — knowledge that belongs to no single project.</p></div>
         <NewWikiDialog />

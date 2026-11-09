@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { currentUserId } from '@/auth';
 import { rawQuery } from '@/db/client';
+import { DataTable } from '@/components/data-table';
 import NewProject from './new-project';
 import SignOut from './sign-out';
 import './shelf.css';
@@ -199,7 +200,7 @@ export default async function Home() {
                 <p className="sh-block-note">{ROLE_NOTE[role]}</p>
               </div>
 
-              <table className="sh-run">
+              <DataTable caption={ROLE_HEAD[role]} className="sh-run">
                 <thead>
                   <tr>
                     <th scope="col">Project</th>
@@ -239,7 +240,7 @@ export default async function Home() {
                     );
                   })}
                 </tbody>
-              </table>
+              </DataTable>
             </section>
           ))}
 

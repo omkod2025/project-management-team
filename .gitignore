@@ -33,6 +33,7 @@ dist/
 .work
 !/db/migrations/025_wiki_token_permissions.sql
 !/db/migrations/026_access_tokens.sql
+!/db/migrations/027_delete_revoked_tokens.sql
 
 # Brainstorm mockups and SDD scratch
 .superpowers/

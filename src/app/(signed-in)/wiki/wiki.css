@@ -153,7 +153,7 @@
 @media (max-width: 760px) { .wiki-settings { grid-template-columns: minmax(0, 1fr); gap: 16px; } }
 /* A visually hidden header is absolutely placed; held inside the scroller it
    cannot push the page wider than the phone. */
-.wiki-book .docs-table-wrap { position: relative; }
+.wiki-book .data-table-wrap { position: relative; }
 
 /* ---- Allow my token (wiki settings) ----
    The Tokens / MCP page itself is `src/app/(signed-in)/tokens/tokens.css`. */
