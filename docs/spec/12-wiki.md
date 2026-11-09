@@ -1,6 +1,6 @@
 # 12 — Wiki (คลังความรู้), Mermaid and Markdown blocks
 
-Knowledge that belongs to no project, shared per wiki, readable by people through a public link and by AI through a read-only MCP endpoint. Diagrams are Mermaid, and pasted Markdown can stay Markdown, in the Wiki and in project Docs alike.
+Knowledge that belongs to no project, shared per wiki, readable by people through a public link and by AI through a permission-controlled MCP endpoint. Diagrams are Mermaid, and pasted Markdown can stay Markdown, in the Wiki and in project Docs alike.
 
 Related: [01-domain](01-domain.md) · [05-permissions](05-permissions.md) · [08-operations](08-operations.md) · [10-docs](10-docs.md)
 
@@ -16,7 +16,7 @@ Success looks like this: someone imports an existing `.md` file with diagrams, i
 
 ### Non-goals
 
-- AI writing to the wiki. MCP is read-only, with no exceptions.
+- Destructive AI operations. MCP has no delete/archive/restore/member/publication/transfer operations. Optional creation and updates are specified in [13-wiki-mcp-write-srs.md](13-wiki-mcp-write-srs.md).
 - Any AI access path other than MCP: no REST API, export feed or sitemap for AI.
 - Moving project Docs into the Wiki, or linking the two.
 - Real-time co-editing (refused for Docs in `10-docs.md` §12, for the same reasons).
@@ -120,7 +120,7 @@ Tokens are managed at `/wiki/tokens`. A user names a token and ticks wikis **fro
 
 ## 6. The MCP endpoint
 
-**D-79. MCP is the only way AI reaches the wiki, it is read-only, and it accepts a Bearer token and nothing else.** `POST /api/mcp`, MCP Streamable HTTP through the official SDK (`WebStandardStreamableHTTPServerTransport`), stateless, JSON responses, inside the same Next.js app — no new process (`08-operations.md`). `Authorization: Bearer pmw_…` only: no cookies, no query-string tokens, no public link secret. A missing, unknown, revoked or expired token, or one whose owner is inactive, is `401 {"error":"invalid_token"}` with `WWW-Authenticate: Bearer`. The wiki REST routes accept session cookies only and refuse Bearer tokens. `GET` and `DELETE` are 405.
+**D-79. MCP is the only way AI reaches the wiki, and it accepts a Bearer token and nothing else.** Baseline tokens remain read-only. [SRS 13](13-wiki-mcp-write-srs.md) adds optional `create_wiki`, `create_page`, `write_wiki` grants per token, selected before wiki scope. New wikis join only the creating token scope atomically. Grants never elevate user access; page writes require write access and wiki metadata updates require manage access. Existing tokens default to no optional grants. `POST /api/mcp`, MCP Streamable HTTP through the official SDK (`WebStandardStreamableHTTPServerTransport`), stateless, JSON responses, inside the same Next.js app — no new process (`08-operations.md`). `Authorization: Bearer pmw_…` only: no cookies, no query-string tokens, no public link secret. A missing, unknown, revoked or expired token, or one whose owner is inactive, is `401 {"error":"invalid_token"}` with `WWW-Authenticate: Bearer`. The wiki REST routes accept session cookies only and refuse Bearer tokens. `GET` and `DELETE` are 405.
 
 | Tool | Input | Returns |
 |---|---|---|
@@ -129,7 +129,7 @@ Tokens are managed at `/wiki/tokens`. A user names a token and ticks wikis **fro
 | `read_page` | `page_id`, or `wiki_id` + `slug` | `{title, wikiTitle, breadcrumb, updatedAt, markdown}` — `markdown` is `contentMarkdown(body)`, Mermaid as fenced text, images and files as their Markdown links; `breadcrumb` is the ancestors' titles, top first |
 | `search` | `query`, optional `wiki_id`, optional `limit` (clamped to 1..20) | `[{pageId, slug, title, wikiId, wikiTitle, snippet, rank}]` per `D-73` |
 
-Every tool carries `readOnlyHint: true`, and none writes; an unknown tool name is an error. Each result is one text item holding the JSON payload.
+The four baseline tools carry `readOnlyHint: true`. Optional `create_wiki`, `create_page`, `update_wiki`, `update_page` tools are non-read-only and advertised only under the corresponding permission; an unknown tool name is an error. Each result is one text item holding the JSON payload.
 
 **D-80. Outside scope is "Not found.", and errors say nothing more.** Every lookup is filtered to the effective wikis first, and archived wikis and pages are never returned. A page or wiki outside them, archived, unknown or malformed is a tool result with `isError: true` and the text `Not found.` — the same for all of these. An unexpected failure is logged on the server and reported with a fixed message: no stack trace or database text crosses the wire. Output never carries the public link secret or any email.
 
@@ -155,7 +155,7 @@ Every tool carries `readOnlyHint: true`, and none writes; an unknown tool name i
 | `tests/markdown-block.test.ts` | `isMarkdownLanguage`; the export fence outgrows any backtick run in the body; a Markdown block holding nested fences, Thai and hostile HTML round-trips byte for byte |
 | `db/tests.sql` group O | depth cap, cycle refusal, cascades |
 | `tests/e2e/wiki.test.ts` | the role table through the API, 404s for strangers, pages, search, assets, the public link, tokens |
-| `tests/e2e/wiki-mcp.test.ts` | Bearer only (no header, garbage, session cookie, public link secret → 401), the four tools and their `readOnlyHint`, scope ∩ visible, Mermaid byte-identical in `read_page`, membership loss and regain, revoked / expired / deactivated → 401 with `last_used_at` untouched, the once-a-minute `last_used_at`, injection strings, 429 on the 61st call, no tool can write |
+| `tests/e2e/wiki-mcp.test.ts` | Bearer only (no header, garbage, session cookie, public link secret → 401), the four tools and their `readOnlyHint`, scope ∩ visible, Mermaid byte-identical in `read_page`, membership loss and regain, revoked / expired / deactivated → 401 with `last_used_at` untouched, the once-a-minute `last_used_at`, injection strings, 429 on the 61st call, baseline tokens cannot write |
 
 ## 9. Open for the owner
 

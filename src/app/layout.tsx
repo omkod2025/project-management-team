@@ -18,6 +18,7 @@ import '@fontsource/anuphan/thai-400.css';
 import '@fontsource/anuphan/thai-500.css';
 import '@fontsource/anuphan/thai-600.css';
 import './globals.css';
+import './shadcn.css';
 import ApiActivity from './api-activity';
 
 export const metadata: Metadata = {

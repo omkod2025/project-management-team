@@ -7,6 +7,7 @@ import type { LedgerRow, MoneyValue } from '@/db/schema';
 import type { FieldDef, Person } from '@/lib/ledger';
 import { MAX_DEPTH } from '@/lib/constants';
 import { optionStyle } from '@/lib/option-colors';
+import { DatePicker } from '@/components/date-picker';
 import { ImageField } from './image-field';
 import { FileField } from './file-field';
 import ListHeader from './list-header';
@@ -1932,16 +1933,13 @@ function DateCell(p: CellProps) {
 
   if (p.editing) {
     return (
-      <input
-        className="cell-input fig"
-        type="date"
-        defaultValue={value ?? ''}
-        autoFocus
-        onKeyDown={(e) => {
-          if (e.key === 'Escape') p.onCancel();
-          if (e.key === 'Enter') p.onCommit({ [key]: (e.target as HTMLInputElement).value || null });
-        }}
-        onBlur={(e) => p.onCommit({ [key]: e.target.value || null })}
+      <DatePicker
+        variant="cell"
+        defaultOpen
+        value={value}
+        aria-label={`${isActual ? 'Actual' : 'Estimate'} ${c.label.toLowerCase()}`}
+        onChange={(next) => p.onCommit({ [key]: next })}
+        onDismiss={p.onCancel}
       />
     );
   }
@@ -2067,6 +2065,19 @@ function FieldEditor(p: CellProps & { field: FieldDef; value: unknown }) {
 
   const commit = (v: unknown) => p.onCommit({ values: { [f.id]: v } });
 
+  if (f.kind === 'date') {
+    return (
+      <DatePicker
+        variant="cell"
+        defaultOpen
+        value={typeof p.value === 'string' ? p.value : null}
+        aria-label={f.name}
+        onChange={commit}
+        onDismiss={p.onCancel}
+      />
+    );
+  }
+
   if (isSelect) {
     const isMulti = f.kind !== 'select';
     const current: string[] = Array.isArray(p.value) ? p.value : p.value ? [String(p.value)] : [];
@@ -2143,7 +2154,7 @@ function FieldEditor(p: CellProps & { field: FieldDef; value: unknown }) {
   return (
     <input
       className={`cell-input${isNumber ? ' fig' : ''}`}
-      type={f.kind === 'date' ? 'date' : isNumber ? 'number' : 'text'}
+      type={isNumber ? 'number' : 'text'}
       defaultValue={initial}
       autoFocus
       onKeyDown={(e) => {

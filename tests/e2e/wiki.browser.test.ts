@@ -49,7 +49,7 @@ test('Wiki screens: create, write Thai and Mermaid, read-only member, stranger 4
 
     // The Wiki menu: Create wiki at the top right opens the form in a modal.
     await page.goto(`${BASE_URL}/wiki`);
-    await page.getByRole('heading', { name: 'Wiki', exact: true }).waitFor();
+    await page.getByRole('heading', { name: 'Wiki', exact: true }).first().waitFor();
     await page.getByRole('button', { name: 'Create wiki', exact: true }).click();
     const newWiki = page.getByRole('dialog', { name: 'New wiki' });
     await newWiki.waitFor();

@@ -1,7 +1,7 @@
 import { handle } from '@/lib/api';
 import { domainError } from '@/lib/errors';
-import { parseTokenIds } from '@/lib/wiki-rules';
-import { allowWikiOnMyTokens } from '@/lib/wiki-tokens';
+import { parseTokenIds } from '@/lib/token-rules';
+import { allowWikiOnMyTokens } from '@/lib/access-tokens';
 
 type Context = { params: Promise<{ id: string }> };
 

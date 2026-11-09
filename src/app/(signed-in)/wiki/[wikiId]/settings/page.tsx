@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getWiki, listMembers, wikiPeopleChoices } from '@/lib/wiki';
 import { wikiAbilities } from '@/lib/wiki-rules';
-import { listMyTokens } from '@/lib/wiki-tokens';
+import { listMyTokens } from '@/lib/access-tokens';
 import AppHeader, { wikiViews } from '../../../app-header';
 import { orNotFound, requireReader } from '../../load-workspace';
 import WikiSettings from './wiki-settings';

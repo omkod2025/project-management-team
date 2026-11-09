@@ -1,9 +1,10 @@
 /**
  * Pure wiki rule tests (wiki plan Task 2).
  *
- * Covers the §5a role/visibility matrix, token effective-scope computation,
- * input parsing, the bearer/token shapes, search term/snippet handling, the
- * LIKE escape, and the in-memory rate limiter.
+ * Covers the §5a role/visibility matrix, input parsing, search term/snippet
+ * handling, and the LIKE escape. The token rules (effective scope, token
+ * input, secrets, status, rate limiter) live in `tests/token-rules.test.ts`
+ * alongside `src/lib/token-rules.ts`.
  */
 
 import test, { describe } from 'node:test';
@@ -12,9 +13,7 @@ import assert from 'node:assert/strict';
 import {
   isInstallAdmin, wikiRole, canSeeWiki, canWriteWiki, canManageWiki, canDeleteWiki, wikiAbilities,
   parseNewWiki, parseMemberGrant, parseMemberRef, parseWikiUpdate, assertNotOwner, isUuid,
-  TOKEN_PREFIX, MAX_ACTIVE_TOKENS, newTokenSecret, hashTokenSecret, bearerSecret,
-  effectiveTokenWikis, parseTokenInput, tokenStatus, shouldTouchLastUsed, parseTokenIds,
-  searchTerms, likePattern, searchSnippet, takeRateSlot, publicWikiToken, pageSearchText,
+  searchTerms, likePattern, searchSnippet, publicWikiToken, pageSearchText,
   parsePageSlug, generatedPageSlug, parseNewWikiPage, parsePageMove, pageBreadcrumb,
   type WikiViewer, type WikiFacts,
 } from '../src/lib/wiki-rules.ts';
@@ -271,157 +270,6 @@ describe('isUuid', () => {
   });
 });
 
-describe('tokens', () => {
-  test('TOKEN_PREFIX and MAX_ACTIVE_TOKENS', () => {
-    assert.equal(TOKEN_PREFIX, 'pmw_');
-    assert.equal(MAX_ACTIVE_TOKENS, 20);
-  });
-
-  test('newTokenSecret shapes the secret, hash and prefix, and never repeats', () => {
-    const a = newTokenSecret();
-    const b = newTokenSecret();
-    assert.match(a.secret, /^pmw_[A-Za-z0-9_-]{43}$/);
-    assert.equal(a.hash, hashTokenSecret(a.secret));
-    assert.equal(a.prefix, a.secret.slice(4, 12));
-    assert.notEqual(a.secret, b.secret);
-  });
-
-  test('bearerSecret extracts the token from a well-formed header', () => {
-    const secret = 'pmw_' + 'A'.repeat(43);
-    assert.equal(bearerSecret(`Bearer ${secret}`), secret);
-  });
-
-  test('bearerSecret refuses everything else', () => {
-    const secret = 'pmw_' + 'A'.repeat(43);
-    assert.equal(bearerSecret(secret), null); // missing "Bearer "
-    assert.equal(bearerSecret('Bearer pmw_' + 'A'.repeat(42)), null); // wrong length
-    assert.equal(bearerSecret('connect.sid=s%3Aabc123'), null); // cookie-like
-    assert.equal(bearerSecret(null), null);
-  });
-
-  describe('effectiveTokenWikis', () => {
-    const now = new Date('2026-11-04T12:00:00Z');
-    const live = { revokedAt: null, expiresAt: null, ownerActive: true };
-
-    test('intersects scopes with what is currently visible', () => {
-      assert.deepEqual(effectiveTokenWikis(live, ['a', 'b', 'c'], new Set(['a', 'c']), now), ['a', 'c']);
-    });
-
-    test('a revoked token reads nothing', () => {
-      assert.deepEqual(
-        effectiveTokenWikis({ ...live, revokedAt: new Date('2026-01-01') }, ['a'], new Set(['a']), now),
-        [],
-      );
-    });
-
-    test('an expired token reads nothing', () => {
-      assert.deepEqual(
-        effectiveTokenWikis({ ...live, expiresAt: new Date('2026-01-01') }, ['a'], new Set(['a']), now),
-        [],
-      );
-    });
-
-    test('an inactive owner reads nothing', () => {
-      assert.deepEqual(
-        effectiveTokenWikis({ ...live, ownerActive: false }, ['a'], new Set(['a']), now),
-        [],
-      );
-    });
-
-    test('visibility regained later includes the wiki again', () => {
-      assert.deepEqual(effectiveTokenWikis(live, ['a', 'b'], new Set(['a']), now), ['a']);
-      assert.deepEqual(effectiveTokenWikis(live, ['a', 'b'], new Set(['a', 'b']), now), ['a', 'b']);
-    });
-  });
-
-  describe('tokenStatus', () => {
-    const now = new Date('2026-11-04T12:00:00Z');
-    test('live, revoked and expired', () => {
-      assert.equal(tokenStatus({ revokedAt: null, expiresAt: null }, now), 'active');
-      assert.equal(tokenStatus({ revokedAt: null, expiresAt: new Date('2026-12-01') }, now), 'active');
-      assert.equal(tokenStatus({ revokedAt: null, expiresAt: now }, now), 'expired');
-      assert.equal(tokenStatus({ revokedAt: new Date('2026-01-01'), expiresAt: new Date('2026-02-01') }, now), 'revoked');
-    });
-  });
-
-  describe('shouldTouchLastUsed', () => {
-    const now = new Date('2026-11-04T12:00:00Z');
-    test('never used, or more than 60 s ago, is touched; within 60 s is not', () => {
-      assert.equal(shouldTouchLastUsed(null, now), true);
-      assert.equal(shouldTouchLastUsed(new Date(now.getTime() - 61_000), now), true);
-      assert.equal(shouldTouchLastUsed(new Date(now.getTime() - 60_000), now), false);
-      assert.equal(shouldTouchLastUsed(new Date(now.getTime() - 5_000), now), false);
-    });
-  });
-
-  describe('parseTokenIds', () => {
-    test('dedupes a list of strings', () => {
-      assert.deepEqual(parseTokenIds({ tokenIds: [OWNER_ID, OWNER_ID] }), [OWNER_ID]);
-      assert.deepEqual(parseTokenIds({ tokenIds: [] }), []);
-    });
-    test('a missing list or a non-string entry is E_INVALID_DOC', () => {
-      refuses('E_INVALID_DOC', () => parseTokenIds({}));
-      refuses('E_INVALID_DOC', () => parseTokenIds({ tokenIds: [1] }));
-      refuses('E_INVALID_DOC', () => parseTokenIds(null));
-    });
-    test('a malformed id is E_NOT_FOUND, like a token that is not yours', () => {
-      refuses('E_NOT_FOUND', () => parseTokenIds({ tokenIds: ['nope'] }));
-    });
-  });
-
-  describe('parseTokenInput', () => {
-    const visible = new Set([OWNER_ID, READ_MEMBER_ID]);
-
-    test('a valid token input passes through', () => {
-      const result = parseTokenInput({ label: 'laptop', wikiIds: [OWNER_ID] }, visible);
-      assert.equal(result.label, 'laptop');
-      assert.deepEqual(result.wikiIds, [OWNER_ID]);
-      assert.equal(result.expiresAt, null);
-    });
-
-    test('a wiki outside what is visible throws E_NOT_FOUND', () => {
-      refuses('E_NOT_FOUND', () => parseTokenInput({ label: 'laptop', wikiIds: [STRANGER_ID] }, visible));
-    });
-
-    test('a malformed wiki id also throws E_NOT_FOUND, not E_INVALID_DOC', () => {
-      refuses('E_NOT_FOUND', () => parseTokenInput({ label: 'laptop', wikiIds: ['not-a-uuid'] }, visible));
-    });
-
-    test('an empty label throws E_INVALID_DOC', () => {
-      refuses('E_INVALID_DOC', () => parseTokenInput({ label: '  ', wikiIds: [] }, visible));
-    });
-
-    test('a 101-character label throws', () => {
-      refuses('E_INVALID_DOC', () => parseTokenInput({ label: 'x'.repeat(101), wikiIds: [] }, visible));
-    });
-
-    test('dedupes wiki ids', () => {
-      const result = parseTokenInput({ label: 'laptop', wikiIds: [OWNER_ID, OWNER_ID] }, visible);
-      assert.deepEqual(result.wikiIds, [OWNER_ID]);
-    });
-
-    test('expiresAt accepts a future ISO date', () => {
-      const future = new Date(Date.now() + 86_400_000).toISOString();
-      const result = parseTokenInput({ label: 'laptop', wikiIds: [], expiresAt: future }, visible);
-      assert.ok(result.expiresAt instanceof Date);
-    });
-
-    test('expiresAt rejects a past date', () => {
-      refuses('E_INVALID_DOC', () => parseTokenInput(
-        { label: 'laptop', wikiIds: [], expiresAt: '2000-01-01T00:00:00Z' },
-        visible,
-      ));
-    });
-
-    test('expiresAt rejects garbage', () => {
-      refuses('E_INVALID_DOC', () => parseTokenInput(
-        { label: 'laptop', wikiIds: [], expiresAt: 'not-a-date' },
-        visible,
-      ));
-    });
-  });
-});
-
 describe('search', () => {
   test('searchTerms trims, splits, dedupes, and drops empties', () => {
     assert.deepEqual(searchTerms('  ปลั๊ก   ไฟ ปลั๊ก '), ['ปลั๊ก', 'ไฟ']);
@@ -477,28 +325,6 @@ describe('search', () => {
     const text = 'a short bit of text with NEEDLE in it';
     const snippet = searchSnippet(text, ['needle'], 200);
     assert.equal(snippet, text);
-  });
-});
-
-describe('takeRateSlot', () => {
-  test('the 60th hit is allowed, the 61st is refused', () => {
-    const now = 1_000_000;
-    const hits: number[] = Array.from({ length: 59 }, (_, i) => now - i);
-    const sixtieth = takeRateSlot(hits, now);
-    assert.equal(sixtieth.allowed, true);
-    assert.equal(sixtieth.hits.length, 60);
-
-    const sixtyFirst = takeRateSlot(sixtieth.hits, now);
-    assert.equal(sixtyFirst.allowed, false);
-    assert.equal(sixtyFirst.hits.length, 60);
-  });
-
-  test('a hit 60,001 ms after the oldest is allowed again', () => {
-    const oldest = 1_000_000;
-    const hits: number[] = Array.from({ length: 60 }, (_, i) => oldest + i);
-    const later = oldest + 60_001;
-    const result = takeRateSlot(hits, later);
-    assert.equal(result.allowed, true);
   });
 });
 

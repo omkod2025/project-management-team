@@ -256,6 +256,8 @@ Shadows are many near-transparent layers, so a surface feels gently lifted off t
 
 **Fields.** A white ground, a `#DDDDDD` border, a 4px radius and 6–8px padding. Labels sit above the field and are never only a placeholder. A document's title is typed in place: no border, no ground, no shadow, set in the page-title style.
 
+**Date picker.** One component for every date a person sets: `DatePicker` in `src/components/date-picker.tsx`, built on shadcn's Calendar and Popover (`src/components/ui/`). It takes and gives `yyyy-MM-dd` or null. The `field` look is a house field with a calendar icon; the `cell` look has no chrome and opens at once, for the List's in-place edit. The popover is a 12px panel with the level-2 shadow. The chosen day is the blue fill; today is datum ink with a 2px datum rule under the figure, not blue; Saturdays and Sundays sit on paper, as in the Timeline; figures are tabular. Today and Clear sit in its foot. Never use a native `<input type="date">`. Tailwind is present only for the shadcn components: no preflight, utilities generated from `src/components` alone, and every shadcn colour variable names a house token (`src/app/shadcn.css`).
+
 **Panels.** A white ground, a hairline border, a 12px radius and 24px padding, sitting on paper. A settings page is a stack of them, one per section.
 
 **Tables.** A white panel with a 12px radius. The header row is paper, with 12px/600 Stone captions. Cells pad at `12px 16px` with hairline rules, and the last row has none. A row's link is ink and 600, turning blue and underlined on hover.

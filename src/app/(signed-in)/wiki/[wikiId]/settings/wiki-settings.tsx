@@ -235,7 +235,7 @@ function AllowTokenSection({ wiki, tokens, busy, working, run }: Busy & { tokens
         </label>)}
       </fieldset>
       <button type="submit" className="wiki-settings-save" disabled={busy || !changed} aria-busy={working === 'tokens'}><DocIcon name="save" />Save</button>
-    </form> : <p className="wiki-settings-state">You have no active tokens. Make one on the <Link href="/wiki/tokens">Tokens / MCP</Link> page.</p>}
+    </form> : <p className="wiki-settings-state">You have no active tokens. Make one on the <Link href="/tokens">Tokens / MCP</Link> page.</p>}
   </section>;
 }
 

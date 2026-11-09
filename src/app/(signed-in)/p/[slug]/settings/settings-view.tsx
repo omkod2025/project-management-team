@@ -6,6 +6,7 @@ import type { Settings } from '@/lib/admin';
 import { FIELD_KINDS } from '@/lib/admin-rules';
 import type { FieldKind } from '@/lib/node-rules';
 import { optionStyle } from '@/lib/option-colors';
+import { DatePicker } from '@/components/date-picker';
 import InviteLink, { inviteUrl } from '../../../invite-link';
 import '../list.css';
 import './settings.css';
@@ -507,8 +508,8 @@ function Calendar({ s, send, year, busy, busyFor }: { s: Settings; send: Send; y
           setName('');
         }}
       >
-        <input className="field-input figure" type="date" value={date}
-               onChange={(e) => setDate(e.target.value)} aria-label="Holiday date" />
+        <DatePicker value={date || null} onChange={(next) => setDate(next ?? '')}
+                    clearable={false} className="w-44 shrink-0" aria-label="Holiday date" />
         <input className="field-input" placeholder="Name" value={name}
                onChange={(e) => setName(e.target.value)} aria-label="Holiday name" />
         <button type="submit" className="label" disabled={busy} aria-busy={busyFor === 'add-holiday'}>Add</button>

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { chromium, expect } from '@playwright/test';
 import { setup, signIn, BASE_URL } from '../helpers/harness.ts';
+import { datePicker, pickDate } from '../helpers/date-picker.ts';
 
 test('Calendar shares Estimate/Actual dates, supports filters and editing, and respects viewer access', async () => {
   const fx = await setup();
@@ -25,7 +26,7 @@ test('Calendar shares Estimate/Actual dates, supports filters and editing, and r
     await page.goto(`${BASE_URL}/p/${slug}/calendar?node=${fx.nodes.task}`);
     const modal = page.getByRole('dialog', { name: 'Task details' });
     await expect(modal).toBeVisible();
-    await expect(modal.getByLabel('Estimate end', { exact: true })).toHaveValue('2026-10-14');
+    await expect(datePicker(modal, 'Estimate end')).toHaveAttribute('data-value', '2026-10-14');
     await modal.getByRole('button', { name: 'Close task details' }).click();
     await page.getByRole('searchbox', { name: 'Search calendar tasks' }).fill('Calendar test task');
     const est = page.locator(`.cal-bars button[data-node="${fx.nodes.task}"][data-kind="estimate"]`);
@@ -46,7 +47,7 @@ test('Calendar shares Estimate/Actual dates, supports filters and editing, and r
     await expect(est).toHaveCount(1);
     await est.click();
     await expect(modal.getByLabel('Task name', { exact:true })).toHaveValue('Calendar test task');
-    await modal.getByLabel('Estimate end', { exact:true }).fill('2026-10-13');
+    await pickDate(page, '2026-10-13', datePicker(modal, 'Estimate end'));
     await modal.getByRole('button', { name:'Save changes' }).click();
     await expect(modal).not.toBeVisible();
     const afterSave = await fx.client.query('SELECT node_estimate_end FROM pmt_nodes WHERE node_id=$1', [fx.nodes.task]);
@@ -58,7 +59,7 @@ test('Calendar shares Estimate/Actual dates, supports filters and editing, and r
     await page.getByRole('searchbox', {name:'Search calendar tasks'}).fill('');
     await page.getByRole('button', {name:/^Unscheduled/}).click();
     await page.getByRole('button', {name:/Unscheduled calendar task/}).click();
-    await expect(modal.getByLabel('Actual start', {exact:true})).toHaveValue('');
+    await expect(datePicker(modal, 'Actual start')).toHaveAttribute('data-value', '');
     await modal.getByRole('button', {name:'Close task details'}).click();
     await page.getByRole('button', {name:'Close day schedules'}).click();
     await page.getByRole('searchbox', {name:'Search calendar tasks'}).fill('Calendar test task');
@@ -75,7 +76,7 @@ test('Calendar shares Estimate/Actual dates, supports filters and editing, and r
     await expect(page.getByRole('main',{name:'Project calendar'})).toBeVisible();
     await context.clearCookies(); await context.addCookies(cookies(viewer.header));
     await page.goto(`${BASE_URL}/p/${slug}/calendar?node=${fx.nodes.task}`);
-    await expect(modal.getByLabel('Estimate end',{exact:true})).toBeDisabled();
+    await expect(datePicker(modal, 'Estimate end')).toBeDisabled();
     await expect(modal.getByRole('button',{name:'Save changes'})).toHaveCount(0);
     await modal.getByRole('button',{name:'Close task details'}).click();
     await page.setViewportSize({width:390,height:844});

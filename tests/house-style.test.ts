@@ -30,6 +30,7 @@ const MIGRATED: string[] = [
   'src/app/(signed-in)/p/[slug]/docs/editor.css',
   'src/app/(signed-in)/p/[slug]/docs/doc-image.module.css',
   'src/app/(signed-in)/wiki/wiki.css',
+  'src/app/(signed-in)/tokens/tokens.css',
   'src/app/d/[token]/published.css',
   'src/app/w/[token]/published-wiki.css',
   'src/app/(signed-in)/people/people.css',

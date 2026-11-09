@@ -1,11 +1,11 @@
 /**
  * The wiki's MCP endpoint, through the real API (wiki spec §6b, §7, §8).
  *
- * This is the only way AI reaches the wiki, and it is read-only. These tests
+ * This is the only way AI reaches the wiki, and baseline tokens are read-only. These tests
  * defend that: a Bearer token is the whole credential (no session, no public
  * link secret), what a token reads is decided again on every request
  * (scope ∩ what its owner can see right now), a refusal reveals nothing, and
- * no tool can write.
+ * baseline tokens cannot write.
  *
  * The rate limit is per token, so tests that make many calls each mint their
  * own token rather than spend the shared one's 60-a-minute budget.
@@ -20,11 +20,13 @@ import assert from 'node:assert/strict';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { setup, signIn, makeUser, BASE_URL, type Fixture, type Jar } from '../helpers/harness.ts';
 import { hashPassword } from '../../src/lib/password.ts';
+import { hashTokenSecret, newTokenSecret } from '../../src/lib/token-rules.ts';
 
 const INSTALL_EMAIL = 'admin@cit.com';
 const SKIP_INSTALL = 'set E2E_INSTALL_ADMIN_PASSWORD to run install-admin cases';
 const MCP = `${BASE_URL}/api/mcp`;
 const TOOLS = ['list_pages', 'list_wikis', 'read_page', 'search'];
+const WIKI_WRITE_TOOLS = ['create_wiki', 'create_page', 'update_wiki', 'update_page'];
 const INJECTION = [
   "'); DROP TABLE pmt_wikis; --",
   `' OR '1'='1`,
@@ -32,6 +34,23 @@ const INJECTION = [
   '$$ \\ ; -- ปลั๊ก',
   '%_\\',
 ];
+
+test('install admin write tokens still cannot archive or delete and admin listing shows permissions', async (t) => {
+  if (!installJar) { t.skip(SKIP_INSTALL); return; }
+  const token = await mintToken(installJar, [mine], 'admin write permissions');
+  const patched = await call(installJar, 'PATCH', `/api/tokens/${token.id}`, {
+    label: 'admin write permissions', grants: { wiki: ['write_wiki'] }, scope: { wikiIds: [mine] },
+  });
+  assert.equal(patched.status, 200, JSON.stringify(patched.body));
+  const all = await call(installJar, 'GET', '/api/tokens?all=1');
+  assert.deepEqual(all.body.find((row: { id: string }) => row.id === token.id).grants.wiki, ['write_wiki']);
+  assert.equal((await tool(token.secret, 'update_wiki', { wiki_id: mine, title: 'forbidden', action: 'archive' })).isError, true);
+  for (const name of ['delete_wiki', 'archive_wiki', 'delete_page', 'archive_page']) {
+    assert.equal((await tool(token.secret, name, { wiki_id: mine })).isError, true);
+  }
+  const result = await fx.client.query('SELECT wiki_archived_at FROM pmt_wikis WHERE wiki_id = $1', [mine]);
+  assert.equal(result.rows[0].wiki_archived_at, null);
+});
 
 let fx: Fixture;
 type U = { id: string; email: string; password: string };
@@ -95,7 +114,7 @@ async function newPage(jar: Jar, wiki: string, input: Record<string, unknown>) {
 }
 
 async function mintToken(jar: Jar, scope: string[], label = 'mcp') {
-  const res = await call(jar, 'POST', '/api/wiki-tokens', { label, wikiIds: scope });
+  const res = await call(jar, 'POST', '/api/tokens', { label, grants: { wiki: [] }, scope: { wikiIds: scope } });
   assert.equal(res.status, 200, JSON.stringify(res.body));
   return { id: res.body.token.id as string, secret: res.body.secret as string };
 }
@@ -145,8 +164,8 @@ async function assertNotFound(sec: string, name: string, args: Record<string, un
 }
 
 async function lastUsed(tokenId: string): Promise<number | null> {
-  const { rows } = await fx.client.query('SELECT wiki_token_last_used_at FROM pmt_wiki_tokens WHERE wiki_token_id = $1', [tokenId]);
-  const v = rows[0]?.wiki_token_last_used_at as Date | null;
+  const { rows } = await fx.client.query('SELECT access_token_last_used_at FROM pmt_access_tokens WHERE access_token_id = $1', [tokenId]);
+  const v = rows[0]?.access_token_last_used_at as Date | null;
   return v ? v.getTime() : null;
 }
 
@@ -186,7 +205,7 @@ before(async () => {
   // A scope row on a wiki alice cannot see. The API refuses to create one;
   // forcing it proves the intersection is computed on read, not trusted.
   await fx.client.query(
-    'INSERT INTO pmt_wiki_token_scopes (wiki_token_scope_token_id, wiki_token_scope_wiki_id) VALUES ($1, $2)', [t.id, hidden],
+    'INSERT INTO pmt_access_token_scopes (token_scope_token_id, token_scope_wiki_id) VALUES ($1, $2)', [t.id, hidden],
   );
   assert.equal((await call(aliceJar, 'PATCH', `/api/wikis/${archived}`, { action: 'archive' })).status, 200);
 
@@ -225,7 +244,7 @@ describe('authentication', () => {
       clientInfo: { name: 'e2e', version: '0' },
     });
     assert.equal(res.status, 200, res.text);
-    assert.equal(res.body.result.serverInfo.name, 't-timeline-wiki');
+    assert.equal(res.body.result.serverInfo.name, 't-timeline');
     assert.ok(res.body.result.capabilities.tools);
   });
 
@@ -386,6 +405,52 @@ describe('tools', () => {
   });
 });
 
+describe('module gating', () => {
+  test('a token without the wiki module lists no wiki tools', async () => {
+    const res = await call(aliceJar, 'POST', '/api/tokens', { label: 'list only', grants: { list: [] }, scope: {} });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    const t = { secret: res.body.secret as string };
+    const listed = await rpc(bearer(t.secret), 'tools/list', {});
+    assert.equal(listed.status, 200, listed.text);
+    // A List token now has List tools. Should a token ever reach no tool at all, the SDK
+    // answers "Method not found" rather than an empty list, so both shapes are accepted.
+    // Either way, none of the wiki tools are reachable.
+    const names = listed.body.result
+      ? (listed.body.result.tools as Array<{ name: string }>).map((x) => x.name)
+      : [];
+    if (!listed.body.result) assert.equal(listed.body.error?.code, -32601, listed.text);
+    for (const name of [...TOOLS, ...WIKI_WRITE_TOOLS]) assert.ok(!names.includes(name), name);
+  });
+
+  test('a token migrated from the legacy shape keeps its tools', async () => {
+    const { secret: legacySecret, hash, prefix } = newTokenSecret();
+    assert.equal(hashTokenSecret(legacySecret), hash);
+    const inserted = await fx.client.query(
+      `INSERT INTO pmt_access_tokens (access_token_owner_id, access_token_label, access_token_hash, access_token_prefix)
+       VALUES ($1, 'legacy wiki token', $2, $3) RETURNING access_token_id`,
+      [alice.id, hash, prefix],
+    );
+    const legacyTokenId = inserted.rows[0].access_token_id as string;
+    await fx.client.query(
+      `INSERT INTO pmt_access_token_grants (token_grant_token_id, token_grant_module, token_grant_permission)
+       VALUES ($1, 'wiki', 'read'), ($1, 'wiki', 'create_page')`,
+      [legacyTokenId],
+    );
+    await fx.client.query(
+      'INSERT INTO pmt_access_token_scopes (token_scope_token_id, token_scope_wiki_id) VALUES ($1, $2)',
+      [legacyTokenId, mine],
+    );
+
+    const listed = await rpc(bearer(legacySecret), 'tools/list', {});
+    assert.equal(listed.status, 200, listed.text);
+    const names = (listed.body.result.tools as Array<{ name: string }>).map((x) => x.name).sort();
+    assert.deepEqual(names, [...TOOLS, 'create_page'].sort());
+
+    const created = await payload(legacySecret, 'create_page', { wiki_id: mine, title: 'legacy page', markdown: 'เนื้อหา' });
+    assert.ok(created.id);
+  });
+});
+
 describe('effective scope is decided on every request', () => {
   test('a token loses a wiki the moment its owner loses membership, and regains it', async () => {
     const t = await mintToken(aliceJar, [shared], 'membership');
@@ -406,9 +471,9 @@ describe('token life cycle', () => {
     const t = await mintToken(aliceJar, [shared], 'revoke-own');
     assert.equal((await rpc(bearer(t.secret), 'tools/list')).status, 200);
     // Push last_used_at back so a call that was (wrongly) accepted would rewrite it.
-    await fx.client.query(`UPDATE pmt_wiki_tokens SET wiki_token_last_used_at = now() - interval '1 hour' WHERE wiki_token_id = $1`, [t.id]);
+    await fx.client.query(`UPDATE pmt_access_tokens SET access_token_last_used_at = now() - interval '1 hour' WHERE access_token_id = $1`, [t.id]);
     const stamped = await lastUsed(t.id);
-    assert.equal((await call(aliceJar, 'DELETE', `/api/wiki-tokens/${t.id}`)).status, 200);
+    assert.equal((await call(aliceJar, 'DELETE', `/api/tokens/${t.id}`)).status, 200);
     assert.equal((await rpc(bearer(t.secret), 'tools/list')).status, 401);
     assert.equal(await lastUsed(t.id), stamped);
   });
@@ -417,9 +482,9 @@ describe('token life cycle', () => {
     if (!installJar) return t.skip(SKIP_INSTALL);
     const tok = await mintToken(aliceJar, [shared], 'revoke-admin');
     assert.equal((await rpc(bearer(tok.secret), 'tools/list')).status, 200);
-    await fx.client.query(`UPDATE pmt_wiki_tokens SET wiki_token_last_used_at = now() - interval '1 hour' WHERE wiki_token_id = $1`, [tok.id]);
+    await fx.client.query(`UPDATE pmt_access_tokens SET access_token_last_used_at = now() - interval '1 hour' WHERE access_token_id = $1`, [tok.id]);
     const stamped = await lastUsed(tok.id);
-    assert.equal((await call(installJar, 'DELETE', `/api/wiki-tokens/${tok.id}`)).status, 200);
+    assert.equal((await call(installJar, 'DELETE', `/api/tokens/${tok.id}`)).status, 200);
     assert.equal((await rpc(bearer(tok.secret), 'tools/list')).status, 401);
     assert.equal(await lastUsed(tok.id), stamped);
   });
@@ -427,7 +492,7 @@ describe('token life cycle', () => {
   test('an expired token is 401', async () => {
     const t = await mintToken(aliceJar, [shared], 'expired');
     assert.equal((await rpc(bearer(t.secret), 'tools/list')).status, 200);
-    await fx.client.query(`UPDATE pmt_wiki_tokens SET wiki_token_expires_at = now() - interval '1 minute' WHERE wiki_token_id = $1`, [t.id]);
+    await fx.client.query(`UPDATE pmt_access_tokens SET access_token_expires_at = now() - interval '1 minute' WHERE access_token_id = $1`, [t.id]);
     assert.equal((await rpc(bearer(t.secret), 'tools/list')).status, 401);
   });
 
@@ -448,7 +513,7 @@ describe('token life cycle', () => {
     await new Promise((r) => setTimeout(r, 20));
     assert.equal((await rpc(bearer(t.secret), 'tools/list')).status, 200);
     assert.equal(await lastUsed(t.id), first, 'the second call within 60 s does not write');
-    await fx.client.query(`UPDATE pmt_wiki_tokens SET wiki_token_last_used_at = now() - interval '2 minutes' WHERE wiki_token_id = $1`, [t.id]);
+    await fx.client.query(`UPDATE pmt_access_tokens SET access_token_last_used_at = now() - interval '2 minutes' WHERE access_token_id = $1`, [t.id]);
     const old = await lastUsed(t.id);
     assert.equal((await rpc(bearer(t.secret), 'tools/list')).status, 200);
     assert.ok((await lastUsed(t.id))! > old!, 'a call after a minute writes again');

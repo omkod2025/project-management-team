@@ -2,10 +2,10 @@
  * Wiki rules, as pure functions.
  *
  * Same split as `node-rules.ts` / `admin-rules.ts`: these are decisions — who
- * sees a wiki, who may write it, what a token may read, what a search term
- * means at the database boundary — so they live where a test can reach them
- * without a database. `wiki.ts` and `wiki-tokens.ts` are the adapters that
- * load a row, call these, and write the result back.
+ * sees a wiki, who may write it, what a search term means at the database
+ * boundary — so they live where a test can reach them without a database.
+ * `wiki.ts` is the adapter that loads a row, calls these, and writes the
+ * result back. What a token may read is `token-rules.ts`'s decision.
  *
  * The rule everything else is computed from (spec §5c):
  *
@@ -14,11 +14,12 @@
  * > the owner and install admin).
  */
 
-import { createHash, randomBytes } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 
 import { domainError } from './errors.ts';
 import { PROTECTED_EMAIL } from './admin-rules.ts';
 import { contentMarkdown } from './doc-rich-content.ts';
+import { isUuid } from './token-rules.ts';
 
 /* -------------------------------------------------------------- identity */
 
@@ -166,17 +167,13 @@ export function parseWikiUpdate(input: unknown): WikiUpdate {
 
 /* ---------------------------------------------------------------- members */
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 /** Whether an id from a URL could name a row at all — a malformed one is a 404, never a 500. */
-export function isUuid(id: string): boolean {
-  return UUID_RE.test(id);
-}
+export { isUuid };
 
 export function parseMemberGrant(input: unknown): { userId: string; access: WikiAccess } {
   const obj = (input ?? {}) as Record<string, unknown>;
   const userId = typeof obj.userId === 'string' ? obj.userId : '';
-  if (!UUID_RE.test(userId)) {
+  if (!isUuid(userId)) {
     throw domainError('E_INVALID_DOC', 'That is not a user.', { userId: obj.userId });
   }
   const access = obj.access;
@@ -190,7 +187,7 @@ export function parseMemberGrant(input: unknown): { userId: string; access: Wiki
 export function parseMemberRef(input: unknown): { userId: string } {
   const obj = (input ?? {}) as Record<string, unknown>;
   const userId = typeof obj.userId === 'string' ? obj.userId : '';
-  if (!UUID_RE.test(userId)) {
+  if (!isUuid(userId)) {
     throw domainError('E_INVALID_DOC', 'That is not a user.', { userId: obj.userId });
   }
   return { userId };
@@ -207,153 +204,6 @@ export function assertNotOwner(targetUserId: string, ownerId: string | null): vo
   if (ownerId !== null && targetUserId === ownerId) {
     throw domainError('E_INVALID_DOC', 'That person already owns this wiki.');
   }
-}
-
-/* ----------------------------------------------------------------- tokens */
-
-/** `wiki_token_prefix` is the first 8 characters of the secret after `pmw_`. */
-export const TOKEN_PREFIX = 'pmw_';
-
-/** One user's standing limit on live tokens (spec §6a, the builder's call). */
-export const MAX_ACTIVE_TOKENS = 20;
-
-/**
- * A fresh token: 32 random bytes as base64url, prefixed, hashed for storage,
- * and a short prefix kept in the clear for display. Only `secret` is ever
- * shown to the person who created it.
- */
-export function newTokenSecret(): { secret: string; hash: string; prefix: string } {
-  const secret = TOKEN_PREFIX + randomBytes(32).toString('base64url');
-  return { secret, hash: hashTokenSecret(secret), prefix: secret.slice(4, 12) };
-}
-
-export function hashTokenSecret(secret: string): string {
-  return createHash('sha256').update(secret).digest('hex');
-}
-
-const BEARER_RE = /^Bearer (pmw_[A-Za-z0-9_-]{43})$/;
-
-/** The secret out of an `Authorization` header, or `null` if it is not one of ours. */
-export function bearerSecret(header: string | null): string | null {
-  if (header === null) return null;
-  const match = BEARER_RE.exec(header);
-  return match?.[1] ?? null;
-}
-
-export type TokenFacts = { revokedAt: Date | null; expiresAt: Date | null; ownerActive: boolean };
-
-/**
- * What a token may read right now (spec §6b):
- *
- * > effective wikis = token scopes ∩ wikis the token's owner can see right
- * > now
- *
- * — and nothing at all if the token is revoked, expired, or its owner is
- * inactive. Scope rows are never consulted for existence on their own; they
- * only ever narrow what is already visible, so losing and regaining
- * membership take effect immediately with nothing to clean up.
- */
-export function effectiveTokenWikis(
-  t: TokenFacts,
-  scopes: readonly string[],
-  visible: ReadonlySet<string>,
-  now: Date,
-): string[] {
-  if (t.revokedAt !== null) return [];
-  if (t.expiresAt !== null && t.expiresAt.getTime() <= now.getTime()) return [];
-  if (!t.ownerActive) return [];
-  const seen = new Set<string>();
-  const result: string[] = [];
-  for (const id of scopes) {
-    if (visible.has(id) && !seen.has(id)) {
-      seen.add(id);
-      result.push(id);
-    }
-  }
-  return result;
-}
-
-export type TokenStatus = 'active' | 'revoked' | 'expired';
-
-/** Revoked outranks expired: revoking is the act a person took, expiry is the calendar's. */
-export function tokenStatus(t: { revokedAt: Date | null; expiresAt: Date | null }, now: Date): TokenStatus {
-  if (t.revokedAt !== null) return 'revoked';
-  if (t.expiresAt !== null && t.expiresAt.getTime() <= now.getTime()) return 'expired';
-  return 'active';
-}
-
-/** `wiki_token_last_used_at` is written at most once a minute per token. */
-export const LAST_USED_GRANULARITY_MS = 60_000;
-
-export function shouldTouchLastUsed(lastUsedAt: Date | null, now: Date): boolean {
-  return lastUsedAt === null || now.getTime() - lastUsedAt.getTime() > LAST_USED_GRANULARITY_MS;
-}
-
-/**
- * The body of "Allow my token" — `{ tokenIds: string[] }`. A malformed id is
- * refused like a token that is not the caller's, with `E_NOT_FOUND`, so the
- * two cannot be told apart.
- */
-export function parseTokenIds(input: unknown): string[] {
-  const raw = (input as { tokenIds?: unknown } | null)?.tokenIds;
-  if (!Array.isArray(raw) || raw.some((id) => typeof id !== 'string')) {
-    throw domainError('E_INVALID_DOC', 'Send the tokens to allow as { tokenIds: [...] }.');
-  }
-  const ids = [...new Set(raw as string[])];
-  if (ids.some((id) => !UUID_RE.test(id))) throw domainError('E_NOT_FOUND', 'No such token.');
-  return ids;
-}
-
-const MAX_LABEL_LENGTH = 100;
-
-/**
- * A token being created or edited.
- *
- * A wiki id that is not uuid-shaped and one that is simply not visible to
- * the caller are refused identically, with `E_NOT_FOUND` — the same
- * existence-leak rule as everywhere else in the product (spec §8): telling
- * the two apart would tell a caller whether a wiki they cannot see exists at
- * all.
- */
-export function parseTokenInput(
-  input: unknown,
-  visible: ReadonlySet<string>,
-): { label: string; wikiIds: string[]; expiresAt: Date | null } {
-  const obj = (input ?? {}) as Record<string, unknown>;
-
-  const label = typeof obj.label === 'string' ? obj.label.trim() : '';
-  if (!label) throw domainError('E_INVALID_DOC', 'A token needs a label.');
-  if (label.length > MAX_LABEL_LENGTH) {
-    throw domainError('E_INVALID_DOC', 'That label is too long.', { label });
-  }
-
-  const rawIds = Array.isArray(obj.wikiIds) ? obj.wikiIds : [];
-  const seen = new Set<string>();
-  const wikiIds: string[] = [];
-  for (const raw of rawIds) {
-    const id = typeof raw === 'string' ? raw : '';
-    if (!UUID_RE.test(id) || !visible.has(id)) {
-      throw domainError('E_NOT_FOUND', 'That wiki does not exist.');
-    }
-    if (!seen.has(id)) {
-      seen.add(id);
-      wikiIds.push(id);
-    }
-  }
-
-  let expiresAt: Date | null = null;
-  if (obj.expiresAt !== null && obj.expiresAt !== undefined) {
-    if (typeof obj.expiresAt !== 'string') {
-      throw domainError('E_INVALID_DOC', 'That is not a date.', { expiresAt: obj.expiresAt });
-    }
-    const parsed = new Date(obj.expiresAt);
-    if (Number.isNaN(parsed.getTime()) || parsed.getTime() <= Date.now()) {
-      throw domainError('E_INVALID_DOC', 'The expiry date must be in the future.', { expiresAt: obj.expiresAt });
-    }
-    expiresAt = parsed;
-  }
-
-  return { label, wikiIds, expiresAt };
 }
 
 /* ----------------------------------------------------------------- search */
@@ -417,29 +267,6 @@ export function searchSnippet(text: string, terms: readonly string[], width = 20
   if (start > 0) snippet = '…' + snippet;
   if (end < text.length) snippet = snippet + '…';
   return snippet;
-}
-
-/* ------------------------------------------------------------- rate limit */
-
-/**
- * The MCP endpoint's in-memory limiter (spec §8): a sliding window of up to
- * `limit` hits per `windowMs`, per token. The caller owns the array between
- * calls — this function only decides and returns the next one, so it stays
- * pure and testable without a clock to fake.
- */
-export function takeRateSlot(
-  hits: number[],
-  now: number,
-  limit = 60,
-  windowMs = 60_000,
-): { allowed: boolean; hits: number[] } {
-  const cutoff = now - windowMs;
-  const recent = hits.filter((h) => h > cutoff);
-  if (recent.length >= limit) {
-    return { allowed: false, hits: recent };
-  }
-  recent.push(now);
-  return { allowed: true, hits: recent };
 }
 
 /* ------------------------------------------------------------ public link */
@@ -580,3 +407,10 @@ export function pageBreadcrumb(
   }
   return trail.reverse();
 }
+
+/**
+ * The Create/Write permissions a token's Wiki grant can carry — the `wiki`
+ * entry of `TOKEN_MODULES` in `token-rules.ts`, as a type for the Wiki MCP
+ * write tools.
+ */
+export type WikiTokenPermission = 'create_wiki' | 'create_page' | 'write_wiki';
