@@ -32,3 +32,6 @@ dist/
 .rea-edge-profile
 .work
 !/db/migrations/025_wiki_token_permissions.sql
+
+# Brainstorm mockups and SDD scratch
+.superpowers/
