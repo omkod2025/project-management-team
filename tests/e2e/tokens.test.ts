@@ -207,6 +207,7 @@ describe('/api/tokens', () => {
 
   test('a token cannot reach the session API', async () => {
     const res = await call(ownerJar, 'POST', '/api/tokens', { label: 'bearer', grants: { wiki: [] } });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
     const auth = { authorization: `Bearer ${res.body.secret}` };
     assert.equal((await call(null, 'GET', '/api/tokens', undefined, auth)).status, 401);
     assert.equal((await call(null, 'POST', '/api/tokens', { label: 'ผ่านโทเค็น', grants: {} }, auth)).status, 401);

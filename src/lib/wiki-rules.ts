@@ -407,10 +407,3 @@ export function pageBreadcrumb(
   }
   return trail.reverse();
 }
-
-/**
- * The Create/Write permissions a token's Wiki grant can carry — the `wiki`
- * entry of `TOKEN_MODULES` in `token-rules.ts`, as a type for the Wiki MCP
- * write tools.
- */
-export type WikiTokenPermission = 'create_wiki' | 'create_page' | 'write_wiki';

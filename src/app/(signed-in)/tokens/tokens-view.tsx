@@ -30,7 +30,7 @@ const mcpCommand = (origin: string, secret: string) =>
 
 /** The connection guide, in Thai. Beside a secret it opens in a new tab, because leaving this page loses the secret. */
 export function GuideLink({ newTab = false }: { newTab?: boolean }) {
-  return <Link className="tk-btn tk-guide-link" href="/wiki/tokens/guide"
+  return <Link className="tk-btn tk-guide-link" href="/tokens/guide"
     {...(newTab ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>How to connect</Link>;
 }
 

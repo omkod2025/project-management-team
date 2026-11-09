@@ -156,6 +156,12 @@ export default async function Home() {
             <IconPeople />
             People and access
           </Link>
+          {/* A token reaches List, Docs and the Wiki alike, so it sits on
+              the shelf beside them rather than inside any one project. */}
+          <Link className="sh-nav-item" href="/tokens">
+            <IconTokens />
+            Tokens / MCP
+          </Link>
         </nav>
 
         <div className="sh-rail-foot">
@@ -359,6 +365,15 @@ function IconPeople() {
       <circle cx="6.2" cy="5.6" r="2.3" />
       <path d="M2.2 13.2c0-2.2 1.8-3.6 4-3.6s4 1.4 4 3.6" />
       <path d="M10.8 4.1a2.3 2.3 0 0 1 0 4.4M11.6 9.9c1.4.4 2.3 1.6 2.3 3.3" />
+    </svg>
+  );
+}
+
+function IconTokens() {
+  return (
+    <svg {...ICON}>
+      <circle cx="5.1" cy="10.9" r="2.4" />
+      <path d="M6.9 9.1 12.5 3.5M10.5 5.5l1.5 1.5M12 4l1.5 1.5" />
     </svg>
   );
 }

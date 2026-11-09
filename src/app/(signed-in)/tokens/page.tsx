@@ -5,7 +5,7 @@ import { visibleProjects } from '@/lib/project-access';
 import { listWikis, wikiViewer } from '@/lib/wiki';
 import { isInstallAdmin } from '@/lib/wiki-rules';
 import AppHeader, { crossViews } from '../app-header';
-import { requestOrigin } from '../wiki/tokens/request-origin';
+import { requestOrigin } from './request-origin';
 import TokensView from './tokens-view';
 import './tokens.css';
 

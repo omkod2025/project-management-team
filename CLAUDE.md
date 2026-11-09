@@ -26,10 +26,13 @@ Follow its rules (S1–S11, R1–R14, X1–X8) while writing, and use it again w
 | [`docs/spec/09-roster.md`](docs/spec/09-roster.md) | All Timeline (the roster) — one lane per person, across projects |
 | [`docs/spec/10-docs.md`](docs/spec/10-docs.md) | Project documents — pages, templates, Markdown, assets |
 | [`docs/spec/11-notifications.md`](docs/spec/11-notifications.md) | The bell — being told when your name is put on a task |
-| [`docs/spec/12-wiki.md`](docs/spec/12-wiki.md) | Wiki (คลังความรู้) and Mermaid blocks — sharing, public link, access tokens, the read-only MCP endpoint, deletion (`D-70`…) |
+| [`docs/spec/12-wiki.md`](docs/spec/12-wiki.md) | Wiki (คลังความรู้) and Mermaid blocks — sharing, public link, Wiki's own MCP tools, deletion (`D-70`…) |
+| [`docs/spec/14-mcp-tokens.md`](docs/spec/14-mcp-tokens.md) | MCP tokens, system-wide — the module registry, implicit read, grants and scope per module, the stepper, migration, no Defects, the Docs asset rule, notifications (`D-90`…) |
 | [`db/schema.sql`](db/schema.sql) | Executable DDL — verified against PostgreSQL 18.4 |
-| [`db/tests.sql`](db/tests.sql) | Schema test suite, 14 groups, runs in a rolled-back transaction |
+| [`db/tests.sql`](db/tests.sql) | Schema test suite, 15 groups, runs in a rolled-back transaction |
 | [`tests/node-rules.test.ts`](tests/node-rules.test.ts) | 46 domain rule tests, each naming the `D-nn` it defends |
+| [`tests/token-rules.test.ts`](tests/token-rules.test.ts) | 53 tests: the module registry, implicit read, grant and scope parsing and normalisation, effective scope per kind, secrets, status, the rate limiter |
+| [`tests/mcp-rules.test.ts`](tests/mcp-rules.test.ts) | 11 tests: the id a token may name, the `update_task` patch (estimate never fills actual, nor the reverse), the `update_doc_page` content rule (section validation, the asset rule) |
 | [`tests/e2e/api.test.ts`](tests/e2e/api.test.ts) | 29 end-to-end tests: auth, dates, capture, snapping, validation |
 | [`tests/e2e/tree.test.ts`](tests/e2e/tree.test.ts) | 26 end-to-end tests: create, move, place, archive, restore |
 | [`tests/e2e/admin.test.ts`](tests/e2e/admin.test.ts) | 29 end-to-end tests: columns, options, members, calendar, invitations, renaming |
@@ -52,8 +55,14 @@ Follow its rules (S1–S11, R1–R14, X1–X8) while writing, and use it again w
 | [`tests/wiki-tree-order.test.ts`](tests/wiki-tree-order.test.ts) | 6 tests: the wiki page tree in reading order |
 | [`tests/e2e/wiki.test.ts`](tests/e2e/wiki.test.ts) | 70 end-to-end tests: the wiki role table, strangers' 404s, pages, search, assets, the public link, access tokens, deleting a wiki |
 | [`tests/e2e/wiki.browser.test.ts`](tests/e2e/wiki.browser.test.ts) | 1 browser test: create a wiki, write Thai and Mermaid, the read-only member, the stranger's 404, `.md` import, whole-wiki export in tree order |
-| [`tests/e2e/wiki-mcp.test.ts`](tests/e2e/wiki-mcp.test.ts) | 24 end-to-end tests: the MCP endpoint — Bearer only, the four read-only tools, ids in any case, scope decided per request, revoked/expired/deactivated → 401, injection, the rate limit |
-| [`tests/e2e/wiki-guide.test.ts`](tests/e2e/wiki-guide.test.ts) | 6 end-to-end tests: the in-app MCP guide names the real origin, is for signed-in people only, and its every example still parses and connects |
+| [`tests/e2e/wiki-mcp.test.ts`](tests/e2e/wiki-mcp.test.ts) | 27 end-to-end tests: the MCP endpoint — Bearer only, module gating, the four read-only tools, ids in any case, scope decided per request, revoked/expired/deactivated → 401, injection, the rate limit |
+| [`tests/e2e/wiki-mcp-write.test.ts`](tests/e2e/wiki-mcp-write.test.ts) | 13 end-to-end tests: `create_wiki`/`create_page`/`write_wiki` permissions and writes, the rich-content flatten refusal, page depth and Markdown limits |
+| [`tests/e2e/wiki-guide.test.ts`](tests/e2e/wiki-guide.test.ts) | 7 end-to-end tests: the in-app MCP guide at `/tokens/guide` names the real origin, is for signed-in people only, the old `/wiki/tokens/guide` redirects there, and its every example still parses and connects |
+| [`tests/e2e/tokens.test.ts`](tests/e2e/tokens.test.ts) | 10 end-to-end tests: `/api/tokens` system-wide — grants and scope per module, the PATCH omission rules, scope dropped for a kind no module uses, the 20-token ceiling |
+| [`tests/e2e/tokens.browser.test.ts`](tests/e2e/tokens.browser.test.ts) | 1 browser test: the Tokens / MCP stepper across all three modules — Read locked, Select all, editing a token away from a module, the old `/wiki/tokens` redirect |
+| [`tests/e2e/mcp-list.test.ts`](tests/e2e/mcp-list.test.ts) | 8 end-to-end tests: List tools over MCP — a grant never outranks a role, out-of-scope and a defect id both `Not found.`, membership loss and regain, an assignment notifying |
+| [`tests/e2e/mcp-docs.test.ts`](tests/e2e/mcp-docs.test.ts) | 6 end-to-end tests: Docs tools over MCP — Create needing project Admin, a stale `updatedAt`, the asset rule, a protected page refusing edits |
+| [`tests/e2e/access-token-migration.test.ts`](tests/e2e/access-token-migration.test.ts) | 1 end-to-end test: migration 026 turns legacy wiki tokens into module-neutral access tokens with grants and scopes, verified against a disposable loopback database |
 | [`tests/mermaid-rules.test.ts`](tests/mermaid-rules.test.ts) | 13 tests: what counts as a Mermaid block, where a parse error points, the 50,000-character ceiling, and the locked config — strict, no HTML labels, no shadow, and the keys no diagram directive may override |
 | [`tests/markdown-block.test.ts`](tests/markdown-block.test.ts) | 5 tests: the Markdown block — `markdown`/`md` in any case, the export fence that outgrows the backticks inside, nested fences, Thai and hostile HTML round-tripping byte for byte |
 | [`tests/doc-mermaid-render.test.ts`](tests/doc-mermaid-render.test.ts) | 5 tests: a Mermaid fence survives Markdown, rich JSON and back byte for byte, hostile source included |
@@ -63,9 +72,9 @@ Follow its rules (S1–S11, R1–R14, X1–X8) while writing, and use it again w
 | [`tests/e2e/calendar-look.browser.test.ts`](tests/e2e/calendar-look.browser.test.ts) | 1 browser test: the Calendar's computed look matches its pinned fixture — the scoped exception to the house style does not drift |
 | [`docs/TASKS.md`](docs/TASKS.md) | Build plan T0–T9 with per-task checklists |
 | [`docs/wireframes/index.html`](docs/wireframes/index.html) | Rendered wireframes for both views |
-| [`docs/guides/wiki-mcp.md`](docs/guides/wiki-mcp.md) | Connecting AI clients to the Wiki over MCP |
+| [`docs/guides/mcp.md`](docs/guides/mcp.md) | Connecting AI clients to List, Docs and the Wiki over MCP — one token, the stepper, the tool list per module. The in-app guide at `/tokens/guide` |
 | [`docs/guides/mermaid.md`](docs/guides/mermaid.md) | Writing Mermaid that renders — the in-app guide at `/wiki/mermaid-guide`, in Thai |
-| [`docs/guides/wiki-mcp-internals.md`](docs/guides/wiki-mcp-internals.md) | How the MCP endpoint works inside — request path, token scope, tools, errors, testing, adding a tool |
+| [`docs/guides/wiki-mcp-internals.md`](docs/guides/wiki-mcp-internals.md) | How MCP works inside, across modules — request path, the `src/lib/mcp/` layout, tools per module, errors, testing, adding a module |
 
 ---
 
@@ -75,12 +84,12 @@ Credentials live in `.env` (git-ignored). With `PGHOST`/`PGUSER`/`PGPASSWORD` ex
 
 ```bash
 npm run db:build     # psql -f db/schema.sql
-npm run db:test      # psql -f db/tests.sql  — 14 groups, rolled back
+npm run db:test      # psql -f db/tests.sql  — 15 groups, rolled back
 npm run db:migrate   # apply db/migrations/*.sql once each
 npm run db:seed -- <email> <password>
 ```
 
-`tests.sql` runs inside a transaction and rolls back, so it is safe against any database. It asserts rather than reports: it either prints thirteen `PASS` lines or aborts naming the broken expectation.
+`tests.sql` runs inside a transaction and rolls back, so it is safe against any database. It asserts rather than reports: it either prints fifteen `PASS` lines or aborts naming the broken expectation.
 
 `docker-compose.yml` brings up an isolated PostgreSQL 18 on port **5433** if you would rather not use a local server.
 
@@ -90,11 +99,12 @@ npm run db:seed -- <email> <password>
 
 ```bash
 npm run check      # typecheck + domain tests — the pre-commit bar
-npm test           # 484 domain rule tests (nodes, admin, list, roster, notifications, docs, wiki, mermaid, markdown blocks), no database needed
-npm run db:test    # 14 SQL groups, rolled back
-npm run test:e2e   # 147 API tests — REQUIRES `npm run dev` in another terminal
-npm run test:wiki  # 101 wiki tests: REST, browser, MCP, guide — same requirement (7 skip without E2E_INSTALL_ADMIN_PASSWORD)
+npm test           # 541 domain rule tests (nodes, admin, list, roster, notifications, docs, wiki, mermaid, markdown blocks, tokens, MCP rules), no database needed
+npm run db:test    # 15 SQL groups, rolled back
+npm run test:e2e   # 153 API tests — REQUIRES `npm run dev` in another terminal
+npm run test:wiki  # 118 wiki tests: REST, browser, MCP, guide — same requirement (9 skip without E2E_INSTALL_ADMIN_PASSWORD)
 npm run test:docs  # 15 Docs API tests — same requirement
+npm run test:mcp   # 26 tests: tokens (session API and stepper), List and Docs over MCP, and migration 026 — same requirement (1 skips without a loopback PostgreSQL; the migration test creates and drops its own database, so it will not run against a shared dev database, and names why instead of failing)
 npm run test:acceptance  # 15 acceptance criteria, same requirement
 npm run test:calendar-look  # 1 browser test: the Calendar still renders as pinned — same requirement
 ```

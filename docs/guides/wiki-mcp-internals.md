@@ -1,23 +1,24 @@
-# MCP ของ Wiki ทำงานอย่างไร
+# MCP ของ T-Timeline ทำงานอย่างไร
 
-เอกสารนี้สำหรับนักพัฒนาที่ต้องดูแลหรือแก้โค้ด MCP ของ Wiki — อธิบายว่าคำขอหนึ่งครั้งเดินทางผ่านอะไรบ้าง ใครตัดสินสิทธิ์ตรงไหน และจะเพิ่มหรือทดสอบเครื่องมือได้อย่างไร
+เอกสารนี้สำหรับนักพัฒนาที่ต้องดูแลหรือแก้โค้ด MCP — อธิบายว่าคำขอหนึ่งครั้งเดินทางผ่านอะไรบ้าง ใครตัดสินสิทธิ์ตรงไหน เครื่องมือแต่ละโมดูลมีอะไรบ้าง และจะเพิ่มโมดูลหรือเครื่องมือใหม่ได้อย่างไร
 
-ถ้าต้องการแค่ **เชื่อม AI เข้ากับ Wiki** (สร้าง token, ตั้งค่า Claude Code / Claude Desktop / VS Code / Cursor) ให้อ่าน [`wiki-mcp.md`](wiki-mcp.md) แทน ไฟล์นั้นแสดงในแอปที่ **Wiki → Tokens / MCP → How to connect** ด้วย กฎที่เป็นทางการอยู่ใน [`../spec/12-wiki.md`](../spec/12-wiki.md) §6–§8 (`D-77`…`D-81`)
+ถ้าต้องการแค่ **เชื่อม AI เข้ากับระบบ** (สร้าง token, ตั้งค่า Claude Code / Claude Desktop / VS Code / Cursor) ให้อ่าน [`mcp.md`](mcp.md) แทน ไฟล์นั้นแสดงในแอปที่ **Tokens / MCP → How to connect** ด้วย กฎที่เป็นทางการอยู่ใน [`../spec/14-mcp-tokens.md`](../spec/14-mcp-tokens.md) (`D-90`…) ส่วนกฎของ Wiki เองที่ `D-70`–`D-76`, `D-82`–`D-85` ยังอยู่ใน [`../spec/12-wiki.md`](../spec/12-wiki.md)
 
 ---
 
 ## 1. ภาพรวม
 
-MCP (Model Context Protocol) คือโปรโตคอลมาตรฐานที่ให้โปรแกรม AI เรียก "เครื่องมือ" (tools) ของระบบอื่นได้ ข้อความที่รับส่งเป็น JSON-RPC 2.0 ระบบนี้ใช้ MCP เป็น **ช่องทางเดียว** ที่ AI เข้าถึง Wiki ได้ โดยอ่านได้เป็นพื้นฐาน และสร้างหรือแก้ไขได้เมื่อ token มีสิทธิ์เพิ่มตาม [SRS](../spec/13-wiki-mcp-write-srs.md)
+MCP (Model Context Protocol) คือโปรโตคอลมาตรฐานที่ให้โปรแกรม AI เรียก "เครื่องมือ" (tools) ของระบบอื่นได้ ข้อความที่รับส่งเป็น JSON-RPC 2.0 ระบบนี้ใช้ MCP เป็น **ช่องทางเดียว** ที่ AI เข้าถึง List, Docs และ Wiki ได้ — token หนึ่งอันใช้ได้ทั้งสามโมดูล โดยอ่านได้เป็นพื้นฐานในทุกโมดูลที่เลือก และสร้างหรือแก้ไขได้เมื่อ token มีสิทธิ์เพิ่มต่อโมดูล (central MCP tokens design)
 
 | เรื่อง | ค่าที่ใช้ |
 |---|---|
-| Endpoint | `POST /api/mcp` (ในแอป Next.js ตัวเดียวกัน ไม่มี process แยก) |
+| Endpoint | `POST /api/mcp` (ในแอป Next.js ตัวเดียวกัน ไม่มี process แยก) — ทุกโมดูลผ่านจุดเดียวกัน |
+| ชื่อเซิร์ฟเวอร์ | `t-timeline` (เดิมคือ `t-timeline-wiki` ตอนยังผูกกับ Wiki อย่างเดียว) |
 | Transport | Streamable HTTP แบบ **stateless** ตอบกลับเป็น JSON (`enableJsonResponse: true`) ไม่มี session id และไม่มี stream จากฝั่งเซิร์ฟเวอร์ |
 | SDK | `@modelcontextprotocol/sdk` — `McpServer` + `WebStandardStreamableHTTPServerTransport` |
-| การยืนยันตัวตน | `Authorization: Bearer pmw_…` **อย่างเดียว** ไม่อ่าน cookie ไม่รับ token ใน query string ไม่รับ secret ของลิงก์สาธารณะ |
-| เครื่องมือ | อ่านพื้นฐาน 4 ตัวติด `readOnlyHint: true`; เพิ่ม `create_wiki`, `create_page`, `update_wiki`, `update_page` ตาม permission |
-| อัตราการเรียก | 60 ครั้งต่อนาทีต่อ token (sliding window ในหน่วยความจำ) |
+| การยืนยันตัวตน | `Authorization: Bearer pmw_…` **อย่างเดียว** ไม่อ่าน cookie ไม่รับ token ใน query string |
+| เครื่องมือ | อ่านพื้นฐานของทุกโมดูลที่ token มี ติด `readOnlyHint: true`; เครื่องมือเขียนลงทะเบียนเฉพาะเมื่อ token มี grant นั้น |
+| อัตราการเรียก | 60 ครั้งต่อนาทีต่อ token (sliding window ในหน่วยความจำ) **รวมทุกโมดูล** |
 | `GET`, `DELETE` | `405` เพราะ stateless จึงไม่มี stream ให้เปิดและไม่มี session ให้ปิด |
 
 ## 2. ไฟล์ที่เกี่ยวข้อง
@@ -25,12 +26,20 @@ MCP (Model Context Protocol) คือโปรโตคอลมาตรฐา
 | ไฟล์ | หน้าที่ |
 |---|---|
 | `src/app/api/mcp/route.ts` | route ของ Next.js — ส่ง `POST` ต่อให้ `handleMcp` และตอบ `405` ให้ `GET`/`DELETE` ไม่เรียก `handle()` หรือ `currentUserId()` เลย cookie ของ session จึงไปไม่ถึงโค้ดส่วนนี้ |
-| `src/lib/wiki-mcp.ts` | ตัวเซิร์ฟเวอร์ MCP: ตรวจ token, จำกัดอัตรา, สร้าง `McpServer`, ลงทะเบียนเครื่องมือตาม permissions และแปลงข้อผิดพลาด |
-| `src/lib/wiki-tokens.ts` | `resolveBearer()` — แปลง header เป็น token และชุด Wiki ที่อ่านได้จริง (ทำทุกคำขอ) รวมถึงการสร้าง แก้ไข และ revoke token |
-| `src/lib/wiki-rules.ts` | กฎแบบ pure function ที่ทดสอบได้โดยไม่ต้องมีฐานข้อมูล: `bearerSecret`, `hashTokenSecret`, `newTokenSecret`, `effectiveTokenWikis`, `tokenStatus`, `shouldTouchLastUsed`, `takeRateSlot` |
-| `src/lib/wiki.ts` | ข้อมูลที่เครื่องมือใช้อ่าน: `visibleWikiIds`, `activeWikiPages`, `searchWikiIds` |
-| `src/app/(signed-in)/wiki/tokens/` | หน้า **Tokens / MCP** และหน้า guide ที่อ่าน `docs/guides/wiki-mcp.md` มาแสดง |
-| `db/migrations/021_wiki.sql` | ตาราง `pmt_wiki_tokens` และ `pmt_wiki_token_scopes` |
+| `src/lib/mcp/server.ts` | `handleMcp()` — ตรวจ token, จำกัดอัตรา, สร้าง `McpServer` ใหม่ทุกคำขอ แล้วเรียก `register*Tools` ของแต่ละโมดูลที่ token มี |
+| `src/lib/mcp/tool-kit.ts` | สิ่งที่ทุกโมดูลใช้ร่วมกัน: `McpContext` (= `McpAuth`), `answer()` ที่ห่อ handler และแปลง error, `outOfScope()`, `readOnly`/`writes` annotations |
+| `src/lib/mcp/list-tools.ts` | เครื่องมือของ List: `list_projects` (ใช้ร่วมกับ Docs), `list_tasks`, `read_task`, `create_task`, `update_task` |
+| `src/lib/mcp/docs-tools.ts` | เครื่องมือของ Docs: `list_docs`, `list_doc_pages`, `read_doc_page`, `create_doc`, `create_doc_page`, `update_doc_page` |
+| `src/lib/mcp/wiki-tools.ts` | เครื่องมือของ Wiki (ชื่อเดิมทุกตัว): `list_wikis`, `list_pages`, `read_page`, `search`, `create_wiki`, `create_page`, `update_wiki`, `update_page` |
+| `src/lib/mcp/wiki-writes.ts` | ฟังก์ชันเขียนของ Wiki ที่ตรวจ permission, scope และสิทธิ์ผู้ใช้ก่อนเรียก `wiki.ts` |
+| `src/lib/mcp-rules.ts` | กฎแบบ pure function ของ List และ Docs: `scopedId`, `taskPatch`, `docPageContent` |
+| `src/lib/wiki-mcp-content.ts` | `mcpPageContent()` — กันไม่ให้ Markdown export ทับ rich content ของหน้า Docs หรือ Wiki แบบ flatten เงียบ ๆ ใช้ร่วมกันโดยทั้งสองโมดูล |
+| `src/lib/token-modules.ts` | **registry ของโมดูล** — `TOKEN_MODULES`, คีย์ ป้ายชื่อ และสิทธิ์ของแต่ละโมดูล, `hasModule`/`hasGrant`/`scopeKindsInUse` อ่าน client-safe ไม่พึ่ง `node:crypto` |
+| `src/lib/token-rules.ts` | กฎ pure function ที่เหลือ (secret, scope, rate limiter) — re-export ทุกอย่างจาก `token-modules.ts` ด้วย |
+| `src/lib/access-tokens.ts` | adapter ฐานข้อมูล: `resolveBearer()`, `createToken`, `updateToken`, `revokeToken`, `listMyTokens`, `listAllTokens`, `allowWikiOnMyTokens` |
+| `src/lib/project-access.ts` | `visibleProjects`/`visibleProjectIds` — โปรเจกต์ที่ผู้ใช้เป็นสมาชิกอยู่ตอนนี้ ใช้คำนวณ effective scope ของ List/Docs เหมือนที่ `visibleWikiIds` ทำให้ Wiki |
+| `src/app/(signed-in)/tokens/` | หน้า **Tokens / MCP** (stepper 4 ขั้น) และหน้า guide ที่อ่าน `docs/guides/mcp.md` มาแสดง — ย้ายออกจาก Wiki แล้ว, `/wiki/tokens` และ `/wiki/tokens/guide` เหลือแค่ redirect |
+| `db/migrations/026_access_tokens.sql` | เปลี่ยน `pmt_wiki_tokens`/`pmt_wiki_token_scopes` เป็น `pmt_access_tokens`, `pmt_access_token_grants`, `pmt_access_token_scopes` |
 
 `src/proxy.ts` ไม่ยุ่งกับ `/api/mcp` เพราะ matcher ของมันข้ามทุกเส้นทางที่ขึ้นต้นด้วย `api`
 
@@ -47,15 +56,15 @@ sequenceDiagram
     R->>M: handleMcp(req)
     M->>T: resolveBearer(header)
     T->>DB: หา token จาก sha256(secret) + สถานะเจ้าของ
-    T->>DB: scope ของ token + Wiki ที่เจ้าของเห็นตอนนี้
-    T-->>M: tokenId, wikiIds (ชุดที่อ่านได้จริง) หรือ null
+    T->>DB: grants ของ token + scope ∩ สิ่งที่เจ้าของเห็นตอนนี้ (โปรเจกต์และ Wiki)
+    T-->>M: tokenId, ownerId, grants, scope หรือ null
     alt null
         M-->>C: 401 invalid_token
     else เกิน 60 ครั้งต่อนาที
         M-->>C: 429 rate_limited
     else ผ่าน
-        M->>M: buildServer(wikiIds) + transport ใหม่
-        M->>DB: เครื่องมือที่ถูกเรียกอ่านข้อมูล (กรองด้วย wikiIds)
+        M->>M: buildServer(ctx): ลงทะเบียนเครื่องมือเฉพาะโมดูลที่ ctx.grants มี
+        M->>DB: เครื่องมือที่ถูกเรียกอ่าน/เขียนข้อมูล (กรองด้วย scope เสมอ)
         M-->>C: 200 JSON-RPC result
     end
 ```
@@ -63,47 +72,70 @@ sequenceDiagram
 ทีละขั้น
 
 1. **แยก secret ออกจาก header** — `bearerSecret()` รับเฉพาะรูปแบบ `Bearer pmw_<43 ตัวอักษร base64url>` เป๊ะ ๆ อย่างอื่นเป็น `null`
-2. **หา token** — คำนวณ `sha256(secret)` แล้วค้นด้วย index ของ `wiki_token_hash` ในตารางเก็บเฉพาะ hash กับ prefix 8 ตัว **ไม่เคยเก็บ secret** (`D-77`)
+2. **หา token** — คำนวณ `sha256(secret)` แล้วค้นด้วย index ของ `access_token_hash` ในตารางเก็บเฉพาะ hash กับ prefix 8 ตัว **ไม่เคยเก็บ secret**
 3. **ตรวจว่ายังใช้ได้** — ต้องยังไม่ถูก revoke, ยังไม่หมดอายุ และบัญชีเจ้าของยัง active ถ้าไม่ผ่านข้อใด ผลคือ `null` แล้วตอบ `401` พร้อม `WWW-Authenticate: Bearer` ทุกกรณีตอบเหมือนกันหมด คนเรียกจึงแยกไม่ออกว่าผิดเพราะอะไร
-4. **คำนวณ Wiki ที่อ่านได้จริง** (`D-78`)
+4. **โหลด grants และคำนวณ scope ที่ใช้ได้จริง**
 
    ```
-   effective wikis = scope ของ token ∩ Wiki ที่เจ้าของ token มองเห็นอยู่ตอนนี้
+   effective scope = scope ของ token ∩ สิ่งที่เจ้าของ token มองเห็นอยู่ตอนนี้
    ```
 
-   `visibleWikiIds(ownerId)` ใช้กฎเดียวกับหน้าเว็บ (`canSeeWiki`) ผลคือ ถ้าเจ้าของเสียสิทธิ์ใน Wiki ใด token ก็อ่าน Wiki นั้นไม่ได้ในคำขอถัดไปทันที โดยไม่ต้องลบ scope ทิ้ง ถ้าได้สิทธิ์คืน scope เดิมก็กลับมาใช้ได้เอง
+   ต่อขอบเขตแต่ละชนิด: `visibleProjectIds(ownerId)` สำหรับโปรเจกต์ (List และ Docs ใช้ร่วมกัน) และ `visibleWikiIds(ownerId)` สำหรับ Wiki ผลคือ ถ้าเจ้าของเสียสิทธิ์ที่ใด token ก็ทำสิ่งนั้นไม่ได้ในคำขอถัดไปทันที โดยไม่ต้องลบ scope ทิ้ง ถ้าได้สิทธิ์คืน scope เดิมก็กลับมาใช้ได้เอง `effectiveScope()` (`token-rules.ts`) ทำสิ่งนี้ให้ทั้งสองขอบเขตพร้อมกัน
 5. **บันทึก `last_used_at`** — เขียนเฉพาะ token ที่ผ่านการตรวจ และไม่เกินนาทีละครั้ง เงื่อนไขซ้ำอยู่ใน SQL ด้วย คำขอสองอันที่มาพร้อมกันจึงเขียนแค่ครั้งเดียว
-6. **จำกัดอัตรา** — `takeSlot()` เก็บเวลาที่เรียกของแต่ละ token ใน `Map` ในหน่วยความจำ ครั้งที่ 61 ภายใน 60 วินาทีได้ `429` พร้อม `Retry-After: 60` และ entry ที่ไม่ได้ใช้เกินหนึ่ง window จะถูกกวาดทิ้ง วิธีนี้ถูกต้องเพราะ deploy เป็น container เดียว (`D-81`, `08-operations.md`) ถ้าวันหนึ่งขยายเป็นหลาย instance ต้องย้ายตัวนับไปไว้ที่เก็บกลาง
-7. **สร้างเซิร์ฟเวอร์ใหม่ทุกคำขอ** — `buildServer(wikiIds)` ผูกชุด Wiki ที่อ่านได้เข้ากับเครื่องมือทุกตัว แล้วต่อกับ transport ตัวใหม่ ตอบคำขอ แล้ว `server.close()` ไม่มีสถานะค้างข้ามคำขอเลย นี่คือความหมายของ stateless และเป็นเหตุผลที่ client เรียก `tools/call` ได้โดยไม่ต้อง `initialize` ก่อน
+6. **จำกัดอัตรา** — `takeSlot()` เก็บเวลาที่เรียกของแต่ละ token ใน `Map` ในหน่วยความจำ รวมทุกโมดูลไว้นับเดียวกัน ครั้งที่ 61 ภายใน 60 วินาทีได้ `429` พร้อม `Retry-After: 60` และ entry ที่ไม่ได้ใช้เกินหนึ่ง window จะถูกกวาดทิ้ง วิธีนี้ถูกต้องเพราะ deploy เป็น container เดียว ถ้าวันหนึ่งขยายเป็นหลาย instance ต้องย้ายตัวนับไปไว้ที่เก็บกลาง
+7. **สร้างเซิร์ฟเวอร์ใหม่ทุกคำขอ** — `buildServer(ctx)` (`src/lib/mcp/server.ts`) ลงทะเบียนเฉพาะโมดูลที่ `ctx.grants` มี: `list_projects` ใช้ร่วมกันระหว่าง List กับ Docs จึงลงทะเบียนครั้งเดียวถ้ามีโมดูลใดโมดูลหนึ่ง แล้วต่อกับ transport ตัวใหม่ ตอบคำขอ แล้ว `server.close()` ไม่มีสถานะค้างข้ามคำขอเลย นี่คือความหมายของ stateless และเป็นเหตุผลที่ client เรียก `tools/call` ได้โดยไม่ต้อง `initialize` ก่อน
 
-## 4. เครื่องมืออ่านพื้นฐานทั้ง 4 ตัว
+## 4. เครื่องมือแต่ละโมดูล
 
-ทุกตัวรับ `wikiIds` ที่ผ่านขั้นที่ 4 มาแล้วเท่านั้น และกรองซ้ำอีกชั้นว่า Wiki และหน้าต้องยังไม่ถูก archive
+ทุกเครื่องมือรับ `ctx: McpContext` (= `McpAuth`: `tokenId`, `ownerId`, `grants`, `scope`) ที่ผ่านขั้นที่ 4 มาแล้ว และกรองซ้ำอีกชั้นว่าแถวต้องยังไม่ถูก archive และอยู่ในขอบเขตจริง (`scopedId`, `scopedNode`, `scopedDoc`, `scopedPage`, `liveWiki` ฯลฯ)
 
-| เครื่องมือ | Input | ทำอะไร |
+### List (`list-tools.ts`)
+
+| เครื่องมือ | สิทธิ์ | ทำอะไร |
 |---|---|---|
-| `list_wikis` | — | `liveWikis(wikiIds)`: id, title, description, `pageCount` (นับเฉพาะหน้าที่ไม่ถูก archive) เรียงตามชื่อ |
-| `list_pages` | `wiki_id` | `liveWiki()` ตรวจว่า Wiki อยู่ในชุดที่อ่านได้ แล้วส่งโครงหน้าตามลำดับในต้นไม้: id, slug, title, depth (1–3), parentId, updatedAt |
-| `read_page` | `page_id` หรือ `wiki_id` + `slug` | หาหน้า ตรวจ Wiki ของมันอีกครั้ง แล้วส่ง title, wikiTitle, breadcrumb, updatedAt และ `markdown` ที่ได้จาก `contentMarkdown(body)` แผนภาพ Mermaid ออกมาเป็นบล็อก `` ```mermaid `` ซึ่งมีซอร์สตรงกับที่บันทึกไว้ทุก byte |
-| `search` | `query`, `wiki_id`?, `limit`? | `searchWikiIds()` — ค้นแบบ substring ด้วย `ILIKE` บนชื่อและข้อความที่สกัดไว้ (`D-73`) ทุกคำต้องตรง หาคำไทยกลางประโยคได้ `limit` ถูกบีบให้อยู่ในช่วง 1–20 |
+| `list_projects` | อ่าน | `visibleProjects(ownerId)` กรองด้วย `scope.projectIds` — ใช้ร่วมกับ Docs |
+| `list_tasks` | อ่าน | `loadLedger()` กรองเหลือ `depth >= 2` (ไม่รวม root ของโปรเจกต์) ส่ง estimate/actual เป็นคนละฟิลด์ |
+| `read_task` | อ่าน | หนึ่งแถวจาก ledger เดียวกัน |
+| `create_task` | `create_task` | `authorize(..., 'node.create')` แล้ว `createNode()` |
+| `update_task` | `write_task` | แก้ไขหรือย้าย อย่างใดอย่างหนึ่งต่อคำขอ (`taskPatch()` ตัดเฉพาะคีย์ที่ส่งมา); แก้วันที่ต้อง `node.editDates`, แก้ values ต้อง `node.editValues`, เปลี่ยนชื่อต้อง `node.rename`, ย้ายต้อง `node.move` — grant ไม่เคยแทนที่ role ของเจ้าของเลย |
 
-รายละเอียดที่ควรรู้
+Defects (`WorkKind` `defect`) ไม่อยู่ใน `list_tasks`/`read_task` เพราะ ledger ที่ใช้ไม่รวม defect node และ `scopedNode` ตรวจ depth กับ archived เท่านั้น ไม่มี adapter แยกให้ MCP แตะ Defects เลยในรุ่นนี้
 
-- **id ไม่สนตัวพิมพ์** UUID ถูกแปลงเป็นตัวพิมพ์เล็กก่อนเทียบ เพราะในฐานข้อมูลและในชุด `wikiIds` เป็นตัวเล็กทั้งหมด
-- **id ที่รูปแบบผิดไม่ทำให้เกิด 500** `isUuid()` ตัดออกก่อนถึงฐานข้อมูล
-- คำค้นผ่าน `likePattern()` ซึ่ง escape `%`, `_`, `\` และค่าเป็น bound parameter เสมอ ไม่มีการต่อสตริง SQL
+### Docs (`docs-tools.ts`)
+
+| เครื่องมือ | สิทธิ์ | ทำอะไร |
+|---|---|---|
+| `list_docs` | อ่าน | `listDocs(ownerId, projectId)` |
+| `list_doc_pages` | อ่าน | `loadDoc()` แล้วส่งต้นไม้ของหน้า |
+| `read_doc_page` | อ่าน | ส่งแต่ละ section เป็น `contentMarkdown()`; `include_rich_content` แนบ `rich_content` ด้วยถ้าเป็น rich |
+| `create_doc` | `create_doc` | สร้างเอกสารใหม่ |
+| `create_doc_page` | `create_page` | สร้างหน้า Free ใหม่ |
+| `update_doc_page` | `write_page` | แก้หนึ่ง section ผ่าน `docPageContent()` (`mcp-rules.ts`) ซึ่งเรียก `mcpPageContent()` ร่วมกับ Wiki แล้วตรวจด้วย `removedDocAssetIds()` ว่าไม่มีไฟล์แนบหาย |
+
+`docs.ts` เป็นคนตรวจสิทธิ์ของเจ้าของ token เอง (`doc.create`, `doc.edit` ฯลฯ) เหมือน route ของแอป MCP ไม่เพิ่ม path ใหม่ให้เขียนเอกสาร
+
+### Wiki (`wiki-tools.ts`, `wiki-writes.ts`)
+
+ชื่อเครื่องมือ **เดิมทุกตัว** ไม่เปลี่ยน แม้ token จะกลายเป็นระบบเดียว: `list_wikis`, `list_pages`, `read_page`, `search`, `create_wiki`, `create_page`, `update_wiki`, `update_page` — client ที่ตั้งค่าไว้ก่อน task นี้ยังเชื่อมต่อได้โดยไม่ต้องแก้อะไร รายละเอียดเดิมอยู่ใน [`../spec/12-wiki.md`](../spec/12-wiki.md) §6
+
+รายละเอียดที่ควรรู้ ใช้ร่วมกันทุกโมดูล
+
+- **id ไม่สนตัวพิมพ์** UUID ถูกแปลงเป็นตัวพิมพ์เล็กก่อนเทียบ เพราะในฐานข้อมูลและใน scope เป็นตัวเล็กทั้งหมด (`isUuid`, `scopedId`)
+- **id ที่รูปแบบผิดไม่ทำให้เกิด 500** ตรวจรูปแบบก่อนถึงฐานข้อมูลเสมอ
+- คำค้นผ่าน parameter ที่ bind เสมอ ไม่มีการต่อสตริง SQL
 
 ## 5. ข้อผิดพลาดบอกอะไรได้บ้าง
 
-ทุกเครื่องมือห่อด้วย `answer()`
+ทุกเครื่องมือห่อด้วย `answer()` (`tool-kit.ts`)
 
 | สถานการณ์ | สิ่งที่ client เห็น |
 |---|---|
-| ข้อมูลอยู่นอก scope, ถูก archive, ไม่มีอยู่จริง หรือ id ผิดรูปแบบ | ผลลัพธ์ `isError: true` ข้อความ `Not found.` — **เหมือนกันทุกกรณี** (`D-80`) จึงใช้เดาไม่ได้ว่า id ไหนมีอยู่จริง |
-| ข้อผิดพลาดที่ไม่คาดคิด | log ที่เซิร์ฟเวอร์ด้วย `[mcp] <tool> failed` แล้วตอบข้อความตายตัว `The wiki could not answer this request.` ไม่มี stack trace ไม่มีข้อความจากฐานข้อมูล |
+| ข้อมูลอยู่นอก scope, ถูก archive, ไม่มีอยู่จริง หรือ id ผิดรูปแบบ (`OutOfScope`) | ผลลัพธ์ `isError: true` ข้อความ `Not found.` — **เหมือนกันทุกกรณี ทุกโมดูล** จึงใช้เดาไม่ได้ว่า id ไหนมีอยู่จริง |
+| `DomainError` อื่น (เช่น `E_INVALID_DOC`, `E_DOC_CONFLICT`) | `isError: true` พร้อม `{error:{code,message}}`; `E_DOC_CONFLICT` ถูกแทนข้อความด้วย "This page changed. Read it again before retrying your edit." เสมอ ไม่บอกว่าใครแก้ |
+| ข้อผิดพลาดที่ไม่คาดคิด | log ที่เซิร์ฟเวอร์ด้วย `[mcp] <tool> failed` แล้วตอบข้อความตายตัว **"The server could not answer this request."** ไม่มี stack trace ไม่มีข้อความจากฐานข้อมูล (ข้อความนี้ไม่เอ่ยชื่อเครื่องมือใดเจาะจง ก่อนหน้านี้ข้อความของ rich content เคยเอ่ยชื่อ `read_page` ซึ่งทำให้ caller ของ Docs เข้าใจผิดว่าต้องเรียกเครื่องมือของ Wiki — แก้แล้วให้ไม่เจาะจงเครื่องมือ) |
 | token ใช้ไม่ได้ | HTTP `401 {"error":"invalid_token"}` |
 | เรียกถี่เกิน | HTTP `429 {"error":"rate_limited"}` |
-| เรียกเครื่องมือที่ไม่มี เช่น `create_page` | SDK ตอบเป็นข้อผิดพลาด เพราะไม่มีเครื่องมือเขียนให้เรียกเลย |
+| เรียกเครื่องมือที่ไม่มี เช่น token ไม่มีโมดูลนั้นหรือไม่มี grant | SDK ตอบเป็นข้อผิดพลาด เพราะไม่มีเครื่องมือนั้นให้เรียกเลย |
 
 ผลลัพธ์ไม่เคยมีอีเมล ชื่อเจ้าของ หรือ secret ของลิงก์สาธารณะ
 
@@ -115,17 +147,17 @@ sequenceDiagram
 TOKEN=pmw_...
 URL=http://localhost:3010/api/mcp
 
-# เครื่องมือมีอะไรบ้าง
+# เครื่องมือมีอะไรบ้าง (ขึ้นกับโมดูลและสิทธิ์ของ token นี้)
 curl -s $URL -H "Authorization: Bearer $TOKEN" \
   -H 'content-type: application/json' -H 'accept: application/json, text/event-stream' \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 
-# Wiki ที่ token อ่านได้
+# โปรเจกต์ที่ token อ่านได้ (ต้องมีโมดูล List หรือ Docs)
 curl -s $URL -H "Authorization: Bearer $TOKEN" \
   -H 'content-type: application/json' -H 'accept: application/json, text/event-stream' \
-  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"list_wikis","arguments":{}}}'
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"list_projects","arguments":{}}}'
 
-# ค้นหา
+# ค้นใน Wiki (ต้องมีโมดูล Wiki)
 curl -s $URL -H "Authorization: Bearer $TOKEN" \
   -H 'content-type: application/json' -H 'accept: application/json, text/event-stream' \
   -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"search","arguments":{"query":"ติดตั้ง"}}}'
@@ -139,37 +171,32 @@ curl -s $URL -H "Authorization: Bearer $TOKEN" \
 
 | ชุด | ครอบคลุม | ต้องมี |
 |---|---|---|
-| `tests/wiki-rules.test.ts` | รูปแบบ token และ header, `effectiveTokenWikis` (revoke, หมดอายุ, เจ้าของถูกปิด, เสียสิทธิ์แล้วได้คืน), `takeRateSlot` | ไม่ต้องมีอะไร (`npm test`) |
-| `tests/e2e/wiki-mcp.test.ts` | 24 กรณีผ่าน endpoint จริง: Bearer เท่านั้น, cookie และ secret ลิงก์สาธารณะใช้ไม่ได้, เครื่องมือครบ 4 ตัวและอ่านอย่างเดียว, id ตัวพิมพ์ใหญ่, scope ถูกตัดสินใหม่ทุกคำขอ, 401 เมื่อ revoke/หมดอายุ/ปิดบัญชี, injection, ไม่รั่ว stack trace, `last_used_at`, ครั้งที่ 61 ได้ 429 | ฐานข้อมูล + `npm run dev` |
-| `tests/e2e/wiki-guide.test.ts` | หน้า guide ในแอปแสดง origin จริง เปิดได้เฉพาะคนที่ล็อกอิน และตัวอย่างทุกอันใน `wiki-mcp.md` ยัง parse และเชื่อมต่อได้ | ฐานข้อมูล + `npm run dev` |
+| `tests/token-rules.test.ts` | registry ของโมดูล, grants/scope เป็น pure function, secret/status/rate limiter | ไม่ต้องมีอะไร (`npm test`) |
+| `tests/mcp-rules.test.ts` | `scopedId`, `taskPatch` (estimate/actual แยกกันเสมอ), `docPageContent` | ไม่ต้องมีอะไร (`npm test`) |
+| `tests/e2e/tokens.test.ts` | `/api/tokens` ผ่าน session: grants ต่อโมดูล, scope ต่อชนิด, การตัด scope ที่ไม่มีโมดูลใช้แล้ว | ฐานข้อมูล + `npm run dev` |
+| `tests/e2e/tokens.browser.test.ts` | stepper จริงในเบราว์เซอร์: Modules → Permissions → Where → Name, Read ล็อกไว้, Select all, แก้ไขแล้วหลุดโมดูล, `/wiki/tokens` redirect | ฐานข้อมูล + `npm run dev` |
+| `tests/e2e/mcp-list.test.ts` | เครื่องมือ List ผ่าน endpoint จริง: grant ไม่เคยเกิน role, out-of-scope, สมาชิกภาพหลุด/กลับมา, แจ้งเตือนเมื่อ assign | ฐานข้อมูล + `npm run dev` |
+| `tests/e2e/mcp-docs.test.ts` | เครื่องมือ Docs ผ่าน endpoint จริง: `create_doc` ต้อง Admin, stale `updatedAt`, ห้ามลบไฟล์แนบ, หน้าที่ป้องกันไว้แก้ไม่ได้ | ฐานข้อมูล + `npm run dev` |
+| `tests/e2e/access-token-migration.test.ts` | migration 026: token เก่าได้ `wiki:read` บวก grant ตาม boolean เดิม, คง scope, ชื่อ constraint/index ตรงกับ `db:build` | PostgreSQL แบบ loopback เท่านั้น (สร้าง/ลบฐานข้อมูลของตัวเอง) |
+| `tests/e2e/wiki-mcp.test.ts`, `tests/e2e/wiki-mcp-write.test.ts` | เครื่องมือ Wiki (อ่านและเขียน) เหมือนก่อนย้าย | ฐานข้อมูล + `npm run dev` |
+| `tests/e2e/wiki-guide.test.ts` | หน้า guide ที่ `/tokens/guide` แสดง origin จริง เปิดได้เฉพาะคนที่ล็อกอิน ตัวอย่างทุกอันใน `mcp.md` ยัง parse และเชื่อมต่อได้ และ `/wiki/tokens/guide` เก่า redirect มาที่นี่ | ฐานข้อมูล + `npm run dev` |
 
 ```bash
-npm test
-npm run test:wiki   # รวม wiki-mcp และ wiki-guide
+npm test       # token-rules, mcp-rules รวมอยู่ใน 541 domain rule tests
+npm run test:mcp    # tokens, tokens-browser, mcp-list, mcp-docs, access-token-migration
+npm run test:wiki   # รวม wiki-mcp, wiki-mcp-write และ wiki-guide
 ```
 
-ชุด e2e สร้าง token ของตัวเองแยกในกรณีที่เรียกบ่อย เพื่อไม่ให้ใช้โควตา 60 ครั้งต่อนาทีของ token ที่ใช้ร่วมกันจนหมด
+`access-token-migration.test.ts` ข้าม (skip) ตัวเองพร้อมบอกเหตุผล ถ้า `PGHOST` ไม่ใช่ `127.0.0.1`/`localhost`/`::1` แทนที่จะ fail เพราะมันสร้างและลบฐานข้อมูลทดสอบของตัวเอง จึงปลอดภัยที่จะรันร่วมกับฐานข้อมูลพัฒนาที่ใช้ร่วมกัน (เช่นผ่าน `npm run test:mcp`) — ได้ผลข้าม 1 รายการแทนที่จะ fail รันแยกกับ loopback PostgreSQL เพื่อให้เครื่องมือ migration เองได้ตรวจจริง ชุด e2e อื่นสร้าง token ของตัวเองแยกในกรณีที่เรียกบ่อย เพื่อไม่ให้ใช้โควตา 60 ครั้งต่อนาทีของ token ที่ใช้ร่วมกันจนหมด
 
-## 8. ถ้าจะเพิ่มเครื่องมือใหม่
+## 8. ถ้าจะเพิ่มโมดูลใหม่
 
-1. เครื่องมือใหม่ต้องอยู่ในสิทธิ์ตาม SRS: อ่านพื้นฐาน หรือ `create_wiki`, `create_page`, `write_wiki`; ห้ามเพิ่มการลบหรือ archive
-2. ลงทะเบียนใน `buildServer()` ด้วย `server.registerTool(name, { description, inputSchema, annotations: /* readOnly for reads, non-read-only for writes */ }, handler)` โดยกำหนด input ด้วย `zod`
-3. เครื่องมืออ่านใช้ `liveWiki()` / `liveWikis()` กรอง `wikiIds` ส่วนเครื่องมือเขียนรับ context เต็มผ่าน `wiki-mcp-writes.ts` และตรวจทั้ง permission, scope และสิทธิ์ผู้ใช้ก่อนเขียน
-4. ห่อด้วย `answer(name, …)` แล้ว throw `outOfScope()` เมื่อหาไม่เจอหรืออยู่นอกสิทธิ์ ข้อความ `Not found.` จะได้เหมือนกันทุกกรณี
-5. อย่าส่งอีเมล ชื่อเจ้าของ หรือ `wiki_public_token` กลับไป
-6. เพิ่มกรณีใช้ได้ใน scope, `Not found.` นอก scope, ถูก archive, id ผิดรูปแบบ และตรวจ tools ตาม permissions ใน `wiki-mcp-write.test.ts`; token พื้นฐานยังมีเพียงสี่ read tools
-7. อัปเดตตารางเครื่องมือใน `docs/spec/12-wiki.md` §6, [`wiki-mcp.md`](wiki-mcp.md) §6 และในเอกสารนี้
+การออกแบบนี้ตั้งใจให้เพิ่มโมดูลโดย **ไม่ต้อง migration เพิ่มคอลัมน์**: grant และ scope เป็นแถว ไม่ใช่คอลัมน์ boolean แล้ว
 
-## สิทธิ์เขียนระดับ token (2026-11-09)
-
-`pmt_wiki_tokens` เพิ่ม `wiki_token_can_create_wiki`, `wiki_token_can_create_page`, `wiki_token_can_write_wiki` เป็น boolean NOT NULL DEFAULT false ใน migration 025. Token API ใช้ `permissions` array; create ที่ไม่ส่งได้ชุดว่าง และ edit ที่ไม่ส่งคงค่าเดิม ขณะที่ชุดว่างชัดเจนล้างสิทธิ์ได้ Wiki settings เปลี่ยน scope เท่านั้น
-
-`resolveBearer` คืน permissions พร้อม tokenId/ownerId/wikiIds ที่คำนวณใหม่ทุก request. `wiki-mcp-writes.ts` ตรวจ permission และ scope ก่อนเรียก domain services; page IDs resolve Wiki จริงก่อนตรวจ authorization. `createWikiForToken` สร้าง Wiki พร้อม scope ใน transaction เดียว ไม่ให้สิทธิ์ token อื่น ส่วน metadata patch ตรวจชื่อและรายละเอียดครบก่อนอัปเดตครั้งเดียว ไม่ forward action ทั่วไป
-
-การสร้างหน้าใช้ `create_page` และสิทธิ์เขียนของผู้ใช้ การแก้หน้าหรือรายละเอียด Wiki ใช้ `write_wiki` โดยรายละเอียด Wiki ต้องมี manage access การแก้หน้าส่ง `updatedAt` ผ่าน `saveWikiPage` เพื่อคง conflict, revisions และ search indexing. Tool schemas จำกัด fields; ไม่มี archive/delete/restore/member/publication/transfer/move/upload
-
-`wiki-mcp-content.ts` ป้องกันการ flatten rich page ผ่าน Markdown export ที่สูญเสียรายละเอียด: no-op Markdown คง canonical body เดิม ส่วน Markdown ที่เปลี่ยนไปถูกปฏิเสธพร้อมคำแนะนำ ใช้ `read_page(include_rich_content: true)` เพื่อรับ `rich_content` แล้วส่ง canonical content ที่แก้ไขกลับใน `update_page` แทน `markdown` การอ่านที่ไม่ขอตัวเลือกนี้ยังคง response shape เดิม
-
-ผลสำเร็จและ reads คง JSON text content เดิม Domain errors ของ writes ใช้ `isError: true` พร้อม `{error:{code,message}}`; stale save เป็น `E_DOC_CONFLICT` และแนะนำให้อ่านใหม่โดยไม่เปิดเผยชื่อผู้แก้ไข เป้าหมายนอก scope หรือ archived ยังคง `Not found.` Unexpected errors ไม่ส่ง SQL/stack trace
-
-ทดสอบสิทธิ์อิสระทั้ง 8 ชุดและผลการเขียนจริงที่ `tests/e2e/wiki-mcp-write.test.ts`, migration/default ที่ `wiki-token-migration.test.ts` (ฐานข้อมูลท้องถิ่นแยกเท่านั้น), และ token UI ที่ `wiki.browser.test.ts`. Read-only tests เดิมใช้กับ token ที่ไม่มี optional permissions
+1. **ประกาศโมดูลใน `src/lib/token-modules.ts`** — เพิ่มสมาชิกใหม่ใน `TOKEN_MODULES`: คีย์ (`key`), ป้ายชื่อ, คำอธิบาย Read (`readHint`), ชนิดของ scope (`scope`: `'project'` หรือชนิดใหม่ที่โมดูลเป็นเจ้าของ เช่น `'wiki'`) และรายการสิทธิ์ Create/Write ของมัน (`permissions`) — stepper, การตรวจ grant, การเก็บ scope และการลงทะเบียนเครื่องมือ **อ่าน declaration นี้ที่เดียว** ไม่ต้องแก้ที่อื่นเพื่อให้โมดูลปรากฏในหน้า Tokens / MCP
+2. **ถ้า scope เป็นชนิดใหม่** (ไม่ใช่ `project` และไม่ใช่ `wiki`) เพิ่มคอลัมน์ nullable หนึ่งคอลัมน์ใน `pmt_access_token_scopes` (เหมือน `token_scope_project_id`/`token_scope_wiki_id`) พร้อม unique index และ `CHECK (num_nonnulls(...) = 1)` ที่ขยายให้นับคอลัมน์ใหม่ด้วย แล้วเพิ่มเข้า `SCOPE_KINDS` ใน `access-tokens.ts` และฟังก์ชัน "visible ตอนนี้" แบบเดียวกับ `visibleProjectIds`/`visibleWikiIds`
+3. **เขียนกฎล้วน (pure)** ที่ไม่พึ่งฐานข้อมูลก่อน ถ้าโมดูลต้องแปลง id หรือ patch ก็ใส่ไว้ใน `mcp-rules.ts` และทดสอบใน `tests/mcp-rules.test.ts` แบบเดียวกับ `scopedId`/`taskPatch`/`docPageContent`
+4. **เขียน `src/lib/mcp/<module>-tools.ts`** หนึ่งไฟล์ export ฟังก์ชันเดียวชื่อ `register<Module>Tools(server, ctx)` — เครื่องมืออ่านลงทะเบียนเสมอ (มี grant นี้แปลว่ามีโมดูลนี้); เครื่องมือเขียนลงทะเบียนเฉพาะหลัง `if (hasGrant(ctx.grants, '<module>', '<permission>'))` ทุกตัวห่อด้วย `answer(name, …)` จาก `tool-kit.ts` และ `throw outOfScope()` เมื่อหาไม่เจอหรืออยู่นอกสิทธิ์ ไม่มีการเขียนทับงานของใคร ไม่มีการลบ/archive และห้ามส่งอีเมล ชื่อเจ้าของ หรือความลับกลับไป (ตาม non-goals ของ design)
+5. **ต่อสายใน `src/lib/mcp/server.ts`** — เพิ่มบรรทัดเดียวใน `buildServer()`: `if (hasModule(ctx.grants, '<module>')) register<Module>Tools(server, ctx);`
+6. **ทดสอบ** เพิ่มชุด `tests/e2e/mcp-<module>.test.ts` ตามแบบ `mcp-list.test.ts`/`mcp-docs.test.ts`: มีสิทธิ์ใน scope ได้, นอก scope เป็น `Not found.`, grant ไม่เกิน role ของเจ้าของ, สมาชิกภาพหลุดแล้วหยุดทันที, ไม่มีการลบ/archive ผ่าน MCP
+7. **อัปเดตเอกสาร** — ตารางเครื่องมือใน [`mcp.md`](mcp.md) §6 และในเอกสารนี้ §4, และเพิ่มการตัดสินใจที่เกี่ยวข้องใน [`../spec/14-mcp-tokens.md`](../spec/14-mcp-tokens.md) ถ้ากติกาเปลี่ยน
