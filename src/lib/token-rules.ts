@@ -220,6 +220,15 @@ export function parseTokenScope(input: unknown, visible: Visible): TokenScope {
 }
 
 /**
+ * The scope kinds some granted module declares. Scope of any other kind is
+ * unreachable, so it is neither kept by `normalizeScope` nor left stored by
+ * an edit that drops the last module of that kind.
+ */
+export function scopeKindsInUse(g: TokenGrants): Set<ScopeKind> {
+  return new Set(TOKEN_MODULES.filter((m) => hasModule(g, m.key)).map((m) => m.scope));
+}
+
+/**
  * Scope that follows the grants it is stored with: a scope kind survives
  * only while some granted module declares it (design doc, "Scope stays a
  * stored list of concrete ids, never an 'everything' flag"). Dropping the
@@ -227,7 +236,7 @@ export function parseTokenScope(input: unknown, visible: Visible): TokenScope {
  * unreachable.
  */
 export function normalizeScope(g: TokenGrants, s: TokenScope): TokenScope {
-  const kinds = new Set(TOKEN_MODULES.filter((m) => hasModule(g, m.key)).map((m) => m.scope));
+  const kinds = scopeKindsInUse(g);
   return {
     projectIds: kinds.has('project') ? s.projectIds : [],
     wikiIds: kinds.has('wiki') ? s.wikiIds : [],

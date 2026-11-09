@@ -8,8 +8,8 @@ import { requireWiki, visibleWikiIds, wikiViewer } from '@/lib/wiki';
 import { isInstallAdmin, isUuid } from '@/lib/wiki-rules';
 import {
   LAST_USED_GRANULARITY_MS, MAX_ACTIVE_TOKENS, TOKEN_MODULES, bearerSecret, effectiveScope,
-  grantRows, grantsFromRows, hasModule, hashTokenSecret, newTokenSecret, normalizeScope,
-  parseTokenBasics, parseTokenGrants, parseTokenScope, shouldTouchLastUsed, tokenStatus,
+  grantRows, grantsFromRows, hashTokenSecret, newTokenSecret, normalizeScope,
+  parseTokenBasics, parseTokenGrants, parseTokenScope, scopeKindsInUse, shouldTouchLastUsed, tokenStatus,
   type ScopeKind, type TokenGrants, type TokenScope, type TokenStatus, type Visible,
 } from '@/lib/token-rules';
 
@@ -65,11 +65,6 @@ const SCOPE_KINDS = [
 async function visibleTo(userId: string): Promise<Visible> {
   const [project, wiki] = await Promise.all([visibleProjectIds(userId), visibleWikiIds(userId)]);
   return { project, wiki };
-}
-
-/** The scope kinds some granted module declares; scope of any other kind is unreachable and is not kept. */
-function kindsInUse(grants: TokenGrants): Set<ScopeKind> {
-  return new Set(TOKEN_MODULES.filter((m) => hasModule(grants, m.key)).map((m) => m.scope));
 }
 
 /** Declaration order — module, then `read`, then the module's own permission order — so grants read back the same way every time. */
@@ -243,7 +238,7 @@ export async function updateToken(userId: string, tokenId: string, input: unknow
   ]);
   const grants = newGrants ?? grantsOf(currentGrants ?? []);
   const scope = scopeField.present ? normalizeScope(grants, parseTokenScope(scopeField.value, visible)) : null;
-  const inUse = kindsInUse(grants);
+  const inUse = scopeKindsInUse(grants);
 
   await db.transaction(async (tx) => {
     await tx.update(accessTokens).set({ label }).where(eq(accessTokens.id, tokenId));

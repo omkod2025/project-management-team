@@ -14,7 +14,7 @@ import {
   type TokenFacts, type TokenStatus, tokenStatus, LAST_USED_GRANULARITY_MS, shouldTouchLastUsed,
   parseTokenIds, takeRateSlot,
   TOKEN_MODULES, parseTokenGrants, hasModule, hasGrant, grantRows, grantsFromRows,
-  parseTokenScope, normalizeScope, parseTokenBasics, effectiveScope,
+  parseTokenScope, normalizeScope, scopeKindsInUse, parseTokenBasics, effectiveScope,
   type TokenGrants, type TokenScope, type Visible,
 } from '../src/lib/token-rules.ts';
 import { DomainError } from '../src/lib/errors.ts';
@@ -245,6 +245,24 @@ describe('parseTokenScope', () => {
   test('dedupes within each list', () => {
     const result = parseTokenScope({ wikiIds: [WIKI_ID, WIKI_ID] }, visible);
     assert.deepEqual(result.wikiIds, [WIKI_ID]);
+  });
+});
+
+describe('scopeKindsInUse', () => {
+  test('the wiki module uses wiki scope', () => {
+    assert.deepEqual(scopeKindsInUse({ wiki: [] }), new Set(['wiki']));
+  });
+
+  test('list and docs both use project scope, counted once', () => {
+    assert.deepEqual(scopeKindsInUse({ list: [], docs: [] }), new Set(['project']));
+  });
+
+  test('every module uses both kinds', () => {
+    assert.deepEqual(scopeKindsInUse({ list: ['write_task'], wiki: ['create_page'] }), new Set(['project', 'wiki']));
+  });
+
+  test('no module uses no scope', () => {
+    assert.deepEqual(scopeKindsInUse({}), new Set());
   });
 });
 
