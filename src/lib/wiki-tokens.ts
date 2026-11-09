@@ -5,10 +5,13 @@ import { users, wikiTokenScopes, wikiTokens, wikis } from '@/db/schema';
 import { domainError } from '@/lib/errors';
 import { requireWiki, visibleWikiIds, wikiViewer } from '@/lib/wiki';
 import {
-  LAST_USED_GRANULARITY_MS, MAX_ACTIVE_TOKENS, bearerSecret, effectiveTokenWikis, hashTokenSecret,
-  isInstallAdmin, isUuid, newTokenSecret, parseTokenInput, shouldTouchLastUsed, tokenStatus,
-  parseTokenPermissions, type WikiTokenPermission, type TokenStatus,
+  effectiveTokenWikis, isInstallAdmin, isUuid, parseTokenInput,
+  parseTokenPermissions, type WikiTokenPermission,
 } from '@/lib/wiki-rules';
+import {
+  LAST_USED_GRANULARITY_MS, MAX_ACTIVE_TOKENS, bearerSecret, hashTokenSecret,
+  newTokenSecret, shouldTouchLastUsed, tokenStatus, type TokenStatus,
+} from '@/lib/token-rules';
 
 /**
  * Personal access tokens for the wiki (spec §6). The secret exists in the

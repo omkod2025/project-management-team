@@ -14,11 +14,12 @@
  * > the owner and install admin).
  */
 
-import { createHash, randomBytes } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 
 import { domainError } from './errors.ts';
 import { PROTECTED_EMAIL } from './admin-rules.ts';
 import { contentMarkdown } from './doc-rich-content.ts';
+import { parseTokenBasics, type TokenFacts } from './token-rules.ts';
 
 /* -------------------------------------------------------------- identity */
 
@@ -211,37 +212,6 @@ export function assertNotOwner(targetUserId: string, ownerId: string | null): vo
 
 /* ----------------------------------------------------------------- tokens */
 
-/** `wiki_token_prefix` is the first 8 characters of the secret after `pmw_`. */
-export const TOKEN_PREFIX = 'pmw_';
-
-/** One user's standing limit on live tokens (spec §6a, the builder's call). */
-export const MAX_ACTIVE_TOKENS = 20;
-
-/**
- * A fresh token: 32 random bytes as base64url, prefixed, hashed for storage,
- * and a short prefix kept in the clear for display. Only `secret` is ever
- * shown to the person who created it.
- */
-export function newTokenSecret(): { secret: string; hash: string; prefix: string } {
-  const secret = TOKEN_PREFIX + randomBytes(32).toString('base64url');
-  return { secret, hash: hashTokenSecret(secret), prefix: secret.slice(4, 12) };
-}
-
-export function hashTokenSecret(secret: string): string {
-  return createHash('sha256').update(secret).digest('hex');
-}
-
-const BEARER_RE = /^Bearer (pmw_[A-Za-z0-9_-]{43})$/;
-
-/** The secret out of an `Authorization` header, or `null` if it is not one of ours. */
-export function bearerSecret(header: string | null): string | null {
-  if (header === null) return null;
-  const match = BEARER_RE.exec(header);
-  return match?.[1] ?? null;
-}
-
-export type TokenFacts = { revokedAt: Date | null; expiresAt: Date | null; ownerActive: boolean };
-
 /**
  * What a token may read right now (spec §6b):
  *
@@ -273,41 +243,10 @@ export function effectiveTokenWikis(
   return result;
 }
 
-export type TokenStatus = 'active' | 'revoked' | 'expired';
-
-/** Revoked outranks expired: revoking is the act a person took, expiry is the calendar's. */
-export function tokenStatus(t: { revokedAt: Date | null; expiresAt: Date | null }, now: Date): TokenStatus {
-  if (t.revokedAt !== null) return 'revoked';
-  if (t.expiresAt !== null && t.expiresAt.getTime() <= now.getTime()) return 'expired';
-  return 'active';
-}
-
-/** `wiki_token_last_used_at` is written at most once a minute per token. */
-export const LAST_USED_GRANULARITY_MS = 60_000;
-
-export function shouldTouchLastUsed(lastUsedAt: Date | null, now: Date): boolean {
-  return lastUsedAt === null || now.getTime() - lastUsedAt.getTime() > LAST_USED_GRANULARITY_MS;
-}
-
 /**
- * The body of "Allow my token" — `{ tokenIds: string[] }`. A malformed id is
- * refused like a token that is not the caller's, with `E_NOT_FOUND`, so the
- * two cannot be told apart.
- */
-export function parseTokenIds(input: unknown): string[] {
-  const raw = (input as { tokenIds?: unknown } | null)?.tokenIds;
-  if (!Array.isArray(raw) || raw.some((id) => typeof id !== 'string')) {
-    throw domainError('E_INVALID_DOC', 'Send the tokens to allow as { tokenIds: [...] }.');
-  }
-  const ids = [...new Set(raw as string[])];
-  if (ids.some((id) => !UUID_RE.test(id))) throw domainError('E_NOT_FOUND', 'No such token.');
-  return ids;
-}
-
-const MAX_LABEL_LENGTH = 100;
-
-/**
- * A token being created or edited.
+ * A token being created or edited. Label and expiry are `parseTokenBasics`'s
+ * job, shared with the rest of the central MCP tokens work; only the wiki
+ * scope list is wiki-specific here.
  *
  * A wiki id that is not uuid-shaped and one that is simply not visible to
  * the caller are refused identically, with `E_NOT_FOUND` — the same
@@ -319,13 +258,8 @@ export function parseTokenInput(
   input: unknown,
   visible: ReadonlySet<string>,
 ): { label: string; wikiIds: string[]; expiresAt: Date | null } {
+  const { label, expiresAt } = parseTokenBasics(input);
   const obj = (input ?? {}) as Record<string, unknown>;
-
-  const label = typeof obj.label === 'string' ? obj.label.trim() : '';
-  if (!label) throw domainError('E_INVALID_DOC', 'A token needs a label.');
-  if (label.length > MAX_LABEL_LENGTH) {
-    throw domainError('E_INVALID_DOC', 'That label is too long.', { label });
-  }
 
   const rawIds = Array.isArray(obj.wikiIds) ? obj.wikiIds : [];
   const seen = new Set<string>();
@@ -339,18 +273,6 @@ export function parseTokenInput(
       seen.add(id);
       wikiIds.push(id);
     }
-  }
-
-  let expiresAt: Date | null = null;
-  if (obj.expiresAt !== null && obj.expiresAt !== undefined) {
-    if (typeof obj.expiresAt !== 'string') {
-      throw domainError('E_INVALID_DOC', 'That is not a date.', { expiresAt: obj.expiresAt });
-    }
-    const parsed = new Date(obj.expiresAt);
-    if (Number.isNaN(parsed.getTime()) || parsed.getTime() <= Date.now()) {
-      throw domainError('E_INVALID_DOC', 'The expiry date must be in the future.', { expiresAt: obj.expiresAt });
-    }
-    expiresAt = parsed;
   }
 
   return { label, wikiIds, expiresAt };
@@ -417,29 +339,6 @@ export function searchSnippet(text: string, terms: readonly string[], width = 20
   if (start > 0) snippet = '…' + snippet;
   if (end < text.length) snippet = snippet + '…';
   return snippet;
-}
-
-/* ------------------------------------------------------------- rate limit */
-
-/**
- * The MCP endpoint's in-memory limiter (spec §8): a sliding window of up to
- * `limit` hits per `windowMs`, per token. The caller owns the array between
- * calls — this function only decides and returns the next one, so it stays
- * pure and testable without a clock to fake.
- */
-export function takeRateSlot(
-  hits: number[],
-  now: number,
-  limit = 60,
-  windowMs = 60_000,
-): { allowed: boolean; hits: number[] } {
-  const cutoff = now - windowMs;
-  const recent = hits.filter((h) => h > cutoff);
-  if (recent.length >= limit) {
-    return { allowed: false, hits: recent };
-  }
-  recent.push(now);
-  return { allowed: true, hits: recent };
 }
 
 /* ------------------------------------------------------------ public link */

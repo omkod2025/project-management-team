@@ -1,6 +1,6 @@
 import { handle } from '@/lib/api';
 import { domainError } from '@/lib/errors';
-import { parseTokenIds } from '@/lib/wiki-rules';
+import { parseTokenIds } from '@/lib/token-rules';
 import { allowWikiOnMyTokens } from '@/lib/wiki-tokens';
 
 type Context = { params: Promise<{ id: string }> };
