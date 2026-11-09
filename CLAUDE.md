@@ -98,7 +98,7 @@ npm run db:test    # 15 SQL groups, rolled back
 npm run test:e2e   # 153 API tests — REQUIRES `npm run dev` in another terminal
 npm run test:wiki  # 118 wiki tests: REST, browser, MCP, guide — same requirement (9 skip without E2E_INSTALL_ADMIN_PASSWORD)
 npm run test:docs  # 15 Docs API tests — same requirement
-npm run test:mcp   # 26 tests: tokens (session API and stepper), List and Docs over MCP, and migration 026 — same requirement, except the migration test, which needs a loopback PostgreSQL (see below) and so fails here outside one
+npm run test:mcp   # 26 tests: tokens (session API and stepper), List and Docs over MCP, and migration 026 — same requirement (1 skips without a loopback PostgreSQL; the migration test creates and drops its own database, so it will not run against a shared dev database, and names why instead of failing)
 npm run test:acceptance  # 15 acceptance criteria, same requirement
 npm run test:calendar-look  # 1 browser test: the Calendar still renders as pinned — same requirement
 ```

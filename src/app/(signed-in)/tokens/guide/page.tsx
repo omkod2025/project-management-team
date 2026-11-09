@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { currentUserId } from '@/auth';
 import DocContent from '../../p/[slug]/docs/doc-content';
 import AppHeader, { crossViews } from '../../app-header';
-import { requestOrigin } from '../../wiki/tokens/request-origin';
+import { requestOrigin } from '../request-origin';
 import '../../p/[slug]/list.css';
 import '../../p/[slug]/docs/docs.css';
 import '../../p/[slug]/docs/editor.css';
