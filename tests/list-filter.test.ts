@@ -13,9 +13,9 @@ import assert from 'node:assert/strict';
 import {
   EMPTY, TICKED, UNTICKED,
   valuesOf, matchesTerm, rowMatches, liveTerms, filterCount, toggleValue, clearColumn,
-  filterColumnsFrom, describeTerm,
+  filterColumnsFrom, describeTerm, likeMatch, inRange, cellText, setText, setRange,
   type FilterColumn, type FilterableRow,
-} from '../src/app/(signed-in)/p/[slug]/list-filter.ts';
+} from '../src/lib/list-filter.ts';
 
 const STATUS: FilterColumn = {
   key: 'f-status',
@@ -258,11 +258,30 @@ describe('which columns are offered', () => {
   const people = [{ id: 'p1', name: 'Ann' }];
   const modules = [{ id: 'm1', name: 'One' }];
 
-  test('only the columns that are a choice from a known set', () => {
+  test('choices, text and dates are offered; money and numbers are not', () => {
     const cols = filterColumnsFrom(fields, people, modules, 'f-status');
     assert.deepEqual(
       cols.map((c) => c.key),
-      ['_module', 'f-status', 'f-tags', 'f-who', 'f-done'],
+      [
+        '_module', 'f-status',
+        '_name', '_est_start', '_est_end', '_act_start', '_act_end',
+        'f-name', 'f-when', 'f-tags', 'f-who', 'f-done',
+      ],
+    );
+  });
+
+  test('a text field takes a box and a date field a range, with nothing to tick', () => {
+    const cols = filterColumnsFrom(fields, people, [], null);
+    assert.deepEqual(
+      cols.filter((c) => c.fieldId === 'f-name' || c.fieldId === 'f-when').map((c) => [c.source, c.choices.length]),
+      [['text', 0], ['date', 0]],
+    );
+  });
+
+  test('the name and the four dates are offered even with no fields at all', () => {
+    assert.deepEqual(
+      filterColumnsFrom([], [], [], null).map((c) => c.key),
+      ['_name', '_est_start', '_est_end', '_act_start', '_act_end'],
     );
   });
 
@@ -296,5 +315,161 @@ describe('which columns are offered', () => {
       describeTerm({ key: STATUS.key, values: ['o1', EMPTY] }, COLUMNS),
       'สถานะ: ยังไม่เริ่ม, Empty',
     );
+  });
+});
+
+const NAME: FilterColumn = { key: '_name', label: 'Name', source: 'text', rowKey: 'led_name', choices: [] };
+const NOTE: FilterColumn = { key: 'f-note', label: 'หมายเหตุ', source: 'text', fieldId: 'f-note', choices: [] };
+const EST_END: FilterColumn = {
+  key: '_est_end', label: 'Estimate end', source: 'date', rowKey: 'led_estimate_end', choices: [],
+};
+const DUE: FilterColumn = { key: 'f-due', label: 'Due', source: 'date', fieldId: 'f-due', choices: [] };
+const TYPED = [NAME, NOTE, EST_END, DUE, STATUS];
+
+const task = (over: Partial<FilterableRow> & { values?: Record<string, unknown> } = {}): FilterableRow => ({
+  led_node_id: 'n1',
+  led_name: 'ออกแบบหน้า Login',
+  led_estimate_end: '2026-11-20',
+  ...over,
+  led_custom_values: over.values ?? {},
+});
+
+describe('text, like LIKE', () => {
+  test('contains, wherever it falls, in any case', () => {
+    assert.equal(likeMatch('Design the LOGIN page', 'login'), true);
+    assert.equal(likeMatch('Design the login page', 'signup'), false);
+  });
+
+  test('% stands for any run, and the parts must come in order', () => {
+    assert.equal(likeMatch('Design the login page', 'design%page'), true);
+    assert.equal(likeMatch('Design the login page', 'page%design'), false);
+  });
+
+  test('Thai is matched as typed', () => {
+    assert.equal(likeMatch('ออกแบบหน้า Login', 'หน้า'), true);
+  });
+
+  test('_ is a literal, not a wildcard', () => {
+    assert.equal(likeMatch('api_v2', 'i_v'), true);
+    assert.equal(likeMatch('apixv2', 'i_v'), false);
+  });
+
+  test('an empty box, or only %, asks for nothing', () => {
+    assert.equal(likeMatch(null, ''), true);
+    assert.equal(likeMatch(null, ' % '), true);
+  });
+
+  test('an empty cell never contains anything', () => {
+    assert.equal(likeMatch(null, 'a'), false);
+  });
+
+  test('the name is read from the row, a text field from its values', () => {
+    assert.equal(matchesTerm(task(), { key: '_name', values: [], text: 'login' }, NAME), true);
+    assert.equal(
+      matchesTerm(task({ values: { 'f-note': 'รอลูกค้ายืนยัน' } }), { key: 'f-note', values: [], text: 'ลูกค้า' }, NOTE),
+      true,
+    );
+    assert.equal(matchesTerm(task(), { key: 'f-note', values: [], text: 'ลูกค้า' }, NOTE), false);
+  });
+});
+
+describe('a range of days', () => {
+  test('both ends are inclusive', () => {
+    assert.equal(inRange('2026-11-01', '2026-11-01', '2026-11-30'), true);
+    assert.equal(inRange('2026-11-30', '2026-11-01', '2026-11-30'), true);
+    assert.equal(inRange('2026-12-01', '2026-11-01', '2026-11-30'), false);
+  });
+
+  test('either end may be left open', () => {
+    assert.equal(inRange('2030-01-01', '2026-11-01', undefined), true);
+    assert.equal(inRange('2020-01-01', undefined, '2026-11-01'), true);
+    assert.equal(inRange('2026-11-02', undefined, '2026-11-01'), false);
+  });
+
+  test('ends given the wrong way round are read the right way round', () => {
+    assert.equal(inRange('2026-11-15', '2026-11-30', '2026-11-01'), true);
+  });
+
+  test('an empty cell is outside every range, and no range keeps it', () => {
+    assert.equal(inRange(null, '2026-11-01', undefined), false);
+    assert.equal(inRange(null, undefined, undefined), true);
+  });
+
+  test('a malformed end is ignored rather than obeyed', () => {
+    assert.equal(inRange('2026-11-15', 'soon', '2026-11-30'), true);
+  });
+
+  test('an estimate date is read from the row, a date field from its values', () => {
+    const term = { key: '_est_end', values: [], from: '2026-11-15', to: '2026-11-25' };
+    assert.equal(matchesTerm(task(), term, EST_END), true);
+    assert.equal(matchesTerm(task({ led_estimate_end: '2026-12-01' }), term, EST_END), false);
+    assert.equal(
+      matchesTerm(task({ values: { 'f-due': '2026-11-16' } }), { key: 'f-due', values: [], from: '2026-11-16' }, DUE),
+      true,
+    );
+  });
+
+  test('an estimate range never reads the actual', () => {
+    const term = { key: '_est_end', values: [], from: '2026-11-01' };
+    assert.equal(matchesTerm(task({ led_estimate_end: null, led_actual_end: '2026-11-20' }), term, EST_END), false);
+  });
+});
+
+describe('typed terms beside ticked ones', () => {
+  test('text, a range and a status all narrow together', () => {
+    const terms = [
+      { key: '_name', values: [], text: 'login' },
+      { key: '_est_end', values: [], to: '2026-11-30' },
+      { key: STATUS.key, values: ['o2'] },
+    ];
+    assert.equal(rowMatches(task({ values: { 'f-status': 'o2' } }), terms, TYPED), true);
+    assert.equal(rowMatches(task({ values: { 'f-status': 'o1' } }), terms, TYPED), false);
+    assert.equal(rowMatches(task({ led_name: 'API', values: { 'f-status': 'o2' } }), terms, TYPED), false);
+  });
+
+  test('setText keeps what is typed and drops the column when the box empties', () => {
+    const typed = setText([], '_name', 'log ');
+    assert.deepEqual(typed, [{ key: '_name', values: [], text: 'log ' }]);
+    assert.deepEqual(setText(typed, '_name', ''), []);
+  });
+
+  test('setRange keeps one end alone, and both ends cleared drops the column', () => {
+    const half = setRange([], '_est_end', '2026-11-01', null);
+    assert.deepEqual(half, [{ key: '_est_end', values: [], from: '2026-11-01' }]);
+    const whole = setRange(half, '_est_end', '2026-11-01', '2026-11-30');
+    assert.deepEqual(whole, [{ key: '_est_end', values: [], from: '2026-11-01', to: '2026-11-30' }]);
+    assert.deepEqual(setRange(whole, '_est_end', null, null), []);
+  });
+
+  test('a text or a range counts once in the pip', () => {
+    assert.equal(filterCount([
+      { key: '_name', values: [], text: 'x' },
+      { key: '_est_end', values: [], from: '2026-11-01', to: '2026-11-30' },
+      { key: STATUS.key, values: ['o1', 'o2'] },
+    ]), 4);
+  });
+
+  test('saved typed terms that ask for nothing are dropped', () => {
+    assert.deepEqual(
+      liveTerms([
+        { key: '_name', values: [], text: '   ' },
+        { key: '_est_end', values: [], from: 'not a day' },
+        { key: 'f-due', values: [], to: '2026-11-30' },
+      ], TYPED),
+      [{ key: 'f-due', values: [], to: '2026-11-30' }],
+    );
+  });
+
+  test('typed terms read back in words', () => {
+    assert.equal(describeTerm({ key: '_name', values: [], text: 'login' }, TYPED), 'Name contains “login”');
+    assert.equal(
+      describeTerm({ key: '_est_end', values: [], from: '2026-11-01', to: '2026-11-30' }, TYPED),
+      'Estimate end: 2026-11-01 – 2026-11-30',
+    );
+    assert.equal(describeTerm({ key: 'f-due', values: [], to: '2026-11-30' }, TYPED), 'Due: until 2026-11-30');
+  });
+
+  test('a text cell holding something else is read as empty', () => {
+    assert.equal(cellText(task({ values: { 'f-note': ['x'] } }), NOTE), null);
   });
 });
