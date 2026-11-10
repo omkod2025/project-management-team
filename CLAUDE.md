@@ -32,7 +32,7 @@ Follow its rules (S1–S11, R1–R14, X1–X8) while writing, and use it again w
 | [`db/tests.sql`](db/tests.sql) | Schema test suite, 15 groups, runs in a rolled-back transaction |
 | [`tests/node-rules.test.ts`](tests/node-rules.test.ts) | 46 domain rule tests, each naming the `D-nn` it defends |
 | [`tests/token-rules.test.ts`](tests/token-rules.test.ts) | 53 tests: the module registry, implicit read, grant and scope parsing and normalisation, effective scope per kind, secrets, status, the rate limiter |
-| [`tests/mcp-rules.test.ts`](tests/mcp-rules.test.ts) | 11 tests: the id a token may name, the `update_task` patch (estimate never fills actual, nor the reverse), the `update_doc_page` content rule (section validation, the asset rule) |
+| [`tests/mcp-rules.test.ts`](tests/mcp-rules.test.ts) | 25 tests: the id a token may name, the `update_task` patch (estimate never fills actual, nor the reverse), the `update_doc_page` content rule (section validation, the asset rule), the `list_columns` shape, and `list_tasks` filters — the List's rules, refused rather than widened when they cannot be obeyed |
 | [`tests/e2e/api.test.ts`](tests/e2e/api.test.ts) | 29 end-to-end tests: auth, dates, capture, snapping, validation |
 | [`tests/e2e/tree.test.ts`](tests/e2e/tree.test.ts) | 26 end-to-end tests: create, move, place, archive, restore |
 | [`tests/e2e/admin.test.ts`](tests/e2e/admin.test.ts) | 29 end-to-end tests: columns, options, members, calendar, invitations, renaming |
@@ -41,7 +41,8 @@ Follow its rules (S1–S11, R1–R14, X1–X8) while writing, and use it again w
 | [`tests/e2e/profile.test.ts`](tests/e2e/profile.test.ts) | 11 end-to-end tests: renaming yourself, and admin-issued password resets |
 | [`tests/roster-pack.test.ts`](tests/roster-pack.test.ts) | 23 tests: lane packing, occupancy, contention |
 | [`tests/list-sort.test.ts`](tests/list-sort.test.ts) | 24 tests: the List's multi-column sort — empty cells, tie-breaks, direction per column, modules by name |
-| [`tests/list-filter.test.ts`](tests/list-filter.test.ts) | 34 tests: the multi-select filter shared by List and Timeline — OR inside a column, AND between them, the empty cell, terms that outlive their field |
+| [`tests/list-filter.test.ts`](tests/list-filter.test.ts) | 57 tests: the filter shared by List and Timeline — OR inside a column, AND between them, the empty cell, terms that outlive their field, text matched LIKE-style (`%` wildcard, any case), date ranges inclusive at both ends |
+| [`tests/e2e/list-filter.browser.test.ts`](tests/e2e/list-filter.browser.test.ts) | 1 browser test: the Name box narrows the List, a date range picked in the portalled calendar keeps the menu open and hides rows with no date |
 | [`tests/list-move.test.ts`](tests/list-move.test.ts) | 20 tests: where a dragged row lands — promote, demote, reorder, cross a module, and the two refusals |
 | [`tests/list-columns.test.ts`](tests/list-columns.test.ts) | 18 tests: moving the List's columns — bands travel whole, nothing is ever lost |
 | [`tests/notification-rules.test.ts`](tests/notification-rules.test.ts) | 18 tests: what counts as an assignment when there is no assignee column — added only, never yourself, per field |
@@ -60,7 +61,7 @@ Follow its rules (S1–S11, R1–R14, X1–X8) while writing, and use it again w
 | [`tests/e2e/wiki-guide.test.ts`](tests/e2e/wiki-guide.test.ts) | 7 end-to-end tests: the in-app MCP guide at `/tokens/guide` names the real origin, is for signed-in people only, the old `/wiki/tokens/guide` redirects there, and its every example still parses and connects |
 | [`tests/e2e/tokens.test.ts`](tests/e2e/tokens.test.ts) | 10 end-to-end tests: `/api/tokens` system-wide — grants and scope per module, the PATCH omission rules, scope dropped for a kind no module uses, the 20-token ceiling |
 | [`tests/e2e/tokens.browser.test.ts`](tests/e2e/tokens.browser.test.ts) | 1 browser test: the Tokens / MCP stepper across all three modules — Read locked, Select all, editing a token away from a module, the old `/wiki/tokens` redirect |
-| [`tests/e2e/mcp-list.test.ts`](tests/e2e/mcp-list.test.ts) | 8 end-to-end tests: List tools over MCP — a grant never outranks a role, out-of-scope and a defect id both `Not found.`, membership loss and regain, an assignment notifying |
+| [`tests/e2e/mcp-list.test.ts`](tests/e2e/mcp-list.test.ts) | 9 end-to-end tests: List tools over MCP — `list_tasks` filters, a grant never outranks a role, out-of-scope and a defect id both `Not found.`, membership loss and regain, an assignment notifying |
 | [`tests/e2e/mcp-docs.test.ts`](tests/e2e/mcp-docs.test.ts) | 6 end-to-end tests: Docs tools over MCP — Create needing project Admin, a stale `updatedAt`, the asset rule, a protected page refusing edits |
 | [`tests/e2e/access-token-migration.test.ts`](tests/e2e/access-token-migration.test.ts) | 1 end-to-end test: migration 026 turns legacy wiki tokens into module-neutral access tokens with grants and scopes, verified against a disposable loopback database |
 | [`tests/mermaid-rules.test.ts`](tests/mermaid-rules.test.ts) | 13 tests: what counts as a Mermaid block, where a parse error points, the 50,000-character ceiling, and the locked config — strict, no HTML labels, no shadow, and the keys no diagram directive may override |
@@ -99,7 +100,7 @@ npm run db:seed -- <email> <password>
 
 ```bash
 npm run check      # typecheck + domain tests — the pre-commit bar
-npm test           # 541 domain rule tests (nodes, admin, list, roster, notifications, docs, wiki, mermaid, markdown blocks, tokens, MCP rules), no database needed
+npm test           # 578 domain rule tests (nodes, admin, list, roster, notifications, docs, wiki, mermaid, markdown blocks, tokens, MCP rules), no database needed
 npm run db:test    # 15 SQL groups, rolled back
 npm run test:e2e   # 153 API tests — REQUIRES `npm run dev` in another terminal
 npm run test:wiki  # 118 wiki tests: REST, browser, MCP, guide — same requirement (9 skip without E2E_INSTALL_ADMIN_PASSWORD)

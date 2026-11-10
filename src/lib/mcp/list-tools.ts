@@ -10,7 +10,7 @@ import { loadLedger } from '@/lib/ledger';
 import { visibleProjects } from '@/lib/project-access';
 import { domainError } from '@/lib/errors';
 import { hasGrant, isUuid } from '@/lib/token-rules';
-import { scopedId, taskPatch, type TaskArgs } from '@/lib/mcp-rules';
+import { filterTasks, listColumns, scopedId, taskPatch, type TaskArgs, type TaskFilter } from '@/lib/mcp-rules';
 import { answer, outOfScope, readOnly, writes, type McpContext } from './tool-kit';
 
 /**
@@ -75,14 +75,26 @@ async function placement(ctx: McpContext, raw: string | null | undefined, projec
   return raw == null ? raw : (await sameProjectNode(ctx, raw, projectId)).id;
 }
 
-async function tasksOf(ctx: McpContext, rawProjectId: unknown): Promise<Task[]> {
+/** The ledger of a live project the token scopes, or "Not found.". */
+async function scopedLedger(ctx: McpContext, rawProjectId: unknown) {
   const projectId = scopedId(ctx.scope.projectIds, rawProjectId);
   if (!projectId) throw outOfScope();
   const [project] = await db.select({ slug: projects.slug }).from(projects)
     .where(and(eq(projects.id, projectId), isNull(projects.archivedAt))).limit(1);
   if (!project) throw outOfScope();
-  const { rows } = await loadLedger(ctx.ownerId, project.slug);
-  return rows.filter((r) => r.led_depth >= 2).map(toTask);
+  return loadLedger(ctx.ownerId, project.slug);
+}
+
+/** The project's tasks, narrowed by the same rules as the List's filter (`filterTasks`). */
+async function tasksOf(ctx: McpContext, rawProjectId: unknown, filters?: TaskFilter[]): Promise<Task[]> {
+  const { project, rows, fields, people } = await scopedLedger(ctx, rawProjectId);
+  return filterTasks(rows, { fields, people, statusFieldId: project.statusFieldId }, filters).map(toTask);
+}
+
+async function columnsOf(ctx: McpContext, rawProjectId: unknown) {
+  const { project, rows, fields, people } = await scopedLedger(ctx, rawProjectId);
+  const modules = rows.filter((r) => r.led_depth === 2).map((r) => ({ id: r.led_node_id, name: r.led_name }));
+  return listColumns(fields, people, project.statusFieldId, modules);
 }
 
 async function readTask(ctx: McpContext, taskId: unknown) {
@@ -147,10 +159,26 @@ export function registerProjectTools(server: McpServer, ctx: McpContext): void {
 
 export function registerListTools(server: McpServer, ctx: McpContext): void {
   server.registerTool('list_tasks', {
-    description: 'Every task in one project, in List order: id, parentId, depth (2 = module, 3+ = task), name, estimateStart, estimateEnd, actualStart, actualEnd (YYYY-MM-DD or null) and custom field values. Estimate and actual are separate records; neither is derived from the other.',
+    description: 'The tasks in one project, in List order: id, parentId, depth (2 = module, 3+ = task), name, estimateStart, estimateEnd, actualStart, actualEnd (YYYY-MM-DD or null) and custom field values. Estimate and actual are separate records; neither is derived from the other. Without filters every task comes back; with filters only the matching rows do (their ancestors are not added — follow parentId). Filters combine with AND; the values inside one filter combine with OR. Column ids and option ids come from list_columns, whose filter says which kind each column takes: values (option ids, user ids, module ids; null = empty cell; true/false for a checkbox), contains (text, case-insensitive, % = any run of characters) or range (from and/or to, YYYY-MM-DD, both inclusive; an empty cell is never in range).',
+    inputSchema: z.object({
+      project_id: z.string().describe('A project id from list_projects.'),
+      filters: z.array(z.object({
+        column: z.string().describe('A column id from list_columns, e.g. name, estimateEnd, module, or a field id.'),
+        values: z.array(z.union([z.string(), z.boolean(), z.null()])).optional()
+          .describe('For a values column: any of these ids (OR). null matches an empty cell; a checkbox takes true or false.'),
+        contains: z.string().optional().describe('For a contains column: text the cell must contain. % stands for any run of characters.'),
+        from: z.string().optional().describe('For a range column: the earliest day, YYYY-MM-DD, inclusive.'),
+        to: z.string().optional().describe('For a range column: the latest day, YYYY-MM-DD, inclusive.'),
+      }).strict()).max(20).optional().describe('Narrow the tasks returned. Omit for every task.'),
+    }).strict(),
+    annotations: readOnly,
+  }, ({ project_id, filters }) => answer('list_tasks', () => tasksOf(ctx, project_id, filters)));
+
+  server.registerTool('list_columns', {
+    description: 'Every column of one project\'s List, to read or filter list_tasks rows by: id (the key a row carries it under — name, estimateStart, estimateEnd, actualStart, actualEnd at the top level; any other id is a key of values), name, kind (text, long_text, number, money, date, select, multi_select, checkbox, people, image, file), builtIn, status (true on the project\'s status column), filter (how list_tasks filters it: values, contains or range; absent = cannot be filtered) and options — for select and multi_select the option id, label, stage and archived; for people the project roster (id = user id); for module the modules (depth-2 rows). A select value is one option id, multi_select and people a list of ids, checkbox true/false, date YYYY-MM-DD.',
     inputSchema: z.object({ project_id: z.string().describe('A project id from list_projects.') }).strict(),
     annotations: readOnly,
-  }, ({ project_id }) => answer('list_tasks', () => tasksOf(ctx, project_id)));
+  }, ({ project_id }) => answer('list_columns', () => columnsOf(ctx, project_id)));
 
   server.registerTool('read_task', {
     description: 'One task, in the list_tasks shape, plus its projectId.',

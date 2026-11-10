@@ -19,7 +19,7 @@ import {
 } from './list-sort';
 import {
   filterColumnsFrom, rowMatches, liveTerms, type FilterTerm,
-} from './list-filter';
+} from '@/lib/list-filter';
 import FilterMenu from './filter-menu';
 import { blocksOf, arrangeColumns, moveBlock } from './list-columns';
 import {

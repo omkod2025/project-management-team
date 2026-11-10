@@ -24,7 +24,7 @@
     "test:mcp": "node --env-file=.env --test --test-concurrency=1 tests/e2e/tokens.test.ts tests/e2e/tokens.browser.test.ts tests/e2e/mcp-list.test.ts tests/e2e/mcp-docs.test.ts tests/e2e/access-token-migration.test.ts",
     "test:docs-browser": "node --env-file=.env --test tests/e2e/doc-editor.browser.test.ts tests/e2e/doc-mermaid.browser.test.ts",
     "test:calendar-look": "node --env-file=.env --test tests/e2e/calendar-look.browser.test.ts",
-    "test:defects": "node --env-file=.env --test tests/e2e/defects.test.ts tests/e2e/defects.browser.test.ts tests/e2e/list-loading.test.mjs tests/e2e/list-edit.browser.test.ts tests/e2e/list-lazy.browser.test.ts",
+    "test:defects": "node --env-file=.env --test tests/e2e/defects.test.ts tests/e2e/defects.browser.test.ts tests/e2e/list-loading.test.mjs tests/e2e/list-edit.browser.test.ts tests/e2e/list-lazy.browser.test.ts tests/e2e/list-filter.browser.test.ts",
     "clickup:diff": "node scripts/clickup-diff.mjs",
     "db:load": "node --env-file=.env scripts/psql.mjs",
     "prepare": "husky",

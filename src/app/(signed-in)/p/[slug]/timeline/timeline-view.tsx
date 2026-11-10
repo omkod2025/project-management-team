@@ -7,7 +7,7 @@ import { loadSet, saveSet, loadRecord, saveRecord, selectedFromUrl, writeSelecte
 import { SORTS, DEFAULT_SORT, orderRows, type SortKey } from './sort';
 import {
   filterColumnsFrom, rowMatches, liveTerms, type FilterTerm,
-} from '../list-filter';
+} from '@/lib/list-filter';
 import FilterMenu from '../filter-menu';
 import ProjectTitle from '../project-title';
 import '../list.css';

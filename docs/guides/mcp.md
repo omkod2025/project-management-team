@@ -141,12 +141,49 @@ npx -y mcp-remote <origin>/api/mcp --header "Authorization:${WIKI_TOKEN}"
 | เครื่องมือ | สิทธิ์ที่ต้องมี | ข้อมูลที่ส่ง | ได้อะไรกลับมา |
 |---|---|---|---|
 | `list_projects` | อ่าน | ไม่มี | โปรเจกต์ที่ token เข้าถึงได้ พร้อม id, ชื่อ, slug และ role ของเจ้าของ token |
-| `list_tasks` | อ่าน | `project_id` | ทุกงานในโปรเจกต์นั้นตามลำดับใน List: id, parentId, depth, name, estimateStart/End, actualStart/End, values |
+| `list_tasks` | อ่าน | `project_id`, ไม่บังคับ `filters` (ดูหัวข้อ "กรองงานด้วย `filters`" ด้านล่าง) | งานในโปรเจกต์นั้นตามลำดับใน List: id, parentId, depth, name, estimateStart/End, actualStart/End, values — ไม่ส่ง `filters` ได้ทุกงาน ส่งมาได้เฉพาะงานที่ตรงเงื่อนไข |
 | `read_task` | อ่าน | `task_id` | หนึ่งงาน ในรูปแบบเดียวกับ `list_tasks` |
+| `list_columns` | อ่าน | `project_id` | ทุกคอลัมน์ของ List: id, name, kind, builtIn, status, `filter` (กรองแบบไหน: `values`, `contains`, `range` — ไม่มี = กรองไม่ได้) และ options — select/multi_select ได้ id, label, stage, archived ของแต่ละตัวเลือก; people ได้รายชื่อสมาชิกโปรเจกต์; `module` ได้รายชื่อโมดูล ใช้หา id ที่จะใส่ใน `filters` |
 | `create_task` | Create task | `parent_id`, `name`, ไม่บังคับ `after_id` | งานใหม่ |
 | `update_task` | Write | `task_id` และฟิลด์ที่จะแก้ (ชื่อ, วันที่ประมาณการ/จริง, values) หรือ `parent_id`/`after_id` เพื่อย้าย (แก้กับย้ายแยกคำขอกัน) | งานที่แก้แล้ว |
 
 Estimate และ Actual เป็นคนละฟิลด์กันเสมอ `update_task` เขียนเฉพาะฟิลด์ที่ส่งมา ไม่มีการคำนวณฟิลด์หนึ่งจากอีกฟิลด์หนึ่ง
+
+#### กรองงานด้วย `filters`
+
+`list_tasks` กรองที่ server ด้วยกติกาเดียวกับปุ่ม **Filter** ในหน้า List ถามแบบเดียวกันได้แถวชุดเดียวกัน
+
+1. `list_projects` หา `project_id`
+2. `list_columns` หา id ของคอลัมน์ ดูว่าคอลัมน์นั้นกรองแบบไหน (`filter`) และหา id ของตัวเลือก คน หรือโมดูลที่ต้องการ
+3. เรียก `list_tasks` พร้อม `filters` — แต่ละรายการคือหนึ่งคอลัมน์
+
+| `filter` ของคอลัมน์ | คอลัมน์ | ส่งอะไร | ตรงเมื่อ |
+|---|---|---|---|
+| `values` | `select`, `multi_select`, `people`, `module` | `values`: รายการ id จาก `list_columns` ใส่ `null` เพื่อหาช่องที่ว่าง | ช่องมี id ใด id หนึ่งในรายการ (OR) |
+| `values` | `checkbox` | `values`: `[true]` หรือ `[false]` | ติ๊ก หรือไม่ติ๊ก |
+| `contains` | `name`, `text`, `long_text` | `contains`: ข้อความ | ช่องมีข้อความนี้ ไม่สนตัวพิมพ์เล็ก-ใหญ่ `%` แทนอะไรก็ได้ เช่น `ออกแบบ%login` |
+| `range` | `estimateStart`, `estimateEnd`, `actualStart`, `actualEnd`, `date` | `from` และ/หรือ `to` เป็น `YYYY-MM-DD` | วันที่อยู่ในช่วง รวมวันต้นและวันท้าย ช่องที่ว่างไม่ตรงเสมอ |
+
+ตัวอย่าง: "งานที่กำลังทำ มอบหมายให้ Ann และกำหนดเสร็จภายในพฤศจิกายน 2026"
+
+```json
+{
+  "project_id": "<project id>",
+  "filters": [
+    { "column": "<id คอลัมน์สถานะ>", "values": ["<id ตัวเลือก กำลังทำ>"] },
+    { "column": "<id คอลัมน์ Assign>", "values": ["<user id ของ Ann>"] },
+    { "column": "estimateEnd", "from": "2026-11-01", "to": "2026-11-30" }
+  ]
+}
+```
+
+- หลาย `filters` ต้องตรงทุกข้อ (AND) ค่าหลายตัวใน `values` เดียวกัน ตรงตัวใดตัวหนึ่งก็พอ (OR) ใส่ได้สูงสุด 20 คอลัมน์ ห้ามใส่คอลัมน์เดิมซ้ำ
+- ได้กลับมาเฉพาะแถวที่ตรง ไม่เติมแถวแม่ให้ ดู `parentId` และ `depth` (2 = โมดูล) เพื่อรู้ว่าอยู่ใต้อะไร
+- กรองตามโมดูลด้วยคอลัมน์ `module` ได้ทั้งโมดูลนั้นและงานทุกชั้นใต้มัน
+- คอลัมน์ที่มี `status: true` คือคอลัมน์สถานะ `stage` ของตัวเลือก (`notStarted`, `inProgress`, `done`) ช่วยเลือก id ของ "ทุกสถานะที่ยังไม่เสร็จ" โดยไม่ต้องรู้ชื่อสถานะ
+- ตัวเลือกที่ `archived` ยังใช้กรองได้ เพราะยังมีงานที่ใช้อยู่
+- `number`, `money`, รูป และไฟล์ กรองไม่ได้ (`list_columns` ไม่มี `filter`) ถ้าต้องการ ให้เรียก `list_tasks` แล้วคัดเอง
+- กรองไม่ได้จะได้ error `E_INVALID_DOC` พร้อมบอกเหตุ ไม่ใช่ได้ผลกว้างกว่าที่ถาม: คอลัมน์หรือ id ที่ไม่มีอยู่, ส่ง `contains` ให้คอลัมน์ `values`, วันที่ผิดรูปแบบ, `values` ว่าง
 
 ### Docs — เอกสารในโปรเจกต์ (ครอบคลุมด้วยขอบเขต "โปรเจกต์" เดียวกับ List)
 
@@ -180,6 +217,7 @@ Estimate และ Actual เป็นคนละฟิลด์กันเส
 ไม่ต้องเรียกเครื่องมือเอง พิมพ์ถามเป็นภาษาธรรมดาแล้ว AI จะเลือกเครื่องมือให้ เช่น
 
 - "มีงานอะไรค้างอยู่ในโปรเจกต์ A บ้าง"
+- "งานในโปรเจกต์ A ที่สถานะกำลังทำ มอบหมายให้ Ann และกำหนดเสร็จภายในเดือนนี้"
 - "สร้างงานใหม่ชื่อ ... ใต้โมดูล ..."
 - "สรุปหน้า การติดตั้งกล้อง เป็นข้อ ๆ"
 - "ค้นใน wiki ว่าตั้งค่า NVR ยังไง"

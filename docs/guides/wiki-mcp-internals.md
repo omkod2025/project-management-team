@@ -28,7 +28,7 @@ MCP (Model Context Protocol) คือโปรโตคอลมาตรฐา
 | `src/app/api/mcp/route.ts` | route ของ Next.js — ส่ง `POST` ต่อให้ `handleMcp` และตอบ `405` ให้ `GET`/`DELETE` ไม่เรียก `handle()` หรือ `currentUserId()` เลย cookie ของ session จึงไปไม่ถึงโค้ดส่วนนี้ |
 | `src/lib/mcp/server.ts` | `handleMcp()` — ตรวจ token, จำกัดอัตรา, สร้าง `McpServer` ใหม่ทุกคำขอ แล้วเรียก `register*Tools` ของแต่ละโมดูลที่ token มี |
 | `src/lib/mcp/tool-kit.ts` | สิ่งที่ทุกโมดูลใช้ร่วมกัน: `McpContext` (= `McpAuth`), `answer()` ที่ห่อ handler และแปลง error, `outOfScope()`, `readOnly`/`writes` annotations |
-| `src/lib/mcp/list-tools.ts` | เครื่องมือของ List: `list_projects` (ใช้ร่วมกับ Docs), `list_tasks`, `read_task`, `create_task`, `update_task` |
+| `src/lib/mcp/list-tools.ts` | เครื่องมือของ List: `list_projects` (ใช้ร่วมกับ Docs), `list_tasks`, `read_task`, `list_columns`, `create_task`, `update_task` |
 | `src/lib/mcp/docs-tools.ts` | เครื่องมือของ Docs: `list_docs`, `list_doc_pages`, `read_doc_page`, `create_doc`, `create_doc_page`, `update_doc_page` |
 | `src/lib/mcp/wiki-tools.ts` | เครื่องมือของ Wiki (ชื่อเดิมทุกตัว): `list_wikis`, `list_pages`, `read_page`, `search`, `create_wiki`, `create_page`, `update_wiki`, `update_page` |
 | `src/lib/mcp/wiki-writes.ts` | ฟังก์ชันเขียนของ Wiki ที่ตรวจ permission, scope และสิทธิ์ผู้ใช้ก่อนเรียก `wiki.ts` |
@@ -94,8 +94,9 @@ sequenceDiagram
 | เครื่องมือ | สิทธิ์ | ทำอะไร |
 |---|---|---|
 | `list_projects` | อ่าน | `visibleProjects(ownerId)` กรองด้วย `scope.projectIds` — ใช้ร่วมกับ Docs |
-| `list_tasks` | อ่าน | `loadLedger()` กรองเหลือ `depth >= 2` (ไม่รวม root ของโปรเจกต์) ส่ง estimate/actual เป็นคนละฟิลด์ |
+| `list_tasks` | อ่าน | `loadLedger()` แล้ว `filterTasks()` ใน `mcp-rules.ts` (pure): เหลือ `depth >= 2` (ไม่รวม root ของโปรเจกต์) และถ้ามี `filters` แปลงด้วย `taskFilterTerms()` เป็น term ของ `src/lib/list-filter.ts` — กติกาเดียวกับปุ่ม Filter ในหน้า List — แล้วคัดด้วย `rowMatches()` ต่างจากหน้า List ตรงที่ term ที่อ่านไม่ได้ (คอลัมน์/id ที่ไม่มี, ชนิดไม่ตรง, วันที่ผิดรูป) เป็น `E_INVALID_DOC` แทนการทิ้งเงียบ ส่ง estimate/actual เป็นคนละฟิลด์ |
 | `read_task` | อ่าน | หนึ่งแถวจาก ledger เดียวกัน |
+| `list_columns` | อ่าน | ledger เดียวกัน ส่ง `fields` + `people` ผ่าน `listColumns()` ใน `mcp-rules.ts` (pure): คอลัมน์ประจำแถวห้าตัวและ `module` ก่อน แล้ว field ที่ไม่ archived ตามลำดับ แต่ละคอลัมน์บอก `filter` ที่ `list_tasks` รับ; option ที่ archived ยังอยู่และบอกว่า archived |
 | `create_task` | `create_task` | `authorize(..., 'node.create')` แล้ว `createNode()` |
 | `update_task` | `write_task` | แก้ไขหรือย้าย อย่างใดอย่างหนึ่งต่อคำขอ (`taskPatch()` ตัดเฉพาะคีย์ที่ส่งมา); แก้วันที่ต้อง `node.editDates`, แก้ values ต้อง `node.editValues`, เปลี่ยนชื่อต้อง `node.rename`, ย้ายต้อง `node.move` — grant ไม่เคยแทนที่ role ของเจ้าของเลย |
 

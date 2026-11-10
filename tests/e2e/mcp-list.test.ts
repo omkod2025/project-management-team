@@ -140,6 +140,43 @@ describe('List tools over MCP', () => {
     assert.equal(projects[0].role, 'admin');
   });
 
+  test('list_tasks filters with the List’s rules, and refuses what it cannot obey', async () => {
+    await fx.client.query(
+      `UPDATE pmt_nodes SET node_custom_values = jsonb_build_object($2::text, $3::text) WHERE node_id = $1`,
+      [fx.nodes.task, fx.statusFieldId, fx.options.running],
+    );
+    const secret = await mint();
+    const ids = (tasks: { id: string }[]) => tasks.map((t) => t.id).sort();
+
+    const running = await ok(secret, 'list_tasks', {
+      project_id: fx.projectId, filters: [{ column: fx.statusFieldId, values: [fx.options.running] }],
+    });
+    assert.deepEqual(ids(running), [fx.nodes.task]);
+
+    // AND between filters: the name and the estimate range both hold for the subtask only.
+    const narrowed = await ok(secret, 'list_tasks', {
+      project_id: fx.projectId,
+      filters: [
+        { column: 'name', contains: 'SUB%' },
+        { column: 'estimateEnd', from: '2026-09-01', to: '2026-09-05' },
+      ],
+    });
+    assert.deepEqual(ids(narrowed), [fx.nodes.sub]);
+
+    const inModule = await ok(secret, 'list_tasks', {
+      project_id: fx.projectId, filters: [{ column: 'module', values: [fx.nodes.module] }],
+    });
+    assert.deepEqual(ids(inModule), [fx.nodes.module, fx.nodes.task, fx.nodes.sub].sort());
+
+    const bad = await call(secret, 'list_tasks', {
+      project_id: fx.projectId, filters: [{ column: fx.statusFieldId, contains: 'x' }],
+    });
+    assert.equal(bad.isError, true);
+    assert.equal(JSON.parse(bad.content[0].text).error.code, 'E_INVALID_DOC');
+
+    await fx.client.query(`UPDATE pmt_nodes SET node_custom_values = '{}' WHERE node_id = $1`, [fx.nodes.task]);
+  });
+
   test('list_tasks returns estimate and actual as separate fields', async () => {
     await fx.client.query(`UPDATE pmt_nodes SET node_actual_start = '2026-09-03' WHERE node_id = $1`, [fx.nodes.task]);
     const secret = await mint();
@@ -158,12 +195,17 @@ describe('List tools over MCP', () => {
     assert.equal(one.id, fx.nodes.task);
     assert.equal(one.projectId, fx.projectId);
     assert.equal(one.actualStart, '2026-09-03');
+
+    // The columns a caller filters those rows by, keyed as the rows carry them.
+    const columns = await ok(secret, 'list_columns', { project_id: fx.projectId });
+    assert.deepEqual(columns.slice(0, 5).map((c: { id: string }) => c.id),
+      ['name', 'estimateStart', 'estimateEnd', 'actualStart', 'actualEnd']);
   });
 
   test('create_task needs the grant', async () => {
     const readOnly = await mint([]);
     const names = await toolNames(readOnly);
-    assert.deepEqual(names, ['list_projects', 'list_tasks', 'read_task']);
+    assert.deepEqual(names, ['list_columns', 'list_projects', 'list_tasks', 'read_task']);
 
     const secret = await mint(['create_task']);
     assert.ok((await toolNames(secret)).includes('create_task'));
@@ -233,6 +275,7 @@ describe('List tools over MCP', () => {
     await notFound(secret, 'update_task', { task_id: other.task, name: 'x' });
     await notFound(secret, 'create_task', { parent_id: other.module, name: 'x' });
     await notFound(secret, 'list_tasks', { project_id: other.projectId });
+    await notFound(secret, 'list_columns', { project_id: other.projectId });
     // A defect in a scoped project.
     await notFound(secret, 'read_task', { task_id: defect.module });
     await notFound(secret, 'update_task', { task_id: defect.module, name: 'x' });
