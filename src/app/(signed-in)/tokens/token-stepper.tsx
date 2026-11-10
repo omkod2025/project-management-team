@@ -273,7 +273,6 @@ export default function TokenStepper({ projects, wikis, token, onDone }: Props) 
           <span id={`${headId}-expires`} className="tk-field-label">Expires</span>
           <DatePicker value={token.expiresAt ? dayInBangkok(token.expiresAt) : null} disabled placeholder="Never"
             aria-labelledby={`${headId}-expires`} className="h-9" onChange={() => undefined} />
-          <span id={`${headId}-expires-note`} className="tk-field-note">Set when the token was made. It cannot be changed.</span>
         </div> : <div className="tk-field">
           <span id={`${headId}-expires`} className="tk-field-label">Expires <span className="tk-opt">(optional)</span></span>
           <DatePicker value={expiry || null} min={today} disabled={busy} placeholder="Never"
