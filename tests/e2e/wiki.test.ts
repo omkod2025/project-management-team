@@ -1021,8 +1021,8 @@ describe('deleting a wiki', () => {
 
   before(async () => { doomedWiki = await wikiWithMembers('วิกิที่จะถูกลบ'); });
 
-  test('the owner, a writer and a reader get 403; a stranger and an unknown id get 404', async () => {
-    for (const jar of [ownerJar, writerJar, readerJar]) {
+  test('a writer and a reader get 403; a stranger and an unknown id get 404', async () => {
+    for (const jar of [writerJar, readerJar]) {
       const res = await call(jar, 'DELETE', `/api/wikis/${doomedWiki}`);
       assert.equal(res.status, 403, JSON.stringify(res.body));
     }
@@ -1074,12 +1074,118 @@ describe('deleting a wiki', () => {
     assert.equal((await call(installJar, 'DELETE', `/api/wikis/${doomedWiki}`)).status, 404, 'deleting twice is 404');
   });
 
-  test('the settings page draws Delete for the install admin only', async (t) => {
-    const w = await create(ownerJar, 'วิกิที่แสดงปุ่มลบ');
-    const asOwner = await fetch(`${BASE_URL}/wiki/${w.id}/settings`, { headers: { cookie: ownerJar.header } });
-    assert.ok(!(await asOwner.text()).includes('Delete wiki'), 'the owner is not offered Delete');
+  test('the owner deletes their own wiki (updated 2026-11-12)', async () => {
+    const w = await wikiWithMembers('วิกิที่เจ้าของลบ');
+    await newPage(writerJar, w, { title: 'หน้าเดียว' });
+    const res = await call(ownerJar, 'DELETE', `/api/wikis/${w}`);
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal((await call(ownerJar, 'GET', `/api/wikis/${w}`)).status, 404);
+    assert.equal((await call(writerJar, 'GET', `/api/wikis/${w}`)).status, 404);
+  });
+
+  /* The section shown is picked from the URL hash on the client, so the server
+     HTML holds only the first one; the canDelete prop it serialises is what
+     decides whether Archive draws Delete. */
+  function offersDelete(html: string): boolean | null {
+    const m = /\\?"canDelete\\?":(true|false)/.exec(html);
+    return m ? m[1] === 'true' : null;
+  }
+
+  test('the settings page draws Delete for the owner and the install admin, not a writer', async (t) => {
+    const w = await wikiWithMembers('วิกิที่แสดงปุ่มลบ');
+    const asOwner = await fetch(`${BASE_URL}/wiki/${w}/settings`, { headers: { cookie: ownerJar.header } });
+    assert.equal(offersDelete(await asOwner.text()), true, 'the owner is offered Delete');
+    const asWriter = await fetch(`${BASE_URL}/wiki/${w}/settings`, { headers: { cookie: writerJar.header } });
+    assert.equal(offersDelete(await asWriter.text()), false, 'a writer is not');
     if (!installJar) return t.skip(SKIP_INSTALL);
-    const asInstall = await fetch(`${BASE_URL}/wiki/${w.id}/settings`, { headers: { cookie: installJar.header } });
-    assert.ok((await asInstall.text()).includes('Delete wiki'), 'the install admin is');
+    const asInstall = await fetch(`${BASE_URL}/wiki/${w}/settings`, { headers: { cookie: installJar.header } });
+    assert.equal(offersDelete(await asInstall.text()), true, 'the install admin is');
+  });
+
+  test('the Wiki list draws a Delete button on the row for the owner and the install admin, not a writer', async (t) => {
+    const title = `วิกิในรายการ ${randomUUID().slice(0, 8)}`;
+    await wikiWithMembers(title);
+    const label = `aria-label="Delete wiki ${title}"`;
+    const list = async (jar: { header: string }) => (await fetch(`${BASE_URL}/wiki`, { headers: { cookie: jar.header } })).text();
+    assert.ok((await list(ownerJar)).includes(label), 'the owner is offered Delete');
+    const asWriter = await list(writerJar);
+    assert.ok(asWriter.includes(title) && !asWriter.includes(label), 'a writer sees the wiki but no Delete');
+    if (!installJar) return t.skip(SKIP_INSTALL);
+    assert.ok((await list(installJar)).includes(label), 'the install admin is offered Delete');
+  });
+});
+
+/* ------------------------------------ deleting a deleted page for good (D-82) */
+
+describe('deleting a page for good', () => {
+  let pw = '';
+
+  before(async () => { pw = await wikiWithMembers('วิกิที่ลบหน้าถาวร'); });
+
+  async function uploadPng(wiki: string) {
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
+    const form = new FormData();
+    form.append('file', new File([png], 'ถาวร.png', { type: 'image/png' }));
+    const res = await fetch(`${BASE_URL}/api/wikis/${wiki}/assets`, { method: 'POST', headers: { cookie: writerJar.header }, body: form });
+    assert.equal(res.status, 200);
+    return String(((await res.json()) as { url: string }).url);
+  }
+
+  test('only a deleted page; a writer and a reader 403, a stranger 404, a live page 422', async () => {
+    const live = await newPage(writerJar, pw, { title: 'ยังอยู่' });
+    assert.equal((await call(ownerJar, 'DELETE', `/api/wikis/${pw}/pages`, { pageId: live.id })).status, 422, 'a live page is not purged');
+    assert.equal((await call(writerJar, 'POST', `/api/wiki-pages/${live.id}`, { action: 'archive' })).status, 200);
+    for (const jar of [writerJar, readerJar]) {
+      assert.equal((await call(jar, 'DELETE', `/api/wikis/${pw}/pages`, { pageId: live.id })).status, 403);
+    }
+    assert.equal((await call(strangerJar, 'DELETE', `/api/wikis/${pw}/pages`, { pageId: live.id })).status, 404);
+    assert.equal((await call(ownerJar, 'DELETE', `/api/wikis/${pw}/pages`, { pageId: randomUUID() })).status, 404);
+    assert.equal((await call(ownerJar, 'DELETE', `/api/wikis/${pw}/pages`, {})).status, 422);
+    assert.ok((await tree(ownerJar, pw)).archivedPages.some((p) => p.id === live.id), 'a refused purge keeps the page');
+  });
+
+  test('the owner purges a deleted page with its subpages, history and the files only they named', async () => {
+    const own = await uploadPng(pw);
+    const shared = await uploadPng(pw);
+    const parent = await newPage(writerJar, pw, { title: 'แม่ที่ถูกลบ', body: `![a](${own})` });
+    const child = await newPage(writerJar, pw, { title: 'ลูกที่ถูกลบ', parentId: parent.id, body: `![b](${shared})` });
+    const grandchild = await newPage(writerJar, pw, { title: 'หลานที่ถูกลบ', parentId: child.id });
+    const keeper = await newPage(writerJar, pw, { title: 'หน้าที่ยังใช้ไฟล์', body: `![c](${shared})` });
+    assert.equal((await save(writerJar, child, `![b](${shared}) แก้แล้ว`)).status, 200);
+    assert.equal((await call(writerJar, 'POST', `/api/wiki-pages/${parent.id}`, { action: 'archive' })).status, 200);
+
+    const res = await call(ownerJar, 'DELETE', `/api/wikis/${pw}/pages`, { pageId: parent.id });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.deepEqual(res.body, { deleted: 3 });
+    const t = await tree(ownerJar, pw);
+    assert.ok(![...t.pages, ...t.archivedPages].some((p) => [parent.id, child.id, grandchild.id].includes(p.id)));
+    assert.ok(t.pages.some((p) => p.id === keeper.id));
+    const { rows } = await fx.client.query(
+      `SELECT (SELECT count(*) FROM pmt_wiki_pages WHERE wiki_page_id = ANY($1))::int AS pages,
+              (SELECT count(*) FROM pmt_wiki_page_revisions WHERE wiki_revision_page_id = ANY($1))::int AS revisions`,
+      [[parent.id, child.id, grandchild.id]]);
+    assert.deepEqual(rows[0], { pages: 0, revisions: 0 });
+    assert.equal((await fetch(`${BASE_URL}${own}`, { headers: { cookie: readerJar.header } })).status, 404, 'a file only they named goes');
+    assert.equal((await fetch(`${BASE_URL}${shared}`, { headers: { cookie: readerJar.header } })).status, 200, 'a file a live page names stays');
+    assert.equal((await call(ownerJar, 'DELETE', `/api/wikis/${pw}/pages`, { pageId: parent.id })).status, 404, 'purging twice is 404');
+  });
+
+  test('a deleted subpage can be purged alone; its deleted parent stays', async () => {
+    const parent = await newPage(writerJar, pw, { title: 'แม่' });
+    const child = await newPage(writerJar, pw, { title: 'ลูก', parentId: parent.id });
+    assert.equal((await call(writerJar, 'POST', `/api/wiki-pages/${parent.id}`, { action: 'archive' })).status, 200);
+    const res = await call(ownerJar, 'DELETE', `/api/wikis/${pw}/pages`, { pageId: child.id });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.deepEqual(res.body, { deleted: 1 });
+    const archived = (await tree(ownerJar, pw)).archivedPages.map((p) => p.id);
+    assert.ok(archived.includes(parent.id) && !archived.includes(child.id));
+  });
+
+  test('the install admin purges in a wiki they do not own', async (t) => {
+    if (!installJar) return t.skip(SKIP_INSTALL);
+    const page = await newPage(writerJar, pw, { title: 'ผู้ดูแลลบ' });
+    assert.equal((await call(writerJar, 'POST', `/api/wiki-pages/${page.id}`, { action: 'archive' })).status, 200);
+    const res = await call(installJar, 'DELETE', `/api/wikis/${pw}/pages`, { pageId: page.id });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
   });
 });

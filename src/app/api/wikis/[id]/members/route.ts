@@ -6,7 +6,7 @@ type Context = { params: Promise<{ id: string }> };
 
 async function jsonBody(req: Request): Promise<unknown> {
   try { return await req.json(); }
-  catch { throw domainError('E_INVALID_DOC', 'Send the member as JSON.'); }
+  catch { throw domainError('E_INVALID_DOC', 'Send the members as JSON.'); }
 }
 
 export async function GET(_req: Request, { params }: Context) {
@@ -14,7 +14,7 @@ export async function GET(_req: Request, { params }: Context) {
   return handle(`GET /api/wikis/${id}/members`, (userId) => listMembers(userId, id));
 }
 
-/** Grant or change access: `{ userId, access: 'read' | 'write' }`. */
+/** Grant or change access: `{ userIds: [...], access: 'read' | 'write' }`, or one `{ userId, access }`. */
 export async function PUT(req: Request, { params }: Context) {
   const { id } = await params;
   return handle(`PUT /api/wikis/${id}/members`, async (userId) => {
@@ -23,7 +23,7 @@ export async function PUT(req: Request, { params }: Context) {
   });
 }
 
-/** Remove a member: `{ userId }`. */
+/** Remove members: `{ userIds: [...] }`, or one `{ userId }`. */
 export async function DELETE(req: Request, { params }: Context) {
   const { id } = await params;
   return handle(`DELETE /api/wikis/${id}/members`, async (userId) => {

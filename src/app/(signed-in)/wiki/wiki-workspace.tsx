@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState, useTransition } from 'react';
+import { useMemo, useRef, useState, useTransition, type CSSProperties } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import type { DocPage } from '@/lib/doc-rules';
@@ -8,7 +8,9 @@ import { wikiEndpoints } from '@/lib/doc-endpoints';
 import DocIcon from '../p/[slug]/docs/doc-icon';
 import DocContent from '../p/[slug]/docs/doc-content';
 import PageOutline from '../p/[slug]/docs/page-outline';
+import { SidebarProvider } from '@/components/ui/sidebar';
 import AppHeader, { wikiViews } from '../app-header';
+import { PagesBar, PagesTrigger } from '../p/[slug]/docs/doc-page-tree';
 import WikiTree from './wiki-tree';
 import WikiTransfer from './wiki-transfer';
 import type { TreePage } from './wiki-tree-order';
@@ -22,11 +24,13 @@ const PageEditor = dynamic(() => import('../p/[slug]/docs/page-editor'), { ssr: 
 export type WorkspaceProps = {
   wiki: { id: string; title: string; description: string; archived: boolean };
   pages: TreePage[];
-  archivedPages: { id: string; title: string }[];
+  archivedPages: { id: string; title: string; parentId: string | null }[];
   /** The page being read, already in the Docs shape (`asDocPage`). */
   page?: DocPage;
   canWrite: boolean;
   canManage: boolean;
+  /** Owner and install admin: may delete a page in Deleted pages for good (D-82). */
+  canDelete: boolean;
   initialEditing?: boolean;
 };
 
@@ -37,7 +41,7 @@ const stamp = (iso: string) => new Date(iso).toLocaleString('en-GB', { timeZone:
  * `DocContent`; editing is Docs' own `PageEditor` against the wiki's routes,
  * so a wiki page edits exactly as a Docs Free page does.
  */
-export default function WikiWorkspace({ wiki, pages, archivedPages, page: serverPage, canWrite, canManage, initialEditing }: WorkspaceProps) {
+export default function WikiWorkspace({ wiki, pages, archivedPages, page: serverPage, canWrite, canManage, canDelete, initialEditing }: WorkspaceProps) {
   const router = useRouter();
   const [refreshing, startRefresh] = useTransition();
   // A save just made is newer than the server render until the refresh lands.
@@ -47,7 +51,6 @@ export default function WikiWorkspace({ wiki, pages, archivedPages, page: server
   const [editing, setEditing] = useState(!!initialEditing && canWrite && !!serverPage);
   const [pageTitle, setPageTitle] = useState(page?.title ?? '');
   const [editActions, setEditActions] = useState<HTMLDivElement | null>(null);
-  const [showPages, setShowPages] = useState(false);
   const reading = useRef<HTMLDivElement>(null);
   const base = `/wiki/${wiki.id}`;
   // Stable across renders: the editor's save callback depends on it.
@@ -75,17 +78,16 @@ export default function WikiWorkspace({ wiki, pages, archivedPages, page: server
       navLabel="Wiki views"
       views={wikiViews('Pages', { id: wiki.id, canSettings: canManage || canWrite })}
     />
-    <div className="doc-workspace">
-      <button className="doc-sidebar-toggle" type="button" aria-expanded={showPages} aria-controls="wiki-page-index" onClick={() => setShowPages(!showPages)}>
-        <DocIcon name="file" />Pages · {wiki.title}
-      </button>
+    <SidebarProvider className="doc-shell" style={{ '--sidebar-width': '280px' } as CSSProperties}>
+      <PagesBar title={wiki.title} />
       <WikiTree wiki={wiki} pages={pages} archivedPages={archivedPages} currentId={page?.id} currentTitle={pageTitle}
-        canWrite={canWrite} locked={editing} open={showPages} />
+        canWrite={canWrite} canDelete={canDelete} locked={editing} />
       <div ref={reading} className="doc-reading">
         {editing && <div ref={setEditActions} className="doc-edit-actions" role="group" aria-label="Editing actions" />}
         {page && !editing && <PageOutline key={page.id} container={reading} />}
         <div className="doc-reading-body">
           {!editing && <div className="wiki-reading-tools">
+            <PagesTrigger controls="wiki-page-index" />
             <WikiTransfer key={page?.id ?? 'wiki'} wiki={wiki} page={page} hasPages={pages.length > 0} canWrite={canWrite} endpoints={endpoints} disabled={refreshing} />
           </div>}
           {page ? <>
@@ -113,6 +115,6 @@ export default function WikiWorkspace({ wiki, pages, archivedPages, page: server
           </div>}
         </div>
       </div>
-    </div>
+    </SidebarProvider>
   </main></div>;
 }

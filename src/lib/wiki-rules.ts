@@ -79,13 +79,15 @@ export function canManageWiki(v: WikiViewer, w: WikiFacts): boolean {
 }
 
 /**
- * Deleting a wiki — pages, history, files, members, link and token scopes, for
- * good — is the install admin's alone (D-82). The owner can archive, which
- * anyone with the right can undo; deletion cannot be undone, so it is not a
- * right that comes with ownership.
+ * Deleting for good — the whole wiki with its pages, history, files, members,
+ * link and token scopes, or a page already in Deleted pages with the pages
+ * under it — is for the owner and the install admin (D-82, updated
+ * 2026-11-12). The install admin may do it in any wiki. A writer can still
+ * delete a page, which only archives it; the permanent step is not theirs.
  */
 export function canDeleteWiki(v: WikiViewer, w: WikiFacts): boolean {
-  return wikiRole(v, w) === 'install';
+  const role = wikiRole(v, w);
+  return role === 'install' || role === 'owner';
 }
 
 /**
@@ -96,7 +98,7 @@ export function canDeleteWiki(v: WikiViewer, w: WikiFacts): boolean {
  */
 export function wikiAbilities(role: WikiRole, archived: boolean): { canWrite: boolean; canManage: boolean; canDelete: boolean } {
   const canManage = role === 'install' || role === 'owner';
-  return { canWrite: !archived && (canManage || role === 'write'), canManage, canDelete: role === 'install' };
+  return { canWrite: !archived && (canManage || role === 'write'), canManage, canDelete: canManage };
 }
 
 /* -------------------------------------------------------------- creating */
@@ -170,20 +172,7 @@ export function parseWikiUpdate(input: unknown): WikiUpdate {
 /** Whether an id from a URL could name a row at all — a malformed one is a 404, never a 500. */
 export { isUuid };
 
-export function parseMemberGrant(input: unknown): { userId: string; access: WikiAccess } {
-  const obj = (input ?? {}) as Record<string, unknown>;
-  const userId = typeof obj.userId === 'string' ? obj.userId : '';
-  if (!isUuid(userId)) {
-    throw domainError('E_INVALID_DOC', 'That is not a user.', { userId: obj.userId });
-  }
-  const access = obj.access;
-  if (access !== 'read' && access !== 'write') {
-    throw domainError('E_INVALID_DOC', 'Access must be read or write.', { access });
-  }
-  return { userId, access };
-}
-
-/** The `{ userId }` naming a member to remove, or a new owner. */
+/** The `{ userId }` naming one person — the new owner in a transfer. */
 export function parseMemberRef(input: unknown): { userId: string } {
   const obj = (input ?? {}) as Record<string, unknown>;
   const userId = typeof obj.userId === 'string' ? obj.userId : '';
@@ -191,6 +180,43 @@ export function parseMemberRef(input: unknown): { userId: string } {
     throw domainError('E_INVALID_DOC', 'That is not a user.', { userId: obj.userId });
   }
   return { userId };
+}
+
+/** The most people one add or one remove may name — a whole install, not a script's worth. */
+export const MEMBER_BATCH_MAX = 200;
+
+/**
+ * The people one add or remove names: `{ userIds: [...] }` for several, or the
+ * single `{ userId }` every earlier client sends. Duplicates collapse, case
+ * and all; an empty list, a malformed id or too many is refused whole, so a
+ * batch never half-applies its own input.
+ */
+function parseUserIds(obj: Record<string, unknown>): string[] {
+  const raw = Array.isArray(obj.userIds) ? obj.userIds : obj.userIds === undefined && obj.userId !== undefined ? [obj.userId] : null;
+  if (!raw || raw.length === 0) throw domainError('E_INVALID_DOC', 'Choose at least one person.', { userIds: obj.userIds });
+  if (raw.length > MEMBER_BATCH_MAX) throw domainError('E_INVALID_DOC', `Choose at most ${MEMBER_BATCH_MAX} people at a time.`, { count: raw.length });
+  const ids = new Set<string>();
+  for (const id of raw) {
+    if (typeof id !== 'string' || !isUuid(id)) throw domainError('E_INVALID_DOC', 'That is not a user.', { userId: id });
+    ids.add(id.toLowerCase());
+  }
+  return [...ids];
+}
+
+/** Grant one access to several people at once: `{ userIds, access }` (or `{ userId, access }`). */
+export function parseMemberGrants(input: unknown): { userIds: string[]; access: WikiAccess } {
+  const obj = (input ?? {}) as Record<string, unknown>;
+  const userIds = parseUserIds(obj);
+  const access = obj.access;
+  if (access !== 'read' && access !== 'write') {
+    throw domainError('E_INVALID_DOC', 'Access must be read or write.', { access });
+  }
+  return { userIds, access };
+}
+
+/** The members to remove: `{ userIds }` (or `{ userId }`). */
+export function parseMemberRefs(input: unknown): { userIds: string[] } {
+  return { userIds: parseUserIds((input ?? {}) as Record<string, unknown>) };
 }
 
 /**
@@ -407,3 +433,8 @@ export function pageBreadcrumb(
   }
   return trail.reverse();
 }
+
+/* ------------------------------------------------------- the Wiki list */
+
+/** The Wiki list sorts by title, as the Docs list does (title-order.ts). */
+export { parseTitleSort as parseWikiSort, sortByTitle as sortWikis, type TitleSort as WikiListSort } from './title-order.ts';

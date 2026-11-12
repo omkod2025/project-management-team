@@ -52,9 +52,9 @@ Follow its rules (S1–S11, R1–R14, X1–X8) while writing, and use it again w
 | [`tests/option-colors.test.ts`](tests/option-colors.test.ts) | 4 tests: the eight-colour option palette — a colour index names its fill and ink, out-of-range wraps, the nth new option takes the nth colour |
 | [`tests/default-columns.test.ts`](tests/default-columns.test.ts) | 18 tests: the four columns every project starts with, the eight default statuses with their stages and colours, and the List arrangement that opens Assign and Side beside Status |
 | [`tests/e2e/default-columns.test.ts`](tests/e2e/default-columns.test.ts) | 6 end-to-end tests: the default columns, the designation, and the saved column order are really written |
-| [`tests/wiki-rules.test.ts`](tests/wiki-rules.test.ts) | 70 tests: who sees and writes a wiki, who may delete one, what a token reads, token and page input, Thai-safe search terms, the rate limiter, the breadcrumb |
+| [`tests/wiki-rules.test.ts`](tests/wiki-rules.test.ts) | 72 tests: who sees and writes a wiki, who may delete one, what a token reads, token and page input, Thai-safe search terms, the rate limiter, the breadcrumb |
 | [`tests/wiki-tree-order.test.ts`](tests/wiki-tree-order.test.ts) | 6 tests: the wiki page tree in reading order |
-| [`tests/e2e/wiki.test.ts`](tests/e2e/wiki.test.ts) | 70 end-to-end tests: the wiki role table, strangers' 404s, pages, search, assets, the public link, access tokens, deleting a wiki |
+| [`tests/e2e/wiki.test.ts`](tests/e2e/wiki.test.ts) | 76 end-to-end tests: the wiki role table, strangers' 404s, pages, search, assets, the public link, access tokens, deleting a wiki, deleting a deleted page for good |
 | [`tests/e2e/wiki.browser.test.ts`](tests/e2e/wiki.browser.test.ts) | 1 browser test: create a wiki, write Thai and Mermaid, the read-only member, the stranger's 404, `.md` import, whole-wiki export in tree order |
 | [`tests/e2e/wiki-mcp.test.ts`](tests/e2e/wiki-mcp.test.ts) | 27 end-to-end tests: the MCP endpoint — Bearer only, module gating, the four read-only tools, ids in any case, scope decided per request, revoked/expired/deactivated → 401, injection, the rate limit |
 | [`tests/e2e/wiki-mcp-write.test.ts`](tests/e2e/wiki-mcp-write.test.ts) | 13 end-to-end tests: `create_wiki`/`create_page`/`write_wiki` permissions and writes, the rich-content flatten refusal, page depth and Markdown limits |
@@ -100,11 +100,11 @@ npm run db:seed -- <email> <password>
 
 ```bash
 npm run check      # typecheck + domain tests — the pre-commit bar
-npm test           # 578 domain rule tests (nodes, admin, list, roster, notifications, docs, wiki, mermaid, markdown blocks, tokens, MCP rules), no database needed
+npm test           # 585 domain rule tests (nodes, admin, list, roster, notifications, docs, wiki, mermaid, markdown blocks, tokens, MCP rules), no database needed
 npm run db:test    # 15 SQL groups, rolled back
 npm run test:e2e   # 153 API tests — REQUIRES `npm run dev` in another terminal
-npm run test:wiki  # 118 wiki tests: REST, browser, MCP, guide — same requirement (9 skip without E2E_INSTALL_ADMIN_PASSWORD)
-npm run test:docs  # 15 Docs API tests — same requirement
+npm run test:wiki  # 124 wiki tests: REST, browser, MCP, guide — same requirement (11 skip without E2E_INSTALL_ADMIN_PASSWORD)
+npm run test:docs  # 19 Docs API tests — same requirement
 npm run test:mcp   # 26 tests: tokens (session API and stepper), List and Docs over MCP, and migration 026 — same requirement (1 skips without a loopback PostgreSQL; the migration test creates and drops its own database, so it will not run against a shared dev database, and names why instead of failing)
 npm run test:acceptance  # 15 acceptance criteria, same requirement
 npm run test:calendar-look  # 1 browser test: the Calendar still renders as pinned — same requirement

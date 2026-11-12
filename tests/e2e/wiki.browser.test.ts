@@ -108,7 +108,7 @@ test('Wiki screens: create, write Thai and Mermaid, read-only member, stranger 4
     await readerPage.getByText(THAI).waitFor();
     assert.equal(await readerPage.getByRole('button', { name: 'Edit page' }).count(), 0);
     assert.equal(await readerPage.getByRole('button', { name: 'New page' }).count(), 0);
-    assert.equal(await readerPage.getByRole('button', { name: /^Page actions/ }).count(), 0);
+    assert.equal(await readerPage.getByRole('button', { name: /^(Add subpage to|Delete page) / }).count(), 0);
     assert.equal(await readerPage.getByLabel('Import document file').count(), 0);
     // `?edit=1` does not open an editor for a reader either.
     await readerPage.goto(`${BASE_URL}/wiki/${wikiId}/${slug}?edit=1`);

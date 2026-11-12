@@ -26,6 +26,14 @@ type Props = {
   note?: ReactNode;
   /** Why it cannot be deleted yet. Shown in place of going ahead; the button stays off. */
   blocked?: ReactNode;
+  /**
+   * The name that must be typed back before Delete is offered — for the
+   * deletes that take a whole body of work with them (a document). The
+   * field then holds focus on open instead of Cancel; Escape still cancels.
+   */
+  confirmText?: string;
+  /** The field's label, in Thai, e.g. "กรอกชื่อ Doc ที่ต้องการลบ". */
+  confirmLabel?: string;
   /** Resolve when done; the caller unmounts the dialog. A thrown Error is shown in place. */
   onConfirm: () => void | Promise<unknown>;
   onCancel: () => void;
@@ -45,25 +53,28 @@ type Props = {
  * dialog, and behind it may be a grid where Delete deletes.
  */
 export default function ConfirmDelete({
-  title, name, children, note, blocked, onConfirm, onCancel,
+  title, name, children, note, blocked, confirmText, confirmLabel = 'กรอกชื่อที่ต้องการลบ', onConfirm, onCancel,
 }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
   const keep = useRef<HTMLButtonElement>(null);
+  const typedField = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [typed, setTyped] = useState('');
+  const confirmed = confirmText === undefined || typed.trim() === confirmText.trim();
 
   useEffect(() => {
     const d = dialog.current;
     const returnTo = document.activeElement as HTMLElement | null;
     if (d && !d.open) d.showModal();
-    keep.current?.focus();
+    (typedField.current ?? keep.current)?.focus();
     return () => { d?.close(); returnTo?.focus?.(); };
   }, []);
 
   function cancel() { if (!busy) onCancel(); }
 
   async function confirm() {
-    if (busy || blocked) return;
+    if (busy || blocked || !confirmed) return;
     setBusy(true); setError('');
     try { await onConfirm(); }
     catch (e) { setError(e instanceof Error && e.message ? e.message : 'Nothing was deleted. Try again.'); }
@@ -89,13 +100,20 @@ export default function ConfirmDelete({
 
         {name && <p className="confirm-delete-name" lang={THAI.test(name) ? 'th' : undefined}>{name}</p>}
         {children && <div className="confirm-delete-body">{children}</div>}
+        {confirmText !== undefined && !blocked && <form className="confirm-delete-type"
+            onSubmit={(e) => { e.preventDefault(); void confirm(); }}>
+          <label><span lang="th">{confirmLabel}</span>
+            <input ref={typedField} value={typed} disabled={busy} autoComplete="off" spellCheck={false}
+              onChange={(e) => setTyped(e.target.value)} />
+          </label>
+        </form>}
         {blocked && <p className="confirm-delete-blocked" role="status">{blocked}</p>}
         {note && <p className="confirm-delete-note">{note}</p>}
         {error && <p className="confirm-delete-error" role="alert">{error}</p>}
 
         <footer className="confirm-delete-actions">
           <button ref={keep} type="button" disabled={busy} onClick={cancel}>Cancel</button>
-          <button type="button" className="confirm-delete-go" disabled={busy || !!blocked} aria-busy={busy} onClick={() => void confirm()}>
+          <button type="button" className="confirm-delete-go" disabled={busy || !!blocked || !confirmed} aria-busy={busy} onClick={() => void confirm()}>
             <TrashIcon />{busy ? 'Deleting…' : 'Delete'}
           </button>
         </footer>

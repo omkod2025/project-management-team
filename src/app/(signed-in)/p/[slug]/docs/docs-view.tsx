@@ -2,23 +2,29 @@
 import DocIcon from "./doc-icon";
 
 import { useRef, useState } from 'react';
-import type { DocSummary } from '@/lib/doc-rules';
+import type { ArchivedDocSummary, DocSummary } from '@/lib/doc-rules';
 import { DataTable } from '@/components/data-table';
+import SortMark from '@/components/sort-mark';
+import { sortByTitle, type TitleSort } from '@/lib/title-order';
 import '../list.css';
 import './docs.css';
 import AppHeader from '../../../app-header';
 import ConfirmDelete, { TrashIcon } from '../../../confirm-delete';
 import { projectViews } from '../project-views';
+import DeletedDocs from './deleted-docs';
 
 type Props = {
   project: { id: string; name: string; slug: string };
   initialDocs: DocSummary[];
+  initialArchived: ArchivedDocSummary[];
   canCreate: boolean;
 };
 
-export default function DocsView({ project, initialDocs, canCreate }: Props) {
+export default function DocsView({ project, initialDocs, initialArchived, canCreate }: Props) {
   const [docs, setDocs] = useState(initialDocs);
+  const [archived, setArchived] = useState(initialArchived);
   const [query, setQuery] = useState('');
+  const [sort, setSort] = useState<TitleSort>('name');
   const [creating, setCreating] = useState(false);
   const [title, setTitle] = useState('');
   const [version, setVersion] = useState('');
@@ -28,7 +34,8 @@ export default function DocsView({ project, initialDocs, canCreate }: Props) {
   const [removing, setRemoving] = useState<DocSummary | null>(null);
   const submitting = useRef(false);
   const newButton = useRef<HTMLButtonElement>(null);
-  const visible = docs.filter((d) => `${d.title} ${d.version}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
+  // A→Z by title unless the Document head was clicked to turn it round.
+  const visible = sortByTitle(docs.filter((d) => `${d.title} ${d.version}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())), sort);
   const base = `/p/${project.slug}`;
 
   function closeForm() {
@@ -74,8 +81,9 @@ export default function DocsView({ project, initialDocs, canCreate }: Props) {
       throw new Error(body.message ?? 'Nothing was deleted. Try again.');
     }
     setDocs((current) => current.filter((d) => d.id !== doc.id));
+    setArchived((current) => [{ id: doc.id, title: doc.title, version: doc.version, archivedAt: new Date().toISOString() }, ...current]);
     setRemoving(null);
-    setNotice(`Deleted “${doc.title}”.`);
+    setNotice(`Deleted “${doc.title}”. It is in Deleted documents.`);
   }
 
   return (
@@ -115,7 +123,10 @@ export default function DocsView({ project, initialDocs, canCreate }: Props) {
             {query && <button type="button" onClick={() => setQuery('')}><DocIcon name="close" />Clear search</button>}
           </div>
           {visible.length > 0 && <DataTable caption={`Documents in ${project.name}`} className="docs-table">
-              <thead><tr><th scope="col">Document</th><th scope="col">Version</th><th scope="col">Created by</th><th scope="col">Updated</th>{canCreate && <th scope="col"><span className="docs-sr-only">Actions</span></th>}</tr></thead>
+              <thead><tr><th scope="col" aria-sort={sort === 'name' ? 'ascending' : 'descending'}>
+                <button type="button" className="table-sort" title={sort === 'name' ? 'Sort by document name, Z to A' : 'Sort by document name, A to Z'}
+                  onClick={() => setSort((s) => (s === 'name' ? '-name' : 'name'))}>Document<SortMark sort={sort} /></button>
+              </th><th scope="col">Version</th><th scope="col">Created by</th><th scope="col">Updated</th>{canCreate && <th scope="col"><span className="docs-sr-only">Actions</span></th>}</tr></thead>
               <tbody>{visible.map((doc) => <tr key={doc.id}>
                 <th scope="row"><a href={`${base}/docs?doc=${doc.id}`}>{doc.title}</a></th><td>{doc.version || '—'}</td>
                 <td>{doc.createdByName ?? 'Former member'}</td>
@@ -125,6 +136,7 @@ export default function DocsView({ project, initialDocs, canCreate }: Props) {
               </tr>)}</tbody>
           </DataTable>}
           {removing && <ConfirmDelete title="Delete document" name={removing.title}
+            confirmText={removing.title} confirmLabel="กรอกชื่อ Doc ที่ต้องการลบ"
             note="The document and all its pages are archived, and any published link stops working."
             onConfirm={() => remove(removing)} onCancel={() => setRemoving(null)} />}
           {visible.length === 0 && <div className="docs-empty">
@@ -133,6 +145,16 @@ export default function DocsView({ project, initialDocs, canCreate }: Props) {
                 ? 'Create the first document to keep this project’s knowledge together.'
                 : 'A project admin can create the first document.'}</p>
             </div>}
+          {canCreate && <DeletedDocs docs={archived}
+            onRestored={(doc) => {
+              setArchived((current) => current.filter((d) => d.id !== doc.id));
+              setDocs((current) => [doc, ...current]);
+              setNotice(`Restored “${doc.title}”.`);
+            }}
+            onPurged={(doc) => {
+              setArchived((current) => current.filter((d) => d.id !== doc.id));
+              setNotice(`Deleted “${doc.title}” permanently.`);
+            }} />}
         </div>
       </main>
     </div>

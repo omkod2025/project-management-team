@@ -1,7 +1,7 @@
 /*
  * The Wiki screens. They wear the Docs sheet (`docs.css`, `editor.css`) —
  * the one house skin both share on `.docs-book` — and add what Docs has no
- * class for: the in-tree search, a writer's page menu, the transfer panel,
+ * class for: the in-tree search, the transfer panel,
  * the settings sections, access tokens, the dialog and the edit-mode width.
  *
  * Everything here reads the house tokens (DESIGN.md): warm paper shell, white
@@ -20,19 +20,13 @@
    header onto the first heading on a phone. */
 .wiki-book .head { flex-shrink: 0; }
 
-/* The tree stays put while a long page scrolls past it. */
-.wiki-book .doc-sidebar { position: sticky; top: 0; align-self: stretch; }
 
 .wiki-flag { display: inline-flex; align-items: center; min-height: 22px; padding: 0 10px; border: 1px solid var(--color-hairline); border-radius: var(--radius-badge); background: var(--color-paper); color: var(--color-ink-muted); font-size: 12px; font-weight: 600; }
 
-/* ---- the tree ---- */
+/* ---- the tree ----
+   The Docs Sidebar shell (editor.css, `.doc-pages`) draws the rows and their
+   add-subpage and delete icons; the wiki adds nothing to them. */
 
-.wiki-book .doc-tree-row > .wiki-tree-menu { flex: 0 0 28px; color: var(--color-ink-muted); }
-.wiki-page-actions { display: grid; gap: 6px; margin: 4px 0 10px; padding: 8px 0 8px 10px; border-left: 1px solid var(--color-hairline); font-size: 13px; }
-.wiki-page-actions form { display: grid; gap: 8px; }
-.wiki-page-actions label { display: grid; gap: 4px; }
-.wiki-page-actions p { margin: 0; overflow-wrap: anywhere; }
-.wiki-book .wiki-page-actions button { justify-self: start; }
 .wiki-book.docs-book .wiki-quiet { border-color: transparent; background: transparent; color: var(--color-ink-muted); }
 .wiki-book.docs-book .wiki-quiet:hover:not(:disabled) { background: var(--cu-hover); color: var(--color-ink); }
 
@@ -46,10 +40,17 @@
 .wiki-search-hits li { padding: 8px 0; border-bottom: 1px solid var(--color-hairline); overflow-wrap: anywhere; }
 .wiki-search-hits li a { font-weight: 600; }
 .wiki-search-hits li p { margin: 4px 0 0; color: var(--color-ink-muted); line-height: 1.6; }
+/* In the sidebar's head: narrow, and the hits scroll on their own so the tree stays in reach. */
+.wiki-pages .wiki-search { margin: 4px 8px 6px; }
+.wiki-pages .wiki-search label { color: var(--color-ink-muted); font-size: 12px; }
+.wiki-pages .wiki-search input { width: 100%; min-width: 0; }
+.wiki-pages .wiki-search-hits { max-height: 40vh; overflow: auto; }
 
 /* ---- reading tools: export and import ---- */
 
-.wiki-reading-tools { max-width: 760px; margin: 0 auto 24px; }
+.wiki-reading-tools { display: flex; align-items: flex-start; gap: 8px; max-width: 760px; margin: 0 auto 24px; }
+/* Show or hide the page tree, then Export & import beside it. */
+.wiki-reading-tools > .wiki-transfer { flex: 1; min-width: 0; }
 .wiki-transfer { font-size: 13px; }
 .wiki-transfer summary { cursor: pointer; display: inline-flex; align-items: center; min-height: 34px; color: var(--color-ink-secondary); }
 .wiki-transfer-body { display: grid; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--color-hairline); }
@@ -85,6 +86,9 @@
 .wiki-index tbody th a::after { content: ''; position: absolute; inset: 0; }
 .wiki-book .wiki-index tbody th a:focus-visible { outline: none; }
 .wiki-index tbody th a:focus-visible::after { outline: 2px solid var(--color-primary); outline-offset: -2px; }
+/* The row's own controls sit above that stretched link, or the trash button
+   would open the wiki instead of its delete dialog. */
+.wiki-index td.docs-row-actions { position: relative; z-index: 1; }
 
 /* ---- settings: the project settings' layout (settings.css) ----
    A rail of sections on the left and one white panel beside it holding the
@@ -130,9 +134,38 @@
 .wiki-member-note { flex: 1; min-width: 0; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wiki-settings .settings-row select { flex: none; width: 150px; }
 .wiki-settings .settings-row .delete-control.icon-only { margin-left: 0; }
-.wiki-member-add { padding-top: 14px; border-bottom: 0; }
-.wiki-member-add select:first-child { flex: 1 1 220px; width: auto; }
-.wiki-member-add button { margin-left: 0; }
+.wiki-member-list .settings-row.is-picked { background: var(--color-paper); }
+
+/* Ticking several: a box is a box, not a field — the Docs sheet sizes every
+   input to its row, so the checkboxes here are reset to 18px. */
+.wiki-book :is(.wiki-check, .wiki-check-slot) input[type='checkbox'] { flex: 0 0 auto; width: 18px; height: 18px; min-height: 0; margin: 0; padding: 0; accent-color: var(--color-primary); cursor: pointer; }
+.wiki-check-slot { display: inline-flex; flex: 0 0 18px; justify-content: center; }
+.wiki-check { display: flex; align-items: center; gap: 10px; min-width: 0; cursor: pointer; }
+.wiki-select-all { flex: none; font-size: 13px; font-weight: 500; white-space: nowrap; }
+.wiki-member-count { color: var(--color-ink-muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+
+/* The bar over the list: select all, the count, and Remove at the right. */
+.wiki-member-bulk { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; min-height: 40px; padding: 4px 0; }
+.wiki-member-bulk .wiki-member-count { flex: 1 0 auto; white-space: nowrap; }
+.wiki-book .wiki-member-bulk .wiki-member-remove { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 4px 10px; border: 1px solid var(--color-hairline); border-radius: var(--radius-md); background: var(--color-canvas); font: inherit; font-size: 13px; font-weight: 500; white-space: nowrap; }
+.wiki-member-bulk .wiki-member-remove svg { width: 16px; height: 16px; }
+.wiki-leaving-list { margin: 8px 0 0; padding: 0 0 0 18px; max-height: 160px; overflow-y: auto; font-size: 13px; overflow-wrap: anywhere; }
+
+/* Adding: a search over a short scrolling checklist, then one row that
+   says how many, at what access, and adds them. */
+.wiki-member-add h3 { margin: 0 0 12px; }
+.wiki-member-pick-head { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+.wiki-book .wiki-member-pick-head input[type='search'] { flex: 1 1 0; width: auto; min-width: 0; min-height: 36px; padding: 6px 10px; font: inherit; font-size: 14px; }
+.wiki-member-pick { margin: 0; padding: 4px; list-style: none; max-height: 264px; overflow-y: auto; border: 1px solid var(--color-hairline); border-radius: var(--radius-md); background: var(--color-canvas); }
+.wiki-member-pick .wiki-check { min-height: 40px; padding: 4px 8px; border-radius: var(--radius-xs); }
+.wiki-member-pick .wiki-check:hover { background: var(--cu-hover); }
+.wiki-member-pick .wiki-check:has(input:checked) { background: var(--color-paper); }
+.wiki-pick-name { flex: 0 1 200px; min-width: 0; font-size: 14px; font-weight: 500; overflow-wrap: anywhere; }
+.wiki-pick-email { flex: 1; min-width: 0; color: var(--color-ink-muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wiki-pick-empty { padding: 10px 8px; color: var(--color-ink-muted); font-size: 13px; }
+.wiki-settings .wiki-member-add-row { margin-top: 8px; border-bottom: 0; }
+.wiki-member-add-row .wiki-member-count { flex: 1; }
+.wiki-member-add-row button { margin-left: 0; }
 
 /* A second group in the same panel — transfer under members, delete under
    archive — set off by a hairline rather than a panel of its own. */
@@ -180,6 +213,11 @@
 /* ---- the modal: a white sheet lifted off a dimmed page ---- */
 
 .wiki-dialog { width: min(520px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); padding: 0; border: 0; border-radius: var(--radius-xl); background: var(--color-canvas); color: var(--color-ink); box-shadow: var(--shadow-2), 0 0 0 1px rgb(0 0 0 / 6%); }
+/* A dialog can be drawn from inside a table row (the bin on the Wiki list),
+   and the top layer does not stop inheritance: start from the sheet's own
+   text, not the cell's nowrap, right alignment and tabular figures. */
+.wiki-dialog { white-space: normal; text-align: start; font-size: 14px; font-weight: 400; line-height: 1.5; overflow-wrap: normal; font-variant-numeric: normal; }
+.wiki-dialog *, .wiki-dialog *::before, .wiki-dialog *::after { box-sizing: border-box; }
 .wiki-dialog::backdrop { background: rgb(15 15 15 / 40%); }
 .wiki-dialog[open] { animation: wiki-dialog-in .18s cubic-bezier(.16, 1, .3, 1); }
 .wiki-dialog[open]::backdrop { animation: wiki-backdrop-in .18s ease-out; }
@@ -212,12 +250,26 @@
 .wiki-book.docs-book .wiki-danger:hover:not(:disabled) { background: var(--color-danger-wash); }
 .wiki-book.docs-book .wiki-danger-fill { display: inline-flex; align-items: center; justify-content: center; background: var(--color-danger); border-color: var(--color-danger); color: #fff; }
 .wiki-book.docs-book .wiki-danger-fill:hover:not(:disabled) { background: var(--color-danger-active); border-color: var(--color-danger-active); }
+.wiki-book.docs-book .wiki-danger-fill:disabled { opacity: .45; cursor: not-allowed; }
+
+/* The Delete wiki dialog wears the app's one delete question (confirm-delete.css):
+   the bin in a danger wash beside the title, the name read first, then the
+   field it must be typed back into. */
+.wiki-dialog-head.wiki-delete-head { justify-content: flex-start; padding-top: 22px; }
+.wiki-delete-head h2 { flex: 1 1 auto; font-size: 18px; }
+.wiki-delete-mark { display: inline-grid; place-items: center; flex: 0 0 auto; width: 36px; height: 36px; border-radius: var(--radius-full); background: var(--color-danger-wash); color: var(--color-danger); }
+.wiki-delete-mark .trash-icon { width: 18px; height: 18px; }
+.wiki-dialog-body.wiki-delete-body { gap: 12px; padding-top: 8px; }
+.wiki-delete-body .wiki-dialog-name { font-size: 15px; line-height: 1.5; }
+.wiki-delete-body label { margin-top: 4px; }
+.wiki-delete-actions button { white-space: nowrap; }
+/* On a phone the answers stack full width, Cancel last — nearest the thumb. */
+@media (max-width: 480px) {
+  .wiki-dialog-actions.wiki-delete-actions { flex-direction: column-reverse; }
+  .wiki-dialog-actions.wiki-delete-actions button { flex: 0 0 auto; width: 100%; min-height: 40px; }
+}
 
 @media (max-width: 750px) {
-  .wiki-book .doc-sidebar { position: static; }
-  /* Opened on a phone, the index has search, its results and a page's
-     actions to hold; 250px clipped them to a sliver. */
-  .wiki-book .doc-sidebar.is-open { max-height: min(62dvh, 560px); }
   .wiki-search form { grid-template-columns: minmax(0, 1fr); }
   /* Settings on a phone: the rail becomes a row of tabs above the panel, as
      in project settings; a member is a name over its email, access and bin beneath. */
@@ -225,4 +277,13 @@
   .wiki-settings .who { flex: 1 1 100%; }
   .wiki-member-note { flex: 1 1 100%; white-space: normal; overflow-wrap: anywhere; }
   .wiki-settings .settings-row select { flex: 1; width: auto; }
+  /* A ticked member keeps its box beside its name, not on a line of its own. */
+  .wiki-settings .settings-row .wiki-check-slot + .who { flex: 1 1 calc(100% - 30px); }
+  .wiki-check-slot ~ .wiki-member-note { padding-left: 30px; }
+  .wiki-pick-email { flex-basis: 100%; white-space: normal; overflow-wrap: anywhere; }
+  .wiki-member-pick .wiki-check { flex-wrap: wrap; row-gap: 0; }
+  .wiki-pick-name { flex: 1 1 calc(100% - 30px); }
+  .wiki-pick-email { padding-left: 28px; }
+  .wiki-member-pick-head { flex-wrap: wrap; }
+  .wiki-member-add-row .wiki-member-count { flex: 1 1 100%; }
 }

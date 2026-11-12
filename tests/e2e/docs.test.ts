@@ -325,6 +325,34 @@ test('move validates cycles and depth, final-page archive can be restored from o
   const moved=(await(await request(`/api/docs/${doc.id}/pages`)).json()).pages;assert.equal(moved.find((p:{id:string})=>p.id===child.id).depth,3);
 });
 
+test('deleting a page takes its subpages, and restoring it brings back only those (D-61)', async () => {
+  const doc = await (await call(admin, 'POST', { title: 'Cascade delete test' })).json();
+  const request = (route: string, method = 'GET', body?: unknown) => fetch(`${BASE_URL}${route}`, { method, headers: { cookie: admin.header, 'content-type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+  const add = async (title: string, parentId?: string) => (await request(`/api/docs/${doc.id}/pages`, 'POST', { title, parentId })).json();
+  const root = await add('Root'); const early = await add('Deleted earlier', root.id);
+  const child = await add('Child', root.id); const grandchild = await add('Grandchild', child.id); const other = await add('Other');
+  const tools = (id: string, body: unknown) => request(`/api/doc-pages/${id}/tools`, 'POST', body);
+  const live = async () => (await (await request(`/api/docs/${doc.id}/pages`)).json()) as { pages: { id: string; updatedAt: string }[]; archivedPages: { id: string }[] };
+  const fresh = async (id: string) => (await live()).pages.find((p) => p.id === id)!;
+
+  assert.equal((await tools(early.id, { action: 'archive', updatedAt: early.updatedAt })).status, 200);
+  // A protected subpage stops the delete and names itself.
+  assert.equal((await tools(grandchild.id, { action: 'protect', protected: true, updatedAt: grandchild.updatedAt })).status, 200);
+  const blocked = await tools(root.id, { action: 'archive', updatedAt: (await fresh(root.id)).updatedAt });
+  assert.equal(blocked.status, 403); assert.match((await blocked.json()).message, /Grandchild/);
+  assert.equal((await tools(grandchild.id, { action: 'protect', protected: false, updatedAt: (await fresh(grandchild.id)).updatedAt })).status, 200);
+
+  assert.equal((await tools(root.id, { action: 'archive', updatedAt: (await fresh(root.id)).updatedAt })).status, 200);
+  const after = await live();
+  assert.deepEqual(after.pages.map((p) => p.id), [other.id], 'only the unrelated page is left');
+  assert.equal(after.archivedPages.length, 4);
+
+  assert.equal((await request(`/api/docs/${doc.id}/pages`, 'PATCH', { pageId: root.id })).status, 200);
+  const back = await live();
+  assert.deepEqual(back.pages.map((p) => p.id).sort(), [root.id, child.id, grandchild.id, other.id].sort());
+  assert.deepEqual(back.archivedPages.map((p) => p.id), [early.id], 'a subpage deleted on its own stays deleted');
+});
+
 test('rich content persists safely and replies cannot cross page/project boundaries',async()=>{
   const doc=await(await call(admin,'POST',{title:'Rich API test'})).json();
   const request=(route:string,method='GET',body?:unknown)=>fetch(`${BASE_URL}${route}`,{method,headers:{cookie:admin.header,'content-type':'application/json'},body:body?JSON.stringify(body):undefined});
@@ -357,4 +385,54 @@ test('a published page link is sent noindex and no-referrer, as a published wiki
   // The URL is the credential: no crawler lists it, no referrer carries it off.
   assert.equal(res.headers.get('x-robots-tag'), 'noindex, nofollow');
   assert.equal(res.headers.get('referrer-policy'), 'no-referrer');
+});
+
+test('only an admin deletes a deleted page permanently, and its subpages go with it (D-61)', async () => {
+  const doc = await (await call(admin, 'POST', { title: 'Purge page test' })).json();
+  const request = (jar: Jar, route: string, method = 'GET', body?: unknown) => fetch(`${BASE_URL}${route}`, { method, headers: { cookie: jar.header, 'content-type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+  const pagesRoute = `/api/docs/${doc.id}/pages`;
+  const add = async (title: string, parentId?: string) => (await request(admin, pagesRoute, 'POST', { title, parentId })).json();
+  const root = await add('Root'); const child = await add('Child', root.id); const grandchild = await add('Grandchild', child.id);
+  const other = await add('Other');
+  const purge = (jar: Jar, pageId: unknown) => request(jar, pagesRoute, 'DELETE', { pageId });
+
+  assert.equal((await purge(admin, other.id)).status, 422, 'a live page is deleted first, not purged');
+  const current = (await (await request(admin, pagesRoute)).json()).pages.find((p: { id: string }) => p.id === root.id);
+  assert.equal((await request(admin, `/api/doc-pages/${root.id}/tools`, 'POST', { action: 'archive', updatedAt: current.updatedAt })).status, 200);
+
+  assert.equal((await purge(viewer, root.id)).status, 403);
+  assert.equal((await purge(admin, 'not-a-uuid')).status, 422);
+  assert.equal((await purge(admin, randomUUID())).status, 404);
+  const res = await purge(admin, root.id);
+  assert.equal(res.status, 200);
+  assert.deepEqual(await res.json(), { deleted: 3 });
+  const { rows } = await fx.client.query('SELECT doc_page_id AS page_id FROM pmt_doc_pages WHERE doc_page_doc_id = $1', [doc.id]);
+  assert.deepEqual(rows.map((r) => r.page_id), [other.id], 'the subtree is gone, the live page stays');
+  assert.equal((await purge(admin, grandchild.id)).status, 404);
+});
+
+test('a deleted document is restored, or deleted permanently, by an admin only (D-61)', async () => {
+  const doc = await (await call(admin, 'POST', { title: 'เอกสารที่ลบ', version: 'V.1' })).json();
+  const page = await (await fetch(`${BASE_URL}/api/docs/${doc.id}/pages`, { method: 'POST', headers: { cookie: admin.header, 'content-type': 'application/json' }, body: JSON.stringify({ title: 'Page' }) })).json();
+  const send = (jar: Jar, method: string, query = '', body?: unknown) => fetch(`${BASE_URL}/api/docs/${doc.id}${query}`, { method, headers: { cookie: jar.header, 'content-type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+
+  assert.equal((await send(admin, 'DELETE', '?permanent=1')).status, 404, 'a live document is deleted first, not purged');
+  assert.equal((await send(admin, 'PATCH', '', { action: 'restore' })).status, 404, 'a live document has nothing to restore');
+  assert.equal((await send(admin, 'DELETE')).status, 200);
+
+  assert.equal((await send(viewer, 'PATCH', '', { action: 'restore' })).status, 403);
+  assert.equal((await send(admin, 'PATCH', '', { action: 'nope' })).status, 422);
+  const restored = await send(admin, 'PATCH', '', { action: 'restore' });
+  assert.equal(restored.status, 200);
+  const summary = await restored.json();
+  assert.equal(summary.title, 'เอกสารที่ลบ'); assert.equal(summary.version, 'V.1');
+  assert.ok((await (await call(admin, 'GET')).json()).some((d: { id: string }) => d.id === doc.id), 'back in the list');
+
+  assert.equal((await send(admin, 'DELETE')).status, 200);
+  assert.equal((await send(viewer, 'DELETE', '?permanent=1')).status, 403);
+  assert.equal((await send(admin, 'DELETE', '?permanent=1')).status, 200);
+  const { rows } = await fx.client.query('SELECT 1 FROM pmt_docs WHERE doc_id = $1 UNION ALL SELECT 1 FROM pmt_doc_pages WHERE doc_page_id = $2', [doc.id, page.id]);
+  assert.equal(rows.length, 0, 'the document and its pages are gone');
+  assert.equal((await send(admin, 'DELETE', '?permanent=1')).status, 404);
+  assert.equal((await send(admin, 'PATCH', '', { action: 'restore' })).status, 404);
 });

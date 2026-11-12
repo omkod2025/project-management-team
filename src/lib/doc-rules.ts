@@ -24,6 +24,9 @@ export type DocSummary = {
   updatedAt: string;
 };
 
+/** A document in Deleted documents (admins only): restorable, or deletable for good. */
+export type ArchivedDocSummary = { id: string; title: string; version: string; archivedAt: string };
+
 export const MODULE_SECTIONS = [
   ['description', 'Description'], ['wantFeature', 'Want Feature'], ['decisions', 'Decisions'],
   ['currentScope', 'Current Scope'], ['nextPhase', 'Next Phase'],
@@ -54,6 +57,67 @@ export function nextPageDepth(parentDepth: number | null) {
   if (depth > 3 || depth < 1) throw domainError('E_MAX_DEPTH', 'Pages can nest up to three levels.');
   return depth;
 }
+
+/**
+ * D-61: a page and everything under it, for archiving a page with its subpages
+ * and restoring them together. `include` decides which descendants count — the
+ * live ones when archiving, the ones archived in the same stroke when restoring.
+ * A page whose parent is left out is left out too, so the set is always one
+ * connected subtree rooted at `rootId`.
+ */
+export function pageSubtree<P extends { id: string; parentId: string | null }>(
+  pages: readonly P[], rootId: string, include: (page: P) => boolean = () => true,
+): Set<string> {
+  const ids = new Set([rootId]);
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const p of pages) {
+      if (p.parentId && ids.has(p.parentId) && !ids.has(p.id) && include(p)) { ids.add(p.id); grew = true; }
+    }
+  }
+  return ids;
+}
+
+/** What deleting `pageId` would take with it: how many subpages, and the first protected one that stops it. */
+export function pageDeletion(pages: readonly { id: string; parentId: string | null; title: string; protected?: boolean }[], pageId: string) {
+  const ids = pageSubtree(pages, pageId);
+  const locked = pages.find((p) => p.id !== pageId && ids.has(p.id) && p.protected);
+  return { subpages: ids.size - 1, lockedBy: locked?.title ?? null };
+}
+
+/** The confirm dialog's note for deleting a page, naming the subpages that go with it. */
+export function pageDeletionNote(subpages: number) {
+  const kept = 'The page moves to Deleted pages, where you can restore it.';
+  if (!subpages) return kept;
+  const which = subpages === 1 ? 'Its 1 subpage is' : `Its ${subpages} subpages are`;
+  return `${which} deleted with it, and come back with it on restore. ${kept}`;
+}
+
+/**
+ * D-61 (updated 2026-11-12): deleting an archived page permanently removes it
+ * and every page under it, deepest first so no page ever outlives its parent
+ * (the parent key is ON DELETE RESTRICT). Only what is already in Deleted pages
+ * can go: a live page anywhere in the subtree refuses the whole purge.
+ */
+export function pagePurgeOrder(
+  pages: readonly { id: string; parentId: string | null; depth: number; archived: boolean }[], rootId: string,
+): string[] {
+  const ids = pageSubtree(pages, rootId);
+  const subtree = pages.filter((p) => ids.has(p.id));
+  if (!subtree.some((p) => p.id === rootId)) throw domainError('E_NOT_FOUND', 'No such deleted page.');
+  if (subtree.some((p) => !p.archived)) throw domainError('E_INVALID_DOC', 'Only a deleted page can be deleted permanently. Delete it first.');
+  return [...subtree].sort((a, b) => b.depth - a.depth).map((p) => p.id);
+}
+
+/** The confirm dialog's note for deleting a page permanently. */
+export function pagePurgeNote(subpages: number) {
+  const also = subpages === 0 ? '' : subpages === 1 ? ' Its 1 deleted subpage goes with it.' : ` Its ${subpages} deleted subpages go with it.`;
+  return `This cannot be undone.${also} Its history and comments are removed, and files no other page uses are deleted.`;
+}
+
+/** The confirm dialog's note for deleting a document permanently. */
+export const DOC_PURGE_NOTE = 'This cannot be undone. Every page, its history and comments are removed, and files no other page uses are deleted.';
 
 export function extendRevision(editor: string | null, lastEditor: string, lastAt: number, now: number) {
   return editor === lastEditor && now - lastAt < 30 * 60 * 1000;

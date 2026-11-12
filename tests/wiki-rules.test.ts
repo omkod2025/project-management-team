@@ -12,9 +12,10 @@ import assert from 'node:assert/strict';
 
 import {
   isInstallAdmin, wikiRole, canSeeWiki, canWriteWiki, canManageWiki, canDeleteWiki, wikiAbilities,
-  parseNewWiki, parseMemberGrant, parseMemberRef, parseWikiUpdate, assertNotOwner, isUuid,
+  parseNewWiki, parseMemberGrants, parseMemberRef, parseMemberRefs, MEMBER_BATCH_MAX, parseWikiUpdate, assertNotOwner, isUuid,
   searchTerms, likePattern, searchSnippet, publicWikiToken, pageSearchText,
   parsePageSlug, generatedPageSlug, parseNewWikiPage, parsePageMove, pageBreadcrumb,
+  parseWikiSort, sortWikis,
   type WikiViewer, type WikiFacts,
 } from '../src/lib/wiki-rules.ts';
 import { PROTECTED_EMAIL } from '../src/lib/admin-rules.ts';
@@ -137,11 +138,18 @@ describe('D-82 — deleting a wiki', () => {
     assert.equal(canDeleteWiki(v, { ...live, ownerId: INSTALL_ID }), true);
   });
 
-  test('the owner, a writer and a reader may not — managing a wiki is not deleting it', () => {
-    assert.equal(canDeleteWiki(viewer(OWNER_ID, 'owner@cit.com'), live), false);
-    assert.equal(canDeleteWiki(viewer(OWNER_ID, 'owner@cit.com'), { ...live, archived: true }), false);
+  test('the owner deletes their own wiki, live or archived (updated 2026-11-12)', () => {
+    assert.equal(canDeleteWiki(viewer(OWNER_ID, 'owner@cit.com'), live), true);
+    assert.equal(canDeleteWiki(viewer(OWNER_ID, 'owner@cit.com'), { ...live, archived: true }), true);
+  });
+
+  test('a writer and a reader may not — writing a wiki is not deleting it', () => {
     assert.equal(canDeleteWiki(viewer(WRITE_MEMBER_ID, 'writer@cit.com'), { ...live, memberAccess: 'write' }), false);
     assert.equal(canDeleteWiki(viewer(READ_MEMBER_ID, 'reader@cit.com'), { ...live, memberAccess: 'read' }), false);
+  });
+
+  test("an owner is not the owner of someone else's wiki", () => {
+    assert.equal(canDeleteWiki(viewer(OWNER_ID, 'owner@cit.com'), { ...live, ownerId: WRITE_MEMBER_ID, memberAccess: 'write' }), false);
   });
 
   test('a stranger and an inactive install admin may not', () => {
@@ -205,26 +213,48 @@ describe('parseNewWiki', () => {
   });
 });
 
-describe('parseMemberGrant', () => {
-  test('a valid grant passes through', () => {
-    assert.deepEqual(parseMemberGrant({ userId: READ_MEMBER_ID, access: 'read' }), {
-      userId: READ_MEMBER_ID, access: 'read',
-    });
+describe('parseMemberGrants', () => {
+  test('the single { userId } every earlier client sends still passes, as a list of one', () => {
+    assert.deepEqual(parseMemberGrants({ userId: READ_MEMBER_ID, access: 'read' }), { userIds: [READ_MEMBER_ID], access: 'read' });
   });
 
-  test('a malformed user id throws E_INVALID_DOC', () => {
-    refuses('E_INVALID_DOC', () => parseMemberGrant({ userId: 'not-a-uuid', access: 'read' }));
-    refuses('E_INVALID_DOC', () => parseMemberGrant({ userId: '', access: 'read' }));
-    refuses('E_INVALID_DOC', () => parseMemberGrant({}));
+  test('several people take one access; duplicates collapse, whatever their case', () => {
+    assert.deepEqual(parseMemberGrants({ userIds: [READ_MEMBER_ID, OWNER_ID, READ_MEMBER_ID.toUpperCase()], access: 'write' }),
+      { userIds: [READ_MEMBER_ID, OWNER_ID], access: 'write' });
+  });
+
+  test('one bad id refuses the whole batch', () => {
+    refuses('E_INVALID_DOC', () => parseMemberGrants({ userIds: [READ_MEMBER_ID, 'not-a-uuid'], access: 'read' }));
+    refuses('E_INVALID_DOC', () => parseMemberGrants({ userIds: [READ_MEMBER_ID, 7], access: 'read' }));
+    refuses('E_INVALID_DOC', () => parseMemberGrants({ userId: '', access: 'read' }));
+  });
+
+  test('nobody, or more than the ceiling, is refused', () => {
+    refuses('E_INVALID_DOC', () => parseMemberGrants({ userIds: [], access: 'read' }));
+    refuses('E_INVALID_DOC', () => parseMemberGrants({ access: 'read' }));
+    refuses('E_INVALID_DOC', () => parseMemberGrants({ userIds: READ_MEMBER_ID, access: 'read' }));
+    const many = Array.from({ length: MEMBER_BATCH_MAX + 1 }, (_, i) => `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`);
+    refuses('E_INVALID_DOC', () => parseMemberGrants({ userIds: many, access: 'read' }));
+    assert.equal(parseMemberGrants({ userIds: many.slice(1), access: 'read' }).userIds.length, MEMBER_BATCH_MAX);
   });
 
   test('an invalid access value throws E_INVALID_DOC', () => {
-    refuses('E_INVALID_DOC', () => parseMemberGrant({ userId: READ_MEMBER_ID, access: 'admin' }));
+    refuses('E_INVALID_DOC', () => parseMemberGrants({ userIds: [READ_MEMBER_ID], access: 'admin' }));
+  });
+});
+
+describe('parseMemberRefs', () => {
+  test('one or several uuids pass; anything else is E_INVALID_DOC', () => {
+    assert.deepEqual(parseMemberRefs({ userId: READ_MEMBER_ID }), { userIds: [READ_MEMBER_ID] });
+    assert.deepEqual(parseMemberRefs({ userIds: [READ_MEMBER_ID, OWNER_ID] }), { userIds: [READ_MEMBER_ID, OWNER_ID] });
+    refuses('E_INVALID_DOC', () => parseMemberRefs({ userId: 'x' }));
+    refuses('E_INVALID_DOC', () => parseMemberRefs({ userIds: [] }));
+    refuses('E_INVALID_DOC', () => parseMemberRefs(null));
   });
 });
 
 describe('parseMemberRef', () => {
-  test('a uuid passes; anything else is E_INVALID_DOC', () => {
+  test('the new owner in a transfer is one uuid; anything else is E_INVALID_DOC', () => {
     assert.deepEqual(parseMemberRef({ userId: READ_MEMBER_ID }), { userId: READ_MEMBER_ID });
     refuses('E_INVALID_DOC', () => parseMemberRef({ userId: 'x' }));
     refuses('E_INVALID_DOC', () => parseMemberRef(null));
@@ -405,5 +435,30 @@ describe('breadcrumb (MCP read_page)', () => {
     assert.deepEqual(pageBreadcrumb(pages, 'd'), []);
     const cyclic = [{ id: 'x', parentId: 'y', title: 'X' }, { id: 'y', parentId: 'x', title: 'Y' }];
     assert.deepEqual(pageBreadcrumb(cyclic, 'x'), ['Y']);
+  });
+});
+
+describe('the Wiki list, sorted by name', () => {
+  const wikis = [
+    { id: '1', title: 'คู่มือ' }, { id: '2', title: 'beta' }, { id: '3', title: 'Alpha 10' },
+    { id: '4', title: 'Alpha 2' }, { id: '5', title: 'กฎหมาย' },
+  ];
+
+  test('-name is Z to A; anything else, or nothing, is A to Z', () => {
+    assert.equal(parseWikiSort('-name'), '-name');
+    for (const v of [undefined, '', 'name', 'Name', 'updated', ['-name'], 7]) assert.equal(parseWikiSort(v), 'name');
+  });
+
+  test('name orders case-blind, numbers by value, Thai in dictionary order', () => {
+    const ids = sortWikis(wikis, 'name').map((w) => w.id);
+    assert.ok(ids.indexOf('4') < ids.indexOf('3'), 'Alpha 2 before Alpha 10');
+    assert.ok(ids.indexOf('3') < ids.indexOf('2'), 'Alpha before beta, whatever the case');
+    assert.ok(ids.indexOf('5') < ids.indexOf('1'), 'กฎหมาย before คู่มือ');
+  });
+
+  test('-name is the exact reverse; nothing is mutated', () => {
+    const before = wikis.map((w) => w.id);
+    assert.deepEqual(sortWikis(wikis, '-name').map((w) => w.id), sortWikis(wikis, 'name').map((w) => w.id).reverse());
+    assert.deepEqual(wikis.map((w) => w.id), before);
   });
 });

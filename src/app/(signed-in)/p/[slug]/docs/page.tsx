@@ -1,6 +1,7 @@
 import { notFound, redirect } from 'next/navigation';
 import { currentUserId } from '@/auth';
 import { loadProjectDocs, loadDoc } from '@/lib/docs';
+import { listArchivedDocs } from '@/lib/doc-purge';
 import { DomainError } from '@/lib/errors';
 import { can } from '@/lib/permissions';
 import DocsView from './docs-view';
@@ -23,5 +24,8 @@ export default async function ProjectDocs({ params, searchParams }: { params: Pr
     if (workspace.doc.projectId !== data.project.id) notFound();
     return <DocWorkspace {...workspace} project={data.project} canCreate={can(data.role, 'doc.create')} canEdit={can(data.role, 'doc.edit')} />;
   }
-  return <DocsView project={data.project} initialDocs={data.docs} canCreate={can(data.role, 'doc.create')} />;
+  const canCreate = can(data.role, 'doc.create');
+  // Deleted documents are an admin's to restore or remove, so only they are sent them.
+  const archived = canCreate ? await listArchivedDocs(userId, data.project.id) : [];
+  return <DocsView project={data.project} initialDocs={data.docs} initialArchived={archived} canCreate={canCreate} />;
 }

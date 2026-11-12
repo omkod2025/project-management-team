@@ -174,6 +174,10 @@ Autosave makes this mandatory rather than nice. Under last-write-wins, a tab lef
 
 `doc_archived_at` / `doc_page_archived_at`. Nothing is removed. This matches `pmt_nodes` (`node_archived_at`) and `pmt_users` (`user_is_active`); documents being the one thing in the product that can be destroyed for good would be an inconsistency, and the right to delete belongs to Admins, who mis-click like everyone else.
 
+*Updated 2026-11-12:* deleting a page takes every live subpage under it, as deleting a wiki page does. All of them are stamped with the same `doc_page_archived_at`, so restoring the page brings back exactly that set. A subpage that was deleted on its own, before or after, stays in Deleted pages. A protected subpage stops the delete, and the dialog names it, because protection means nobody changes that page until it is unlocked.
+
+*Updated 2026-11-12, at the owner's request:* deletion stays archival, but an Admin may now take the second, deliberate step. **Delete permanently** sits beside Restore in Deleted pages, and a folded **Deleted documents** section in the Docs list offers Restore and Delete permanently for a whole document. It applies only to what is already deleted: a live page or document is refused, so a single mis-click still lands in the archive. Purging a page takes its deleted subpages with it, deepest first; purging a document takes every page. Revisions, comments and pending file removals go with the rows. An uploaded file is deleted only when no page, template, task, defect or draft in the project still names it, and only after the transaction commits. The capability is `doc.create`, the same one that deletes and restores. Nothing can bring a purged item back except a restore from backup ([`08-operations.md`](08-operations.md)).
+
 ---
 
 ## 8. Permissions
