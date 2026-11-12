@@ -38,6 +38,19 @@ export async function createDoc(userId: string, projectId: string, input: unknow
     createdByName: creator?.name ?? null, updatedAt: doc!.updatedAt.toISOString() };
 }
 
+/**
+ * Deleting a document archives it (D-61): nothing is removed, and its pages,
+ * revisions and any published link stop answering with it. Admin only —
+ * the same capability that creates a document (spec 05 §3).
+ */
+export async function archiveDoc(userId: string, id: string): Promise<{ ok: true }> {
+  const doc = await requireDoc(userId, id);
+  await authorize(userId, doc.projectId, 'doc.create');
+  await db.update(docs).set({ archivedAt: new Date() })
+    .where(and(eq(docs.id, doc.id), isNull(docs.archivedAt)));
+  return { ok: true };
+}
+
 export async function loadProjectDocs(userId: string, slug: string) {
   const [project] = await db.select({ id: projects.id, name: projects.name, slug: projects.slug })
     .from(projects).where(and(eq(projects.slug, slug), isNull(projects.archivedAt))).limit(1);
