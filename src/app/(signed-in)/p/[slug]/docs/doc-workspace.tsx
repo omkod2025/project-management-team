@@ -8,23 +8,26 @@ import type { DocPage, PageTemplate } from '@/lib/doc-rules';
 import PageStyles, { type ReadingStyle } from './page-styles';
 import PageTools from './page-tools';
 import PageOutline from './page-outline';
-import { pageMarkdown, pageSections } from '@/lib/doc-rules';
+import PurgePage from './purge-page';
+import { pageDeletion, pageDeletionNote, pageMarkdown, pageSections } from '@/lib/doc-rules';
 import DocContent from './doc-content';
 import '../list.css';
 import './docs.css';
 import './editor.css';
 import AppHeader from '../../../app-header';
-import ConfirmDelete, { TrashIcon } from '../../../confirm-delete';
+import ConfirmDelete from '../../../confirm-delete';
 import { projectViews } from '../project-views';
 import { projectDocEndpoints } from '@/lib/doc-endpoints';
 import { hardNavigate } from '@/lib/hard-navigate';
+import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupLabel, SidebarHeader, SidebarInput, SidebarProvider, SidebarRail } from '@/components/ui/sidebar';
+import { ancestorIds, DocRowActions, FoldAll, PageTree, PagesBar, PagesTrigger } from './doc-page-tree';
 
 const PageEditor = dynamic(() => import('./page-editor'), { ssr: false, loading: () => <p role="status">Loading editor…</p> });
 type Props = {
   project: { id: string; name: string; slug: string };
   doc: { id: string; title: string; version: string };
   pages: DocPage[]; page?: DocPage;
-  archivedPages?: {id:string;title:string}[];
+  archivedPages?: { id: string; title: string; parentId: string | null }[];
   bindableNodes: { id: string; name: string }[];
   canCreate: boolean; canEdit: boolean; initialEditing?: boolean; children?: React.ReactNode;
 };
@@ -49,7 +52,13 @@ export default function DocWorkspace({ project, doc, pages, page: serverPage, ar
   const [seenSettings, setSeenSettings] = useState(page?.settings);
   if (page?.settings !== seenSettings) { setSeenSettings(page?.settings); setReadingStyle(readingStyleOf(page?.settings)); }
   const reading = useRef<HTMLDivElement>(null);
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  // Subpages start hidden; only the open page's ancestors are unfolded, so it is never buried.
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(ancestorIds(pages, page?.id)));
+  const [seenPageId, setSeenPageId] = useState(page?.id);
+  if (page?.id !== seenPageId) {
+    setSeenPageId(page?.id);
+    setExpanded((old) => new Set([...old, ...ancestorIds(pages, page?.id)]));
+  }
   const [adding, setAdding] = useState(false);
   const [title, setTitle] = useState('');
   const [template, setTemplate] = useState<PageTemplate>('free');
@@ -60,7 +69,6 @@ export default function DocWorkspace({ project, doc, pages, page: serverPage, ar
   const busy = working !== null;
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
-  const [showPages, setShowPages] = useState(false);
   const [removing, setRemoving] = useState<DocPage | null>(null);
   const base = `/p/${project.slug}/docs`;
   // Stable across renders: the editor's save callback depends on it.
@@ -70,12 +78,13 @@ export default function DocWorkspace({ project, doc, pages, page: serverPage, ar
     for (const p of pages.filter((p) => p.parentId === parent)) { ordered.push(p); walk(p.id); }
   };
   walk(null);
-  const visible = ordered.filter((p) => {
-    if (query.trim()) return p.title.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase());
-    let parent = p.parentId;
-    while (parent) { if (collapsed.has(parent)) return false; parent = pages.find((item) => item.id === parent)?.parentId ?? null; }
-    return true;
-  });
+  const needle = query.trim().toLocaleLowerCase();
+  // While searching the tree is flat: every match shows, whatever is folded.
+  const matches = needle ? ordered.filter((p) => p.title.toLocaleLowerCase().includes(needle)) : null;
+  const parents = pages.filter((p) => pages.some((child) => child.parentId === p.id)).map((p) => p.id);
+  const allOpen = parents.length > 0 && parents.every((id) => expanded.has(id));
+  const toggle = (id: string) => setExpanded((old) => { const next = new Set(old); if (next.has(id)) next.delete(id); else next.add(id); return next; });
+  const removal = removing ? pageDeletion(pages, removing.id) : null;
   const crumbs: DocPage[] = [];
   let ancestor = page?.parentId;
   while (ancestor) { const p = pages.find((p) => p.id === ancestor); if (!p) break; crumbs.unshift(p); ancestor = p.parentId; }
@@ -96,6 +105,18 @@ export default function DocWorkspace({ project, doc, pages, page: serverPage, ar
     hardNavigate(`${base}?doc=${doc.id}`);
   }
 
+  async function restorePage(pageId: string) {
+    if (busy) return;
+    setWorking(pageId); setError('');
+    try {
+      const res = await fetch(`/api/docs/${doc.id}/pages`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ pageId }) });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.message);
+      hardNavigate(`${base}/${body.slug}`);
+    } catch (e) { setError(e instanceof Error && e.message ? e.message : 'Restore failed.'); }
+    finally { setWorking(null); }
+  }
+
   async function add(e?: React.FormEvent, quick = false) {
     e?.preventDefault(); if (busy) return;
     setWorking(quick ? 'quick' : 'form'); setError('');
@@ -113,29 +134,46 @@ export default function DocWorkspace({ project, doc, pages, page: serverPage, ar
   return <div className="book docs-book"><main className="docs-main">
     <AppHeader title={project.name} navLabel="Project views"
       views={projectViews(project.slug, 'Docs', { canSettings: canCreate })} />
-    <div className="doc-workspace">
-      <button className="doc-sidebar-toggle" type="button" aria-expanded={showPages} aria-controls="doc-page-index" onClick={() => setShowPages(!showPages)}><DocIcon name="file" />Pages · {doc.title}</button>
-      <aside id="doc-page-index" className={`doc-sidebar${showPages ? ' is-open' : ''}`} aria-label="Document pages">
-        <a href={`${base}?doc=${doc.id}`} className="doc-name">{doc.title}</a>
-        <p className="docs-muted">{doc.version || 'No version stamp'}</p>
-        <label className="doc-page-search">Find a page<input type="search" value={query} onChange={(e) => setQuery(e.target.value)} /></label>
-        <nav aria-label="Pages">{visible.map((p) => <div className="doc-tree-row" key={p.id}>
-          {pages.some((child) => child.parentId === p.id) && <button type="button" className="doc-tree-fold" aria-label={`${collapsed.has(p.id) ? 'Expand' : 'Collapse'} ${p.title}`} aria-expanded={!collapsed.has(p.id)} onClick={() => setCollapsed((old) => { const next = new Set(old); if (next.has(p.id)) next.delete(p.id); else next.add(p.id); return next; })}>{collapsed.has(p.id) ? '›' : '⌄'}</button>}
-          <a href={`${base}/${p.slug}`} aria-current={p.id === page?.id ? 'page' : undefined}
-          style={{ paddingLeft: 10 + (query ? 0 : p.depth - 1) * 16, ...(p.hue ? { borderLeft: `1px solid color-mix(in srgb, var(--color-tab-${p.hue}) 65%, white)` } : {}) }}>
-          {p.id === page?.id ? pageTitle : p.title}{p.nodeArchived && <small>Module archived</small>}</a>
-          {canCreate && p.depth < 3 && <button type="button" className="doc-tree-add" aria-label={`Add subpage to ${p.title}`} disabled={editing} onClick={() => { setParentId(p.id); setTitle(''); setAdding(true); }}>+</button>}
-          {canCreate && <button type="button" className="doc-tree-delete" aria-label={`Delete page ${p.title}`} title={p.protected ? 'Unlock this page before deleting' : editing ? 'Finish editing before deleting' : 'Delete page'} disabled={editing || busy || p.protected} onClick={() => { setRemoving(p); setError(''); setAdding(false); }}><TrashIcon /></button>}
-        </div>)}</nav>
-        {!visible.length && <p className="docs-muted">{query ? 'No matching pages.' : 'No pages yet.'}</p>}
+    <SidebarProvider className="doc-shell" style={{ "--sidebar-width": "280px" } as React.CSSProperties}>
+      <PagesBar title={doc.title} />
+      {/* Focus mode is the page alone: the tree steps out of the way entirely. */}
+      {readingStyle.focus !== 'page' && <Sidebar>
+      <aside id="doc-page-index" className="doc-pages docs-book" aria-label="Document pages">
+        <SidebarHeader className="doc-pages-head">
+          <a href={`${base}?doc=${doc.id}`} className="doc-name">{doc.title}</a>
+          <p className="docs-muted">{doc.version || 'No version stamp'}</p>
+          <SidebarInput type="search" aria-label="Find a page" placeholder="Find a page" value={query} onChange={(e) => setQuery(e.target.value)} />
+        </SidebarHeader>
+        <SidebarContent>
+          <SidebarGroup className="doc-pages-group">
+            <div className="doc-pages-label"><SidebarGroupLabel>{matches ? `${matches.length} found` : 'Pages'}</SidebarGroupLabel>
+              {!matches && parents.length > 0 && <FoldAll allOpen={allOpen} onClick={() => setExpanded(allOpen ? new Set() : new Set(parents))} />}</div>
+            <nav aria-label="Pages">
+              <PageTree matches={matches} pages={pages} currentId={page?.id} currentTitle={pageTitle} base={base} expanded={expanded} onToggle={toggle}
+                actions={(p) => <DocRowActions page={p} canCreate={canCreate} editing={editing} busy={busy}
+                  onAddSubpage={(q) => { setParentId(q.id); setTitle(''); setAdding(true); }}
+                  onRemove={(q) => { setRemoving(q); setError(''); setAdding(false); }} />} />
+            </nav>
+            {!(matches ?? pages).length && <p className="docs-muted doc-pages-empty">{matches ? 'No matching pages.' : 'No pages yet.'}</p>}
+          </SidebarGroup>
+        </SidebarContent>
         {removing && <ConfirmDelete title="Delete page" name={removing.title}
-          blocked={pages.some(p => p.parentId === removing.id) ? 'This page has subpages. Delete them first.' : undefined}
-          note="The page moves to Deleted pages, where you can restore it."
+          blocked={removal?.lockedBy ? `The subpage "${removal.lockedBy}" is protected. Unlock it first.` : undefined}
+          note={pageDeletionNote(removal?.subpages ?? 0)}
           onConfirm={removePage} onCancel={() => setRemoving(null)} />}
+        <SidebarFooter className="doc-pages-foot">
         {canCreate && <div className="doc-add-actions"><button type="button" disabled={editing || busy} aria-busy={working === 'quick'} onClick={() => void add(undefined, true)}><DocIcon name="plus" />{busy ? 'Adding…' : 'Add page'}</button><button type="button" disabled={editing || busy} aria-label="New page options" onClick={() => { setParentId(''); setTitle(''); setAdding(!adding); }} aria-expanded={adding}><DocIcon name="chevron" /></button></div>}
         {error && !adding && <p role="alert">{error}</p>}
-        {canCreate&&!!archivedPages.length&&<details className="doc-archived"><summary>Deleted pages ({archivedPages.length})</summary>{archivedPages.map(p=><div key={p.id}><span>{p.title}</span><button disabled={busy||editing} aria-busy={working===p.id} onClick={async()=>{if(busy)return;setWorking(p.id);setError('');try{const res=await fetch(`/api/docs/${doc.id}/pages`,{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({pageId:p.id})});const body=await res.json();if(!res.ok)throw new Error(body.message);hardNavigate(`${base}/${body.slug}`);}catch(e){setError(e instanceof Error?e.message:'Restore failed.');}finally{setWorking(null);}}}><DocIcon name="history" />Restore</button></div>)}</details>}
+        {canCreate && !!archivedPages.length && <details className="doc-archived"><summary>Deleted pages ({archivedPages.length})</summary>
+          {archivedPages.map((p) => <div key={p.id} className="doc-archived-row"><span>{p.title}</span><span className="doc-archived-actions">
+            <button type="button" disabled={busy || editing} aria-busy={working === p.id} onClick={() => void restorePage(p.id)}><DocIcon name="history" />Restore</button>
+            <PurgePage endpoint={`/api/docs/${doc.id}/pages`} page={p} archived={archivedPages} disabled={busy || editing} onDone={() => startRefresh(() => router.refresh())} />
+          </span></div>)}
+        </details>}
+        </SidebarFooter>
       </aside>
+      <SidebarRail />
+      </Sidebar>}
       <div ref={reading} className={`doc-reading font-${readingStyle.font} size-${readingStyle.size} focus-${readingStyle.focus??'none'}${readingStyle.wide ? ' is-wide' : ''}`}>
         {editing && <div ref={setEditActions} className="doc-edit-actions" role="group" aria-label="Editing actions" />}
         {page && <PageOutline key={page.id} container={reading} />}
@@ -156,17 +194,17 @@ export default function DocWorkspace({ project, doc, pages, page: serverPage, ar
         {page ? <>
           {/* eslint-disable-next-line @next/next/no-img-element -- a user-uploaded cover of unknown size; next/image needs both dimensions */}
           {page.settings?.cover && <img className="doc-cover" alt="Page cover" src={String(page.settings.cover)} />}
-          <div className="doc-reading-tools"><div className="doc-breadcrumb"><a href={`${base}?doc=${doc.id}`}>{doc.title}</a>{crumbs.map((p) => <span key={p.id}> / <a href={`${base}/${p.slug}`}>{p.title}</a></span>)}</div></div>
+          <div className="doc-reading-tools">{readingStyle.focus !== 'page' && <PagesTrigger controls="doc-page-index" />}<div className="doc-breadcrumb"><a href={`${base}?doc=${doc.id}`}>{doc.title}</a>{crumbs.map((p) => <span key={p.id}> / <a href={`${base}/${p.slug}`}>{p.title}</a></span>)}</div></div>
           {page.settings?.icon && <div className="doc-page-icon">{String(page.settings.icon)}</div>}
           {!editing && <><div className="doc-page-heading"><h1>{canEdit && !page.nodeId && !page.protected ? <button className="doc-title-button" title="Rename page" disabled={refreshing} onClick={() => { setFocusTitle(true); setAdding(false); setEditing(true); }}>{pageTitle}</button> : pageTitle}</h1>{canEdit && !page.protected && <button className="docs-primary" disabled={refreshing} onClick={() => { setFocusTitle(false); setAdding(false); setEditing(true); }}><DocIcon name="edit" />Edit page</button>}</div>{metadata}</>}
 
           {editing ? <PageEditor key={page.id} actionsContainer={editActions} page={page} endpoints={endpoints} focusTitle={focusTitle} metadata={metadata} onTitleSaved={setPageTitle} onDone={(saved) => { setSavedPage({ id: page.id, ...saved }); setEditing(false); window.history.replaceState(null, '', `${base}/${page.slug}`); startRefresh(() => router.refresh()); }} /> : <article className="doc-prose">{page !== serverPage ? pageSections(page.template).map(([key, label]) => <section key={key} className="doc-section">{page.template === 'module' && <h2>{label}</h2>}{page.content[key] ? <DocContent value={page.content[key]} /> : <p className="docs-muted">Nothing written yet.</p>}</section>) : children}</article>}
           {page.settings?.showStats && <p className="docs-muted doc-page-stats">{pageMarkdown(page.template,page.content).length.toLocaleString()} characters · {Math.max(1,Math.ceil(pageMarkdown(page.template,page.content).length/1000))} min read</p>}
           {!editing && pages.some(p=>p.parentId===page.id) && <nav className="doc-subpages" aria-label="Subpages"><h2>Subpages</h2>{pages.filter(p=>p.parentId===page.id).map(p=><a key={p.id} href={`${base}/${p.slug}`}>▤ {p.title}</a>)}</nav>}
-        </> : <div className="doc-overview"><h1>{doc.title}</h1><p className="docs-muted">{doc.version || 'No version stamp'} · {pages.length} pages</p>
+        </> : <div className="doc-overview"><div className="doc-reading-tools"><PagesTrigger controls="doc-page-index" /></div><h1>{doc.title}</h1><p className="docs-muted">{doc.version || 'No version stamp'} · {pages.length} pages</p>
           <p>{pages.length ? 'Choose a page to read its scope, decisions and reference material.' : canCreate ? 'Add the first page to start writing.' : 'A project admin can add the first page.'}</p></div>}
         </div>
       </div>
-    </div>
+    </SidebarProvider>
   </main></div>;
 }

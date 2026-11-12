@@ -1,16 +1,18 @@
 import 'server-only';
 import { and, desc, eq, inArray, isNotNull, isNull, sql, type SQL } from 'drizzle-orm';
 import { db } from '@/db/client';
-import { accessTokenScopes, users, wikiMembers, wikiPages, wikiRevisions, wikis } from '@/db/schema';
+import { accessTokenScopes, users, wikiAssetRemovals, wikiMembers, wikiPages, wikiRevisions, wikis } from '@/db/schema';
+import { docAssetIds } from '@/lib/doc-asset-references';
 import { DomainError, domainError } from '@/lib/errors';
-import { extendRevision, nextPageDepth, parsePageContent, type DocPage } from '@/lib/doc-rules';
+import { extendRevision, nextPageDepth, pagePurgeOrder, parsePageContent, type DocPage } from '@/lib/doc-rules';
 import {
-  deleteQueuedWikiAssets, finalizeRemovedWikiAssets, lockWikiAssetReferences, queueAllWikiAssets, stageRemovedWikiAssets,
+  deleteQueuedWikiAssets, finalizeRemovedWikiAssets, lockWikiAssetReferences, queueAllWikiAssets, releaseUnreferencedWikiAssets,
+  stageRemovedWikiAssets, WIKI_ASSET_PREFIX,
   stageUploadedWikiAssets, validateAddedWikiAssets, type WikiAssetTransaction,
 } from '@/lib/wiki-asset-cleanup';
 import {
   assertNotOwner, canDeleteWiki, canManageWiki, canSeeWiki, canWriteWiki, generatedPageSlug, isInstallAdmin, isUuid,
-  likePattern, pageSearchText, publicWikiToken, parseMemberGrant, parseMemberRef, parseNewWiki, parseNewWikiPage, parsePageMove,
+  likePattern, pageSearchText, publicWikiToken, parseMemberGrants, parseMemberRefs, parseNewWiki, parseNewWikiPage, parsePageMove,
   parsePageTitle, parseWikiUpdate, searchSnippet, searchTerms, wikiRole,
   type WikiAccess, type WikiFacts, type WikiRole, type WikiViewer,
 } from '@/lib/wiki-rules';
@@ -109,7 +111,7 @@ export async function requireWiki(
     throw domainError('E_FORBIDDEN', 'Only the owner can change this wiki’s settings.');
   }
   if (need === 'delete' && !canDeleteWiki(v, facts)) {
-    throw domainError('E_FORBIDDEN', 'Only the install admin can delete a wiki.');
+    throw domainError('E_FORBIDDEN', 'Only the owner or the install admin can delete for good.');
   }
   return { wiki: row.wiki, role: wikiRole(v, facts)!, canWrite: canWriteWiki(v, facts) };
 }
@@ -329,23 +331,32 @@ export async function listMembers(
     .orderBy(users.fullName, users.email);
 }
 
+/**
+ * Grant one access to one or several people (`{ userIds, access }`). All or
+ * nothing: every person must be an active account and none the owner, or
+ * nobody is added — then one statement writes every row.
+ */
 export async function setMember(userId: string, wikiId: string, input: unknown): Promise<void> {
   const { wiki } = await requireWiki(userId, wikiId, 'manage');
-  const grant = parseMemberGrant(input);
-  await requireActiveUser(grant.userId);
-  assertNotOwner(grant.userId, wiki.ownerId);
+  const grant = parseMemberGrants(input);
+  for (const id of grant.userIds) assertNotOwner(id, wiki.ownerId);
+  const active = await db.select({ id: users.id }).from(users)
+    .where(and(inArray(users.id, grant.userIds), eq(users.isActive, true)));
+  if (active.length !== grant.userIds.length) throw domainError('E_NOT_FOUND', 'No such person.');
+  const now = new Date();
   await db.insert(wikiMembers)
-    .values({ wikiId: wiki.id, userId: grant.userId, access: grant.access, grantedBy: userId })
+    .values(grant.userIds.map((id) => ({ wikiId: wiki.id, userId: id, access: grant.access, grantedBy: userId })))
     .onConflictDoUpdate({
       target: [wikiMembers.wikiId, wikiMembers.userId],
-      set: { access: grant.access, grantedBy: userId, grantedAt: new Date() },
+      set: { access: grant.access, grantedBy: userId, grantedAt: now },
     });
 }
 
+/** Remove one or several members (`{ userIds }`) in one statement. Naming a non-member is not an error. */
 export async function removeMember(userId: string, wikiId: string, input: unknown): Promise<void> {
   const { wiki } = await requireWiki(userId, wikiId, 'manage');
-  const { userId: target } = parseMemberRef(input);
-  await db.delete(wikiMembers).where(and(eq(wikiMembers.wikiId, wiki.id), eq(wikiMembers.userId, target)));
+  const { userIds } = parseMemberRefs(input);
+  await db.delete(wikiMembers).where(and(eq(wikiMembers.wikiId, wiki.id), inArray(wikiMembers.userId, userIds)));
 }
 
 /**
@@ -663,6 +674,38 @@ export async function restoreWikiPage(userId: string, wikiId: string, input: unk
     const [restored] = await tx.select().from(wikiPages).where(eq(wikiPages.id, pageId));
     return pageOf(restored!);
   });
+}
+
+/**
+ * `{ pageId }`: deletes a page already in Deleted pages for good, with every
+ * page under it (D-82, updated 2026-11-12). Owner and install admin only.
+ * Revisions and pending file removals cascade with the rows; a file goes
+ * only when no page left in the wiki, live or deleted, still names it.
+ */
+export async function purgeWikiPage(userId: string, wikiId: string, input: unknown): Promise<{ deleted: number }> {
+  const { wiki } = await requireWiki(userId, wikiId, 'delete');
+  const pageId = input && typeof input === 'object' ? (input as { pageId?: unknown }).pageId : undefined;
+  if (typeof pageId !== 'string') throw domainError('E_INVALID_DOC', 'Choose a deleted page.');
+  if (!isUuid(pageId)) throw pageNotFound();
+  const deleted = await db.transaction(async (tx) => {
+    await lockWikiForWrite(tx, wiki.id);
+    const all = await tx.select().from(wikiPages).where(eq(wikiPages.wikiId, wiki.id));
+    const order = pagePurgeOrder(all.map((p) => ({ id: p.id, parentId: p.parentId, depth: p.depth, archived: Boolean(p.archivedAt) })), pageId);
+    const doomed = new Set(order);
+    const pending = await tx.select({ id: wikiAssetRemovals.assetId }).from(wikiAssetRemovals)
+      .where(inArray(wikiAssetRemovals.pageId, order));
+    const files = [
+      ...all.filter((p) => doomed.has(p.id)).flatMap((p) => [...docAssetIds(p.body, WIKI_ASSET_PREFIX)]),
+      ...pending.map((p) => p.id),
+    ];
+    // Deepest first: a page's parent link refuses to outlive its parent.
+    for (const id of order) await tx.delete(wikiPages).where(eq(wikiPages.id, id));
+    await releaseUnreferencedWikiAssets(tx, wiki.id, files);
+    await touchWiki(tx, wiki.id, new Date());
+    return order.length;
+  });
+  await deleteQueuedWikiAssets(wiki.id);
+  return { deleted };
 }
 
 export async function wikiPageHistory(

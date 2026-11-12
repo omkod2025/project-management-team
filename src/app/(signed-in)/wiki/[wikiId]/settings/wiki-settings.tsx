@@ -62,59 +62,145 @@ function GeneralSection({ wiki, busy, working, run }: Busy) {
   </section>;
 }
 
+/** A ticked set of ids with one id turned on or off — a new Set, never the old one changed. */
+function flip(prev: ReadonlySet<string>, id: string, on: boolean): Set<string> {
+  const next = new Set(prev);
+  if (on) next.add(id); else next.delete(id);
+  return next;
+}
+
+const countOf = (n: number) => `${n} ${n === 1 ? 'member' : 'members'}`;
+
+/** One checkbox that ticks or clears a whole set, and shows a partial one as mixed. */
+function SelectAll({ ids, chosen, text, disabled, onChange }: {
+  ids: string[]; chosen: ReadonlySet<string>; text: string; disabled: boolean; onChange: (next: Set<string>) => void;
+}) {
+  const ticked = ids.filter((id) => chosen.has(id)).length;
+  const all = ids.length > 0 && ticked === ids.length;
+  return <label className="wiki-check wiki-select-all">
+    <input type="checkbox" checked={all} disabled={disabled || !ids.length}
+      ref={(el) => { if (el) el.indeterminate = ticked > 0 && !all; }}
+      onChange={() => {
+        const next = new Set(chosen);
+        for (const id of ids) { if (all) next.delete(id); else next.add(id); }
+        onChange(next);
+      }} />
+    {text}
+  </label>;
+}
+
 /**
- * Members as the project's People are drawn: one ruled row each — name,
- * email, access, bin — with the owner first and the add row last. Transfer
- * sits in the same panel, under a hairline, because it is about the same people.
+ * Members as the project's People are drawn: one ruled row each — tick,
+ * name, email, access, bin — with the owner first. Tick any number and remove
+ * them in one go, or use a row's own bin for one. The ticks are kept as ids
+ * and read against the members on screen, so a row that leaves drops out of
+ * the selection by itself. Adding, and transfer, sit under hairlines below.
  */
 function MembersSection({ wiki, members, people, busy, working, run }: Busy & { members: Member[]; people: Person[] }) {
-  const [userId, setUserId] = useState('');
-  const [access, setAccess] = useState<'read' | 'write'>('read');
-  const [leaving, setLeaving] = useState<Member | null>(null);
+  const [picked, setPicked] = useState<Set<string>>(() => new Set());
+  const [leaving, setLeaving] = useState<Member[] | null>(null);
   const membersUrl = `/api/wikis/${wiki.id}/members`;
-  const taken = new Set([...members.map((m) => m.userId), wiki.ownerId]);
+  const memberIds = members.map((m) => m.userId);
+  const chosen = new Set(memberIds.filter((id) => picked.has(id)));
+  const taken = new Set([...memberIds, wiki.ownerId]);
   const choices = people.filter((p) => !taken.has(p.userId));
+
+  async function remove(gone: Member[]) {
+    const userIds = gone.map((m) => m.userId);
+    const ok = await run(() => wikiCall(membersUrl, 'DELETE', { userIds }), gone.length === 1 ? 'Member removed.' : `${countOf(gone.length)} removed.`, 'remove');
+    if (ok) setPicked((prev) => new Set([...prev].filter((id) => !userIds.includes(id))));
+    setLeaving(null);
+  }
+
   return <section aria-labelledby="wiki-members-head">
     <header className="settings-head">
       <h2 id="wiki-members-head">Members</h2>
       <p className="aside">Who can open this wiki, and whether they may change its pages.</p>
     </header>
+    {members.length > 0 && <div className="wiki-member-bulk" role="group" aria-label="Selected members">
+      <SelectAll ids={memberIds} chosen={chosen} text="Select all" disabled={busy} onChange={setPicked} />
+      <span className="wiki-member-count" aria-live="polite">{chosen.size ? `${chosen.size} selected` : ''}</span>
+      <button type="button" className="delete-control wiki-member-remove" disabled={busy || !chosen.size}
+        aria-busy={working === 'remove'} onClick={() => setLeaving(members.filter((m) => chosen.has(m.userId)))}>
+        <TrashIcon />{chosen.size ? `Remove ${countOf(chosen.size)}` : 'Remove'}
+      </button>
+    </div>}
     <ul className="wiki-member-list" aria-label={`Members of ${wiki.title}`}>
       <li className="settings-row">
+        {members.length > 0 && <span className="wiki-check-slot" aria-hidden="true" />}
         <span className="who">{wiki.ownerName ?? 'Former member'}</span>
         <span className="kind wiki-member-note">Owner · always reads and writes</span>
       </li>
-      {members.map((m) => <li className="settings-row" key={m.userId}>
+      {members.map((m) => <li className={chosen.has(m.userId) ? 'settings-row is-picked' : 'settings-row'} key={m.userId}>
+        <span className="wiki-check-slot"><input type="checkbox" aria-label={`Select ${m.name}`} checked={chosen.has(m.userId)} disabled={busy}
+          onChange={(e) => { const on = e.target.checked; setPicked((prev) => flip(prev, m.userId, on)); }} /></span>
         <span className="who">{m.name}</span>
         <span className="kind wiki-member-note">{m.email}</span>
         <select aria-label={`Access for ${m.name}`} value={m.access} disabled={busy} aria-busy={working === `access:${m.userId}`}
           onChange={(e) => void run(() => wikiCall(membersUrl, 'PUT', { userId: m.userId, access: e.target.value }), 'Access changed.', `access:${m.userId}`)}>
           <option value="read">Read</option><option value="write">Read and write</option>
         </select>
-        <button type="button" className="delete-control icon-only" aria-label={`Delete ${m.name}`} title="Delete member" disabled={busy} onClick={() => setLeaving(m)}><TrashIcon /></button>
+        <button type="button" className="delete-control icon-only" aria-label={`Delete ${m.name}`} title="Delete member" disabled={busy} onClick={() => setLeaving([m])}><TrashIcon /></button>
       </li>)}
     </ul>
     {!members.length && <p className="aside">Nobody else can see this wiki yet.</p>}
-    {leaving && <ConfirmDelete title="Delete member" name={leaving.name}
-      note="Adding them again restores their access." onCancel={() => setLeaving(null)}
-      onConfirm={async () => { await run(() => wikiCall(membersUrl, 'DELETE', { userId: leaving.userId }), 'Member removed.'); setLeaving(null); }}>
-      <p>They can no longer see <strong>{wiki.title}</strong>.</p>
+    {leaving && <ConfirmDelete title={leaving.length === 1 ? 'Delete member' : 'Delete members'}
+      name={leaving.length === 1 ? leaving[0]?.name ?? '' : countOf(leaving.length)}
+      note="Adding them again restores their access." onCancel={() => setLeaving(null)} onConfirm={() => remove(leaving)}>
+      <p>{leaving.length === 1 ? 'They' : 'These people'} can no longer see <strong>{wiki.title}</strong>.</p>
+      {leaving.length > 1 && <ul className="wiki-leaving-list">{leaving.map((m) => <li key={m.userId}>{label(m)}</li>)}</ul>}
     </ConfirmDelete>}
-    <form className="settings-row add wiki-member-add" aria-label="Add a member" onSubmit={(e) => {
-      e.preventDefault();
-      void run(() => wikiCall(membersUrl, 'PUT', { userId, access }), 'Member added.', 'add').then((ok) => { if (ok) setUserId(''); });
-    }}>
-      <select aria-label="Person to add" value={userId} required disabled={busy || !choices.length} onChange={(e) => setUserId(e.target.value)}>
-        <option value="">{choices.length ? 'Add someone…' : 'Everyone active is already here'}</option>
-        {choices.map((p) => <option key={p.userId} value={p.userId}>{label(p)}</option>)}
-      </select>
-      <select aria-label="Access for the new member" value={access} disabled={busy} onChange={(e) => setAccess(e.target.value as 'read' | 'write')}>
-        <option value="read">Read</option><option value="write">Read and write</option>
-      </select>
-      <button type="submit" className="docs-primary" disabled={busy || !userId} aria-busy={working === 'add'}><DocIcon name="plus" />Add member</button>
-    </form>
+    <AddMembers url={membersUrl} choices={choices} busy={busy} working={working} run={run} />
     <TransferGroup wiki={wiki} people={people} busy={busy} working={working} run={run} />
   </section>;
+}
+
+/**
+ * Adding: everyone not yet here, narrowed by name or email, any number
+ * ticked, one access for all of them, one request. Ticks outlive the filter,
+ * so one search after another can gather people.
+ */
+function AddMembers({ url, choices, busy, working, run }: Omit<Busy, 'wiki'> & { url: string; choices: Person[] }) {
+  const [picked, setPicked] = useState<Set<string>>(() => new Set());
+  const [find, setFind] = useState('');
+  const [access, setAccess] = useState<'read' | 'write'>('read');
+  const chosen = new Set(choices.filter((p) => picked.has(p.userId)).map((p) => p.userId));
+  const q = find.trim().toLocaleLowerCase();
+  const shown = q ? choices.filter((p) => `${p.name} ${p.email}`.toLocaleLowerCase().includes(q)) : choices;
+  const n = chosen.size;
+
+  return <form className="wiki-settings-group wiki-member-add" aria-labelledby="wiki-add-head" onSubmit={(e) => {
+    e.preventDefault();
+    if (!n) return;
+    void run(() => wikiCall(url, 'PUT', { userIds: [...chosen], access }), n === 1 ? 'Member added.' : `${countOf(n)} added.`, 'add')
+      .then((ok) => { if (ok) { setPicked(new Set()); setFind(''); } });
+  }}>
+    <h3 id="wiki-add-head">Add members</h3>
+    {choices.length ? <>
+      <div className="wiki-member-pick-head">
+        <input type="search" value={find} placeholder="Find by name or email" aria-label="Find people to add" disabled={busy}
+          onChange={(e) => setFind(e.target.value)} />
+        <SelectAll ids={shown.map((p) => p.userId)} chosen={chosen} text={q ? 'Select matches' : 'Select all'} disabled={busy} onChange={setPicked} />
+      </div>
+      <ul className="wiki-member-pick" aria-label="People to add">
+        {shown.map((p) => <li key={p.userId}><label className="wiki-check">
+          <input type="checkbox" checked={chosen.has(p.userId)} disabled={busy}
+            onChange={(e) => { const on = e.target.checked; setPicked((prev) => flip(prev, p.userId, on)); }} />
+          <span className="wiki-pick-name">{p.name}</span><span className="wiki-pick-email">{p.email}</span>
+        </label></li>)}
+        {!shown.length && <li className="wiki-pick-empty">Nobody matches “{find.trim()}”.</li>}
+      </ul>
+    </> : <p className="aside">Everyone active is already a member.</p>}
+    <div className="settings-row add wiki-member-add-row">
+      <span className="wiki-member-count" aria-live="polite">{n ? `${n} selected` : 'Nobody selected'}</span>
+      <select aria-label="Access for the new members" value={access} disabled={busy} onChange={(e) => setAccess(e.target.value as 'read' | 'write')}>
+        <option value="read">Read</option><option value="write">Read and write</option>
+      </select>
+      <button type="submit" className="docs-primary" disabled={busy || !n} aria-busy={working === 'add'}>
+        <DocIcon name="plus" />{n > 1 ? `Add ${countOf(n)}` : 'Add member'}
+      </button>
+    </div>
+  </form>;
 }
 
 function TransferGroup({ wiki, people, busy, working, run }: Busy & { people: Person[] }) {
@@ -184,7 +270,7 @@ function PublicLinkSection({ wiki, busy, working, run }: Busy) {
   </section>;
 }
 
-/** Archive, and under a hairline the install admin's delete (D-82). */
+/** Archive, and under a hairline delete for good — the owner's or the install admin's (D-82). */
 function ArchiveSection({ wiki, canDelete, busy, working, run }: Busy & { canDelete: boolean }) {
   const [confirming, setConfirming] = useState(false);
   return <section aria-labelledby="wiki-archive-head">
@@ -260,7 +346,7 @@ function useSection(sections: readonly Section[]): Section | undefined {
 
 /**
  * Rename and describe, members, transfer, the public link and archive are the
- * owner's or the install admin's; delete is the install admin's alone (D-82);
+ * owner's or the install admin's, and so is delete (D-82);
  * "Allow my token" is every writer's. Each viewer is drawn only the sections
  * they can use, one at a time, chosen from a rail on the left as the project
  * settings are. A writer has a single section, so no rail.

@@ -15,7 +15,7 @@ import '../../wiki.css';
  * a writer reaches only "Allow my token" (§6a), and is drawn nothing else.
  * Someone who can only read is sent back to the wiki — there is nothing here
  * they could use. A stranger gets the same 404 as the wiki itself. Delete is
- * drawn for the install admin alone (D-82).
+ * drawn for the owner and the install admin (D-82).
  */
 export default async function WikiSettingsPage({ params }: { params: Promise<{ wikiId: string }> }) {
   const { wikiId } = await params;

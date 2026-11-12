@@ -28,7 +28,7 @@ test('in-page outline navigates H1/H2 on desktop and mobile and follows editor c
     const outline = page.getByRole('navigation', { name: 'On this page', exact: true });
     await expect(outline.getByRole('button')).toHaveText(['ภาพรวม', 'รายละเอียด', 'รายละเอียด']);
     await expect(page.locator('.doc-reading > .doc-page-outline')).toBeVisible();
-    await expect(page.locator('.doc-sidebar .doc-page-outline')).toHaveCount(0);
+    await expect(page.locator('.doc-pages .doc-page-outline')).toHaveCount(0);
     await page.screenshot({ path: 'data/doc-outline-desktop.png' });
     const outlineBefore = await outline.boundingBox();
     const secondHeading = page.locator('article h2').nth(1);

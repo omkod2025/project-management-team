@@ -47,7 +47,20 @@ export async function stageUploadedAssets(tx: AssetTransaction, projectId: strin
 export async function finalizeRemovedAssets(tx: AssetTransaction, projectId: string, pageId: string) {
   const candidates = await tx.select({ id: docAssetRemovals.assetId }).from(docAssetRemovals).where(eq(docAssetRemovals.pageId, pageId));
   if (!candidates.length) return;
-  const assets = await tx.select().from(docAssets).where(and(eq(docAssets.projectId, projectId), inArray(docAssets.id, candidates.map(item => item.id))));
+  await releaseUnreferencedAssets(tx, projectId, candidates.map(item => item.id), pageId);
+  await tx.delete(docAssetRemovals).where(eq(docAssetRemovals.pageId, pageId));
+}
+
+/**
+ * Queue for deletion each candidate asset nothing in the project still points
+ * at. Used by Done editing and by a permanent delete, once the deleted pages'
+ * rows are gone in the same transaction. `draftPageId` is the page finalizing
+ * its own edit, whose pending removals do not count as references.
+ */
+export async function releaseUnreferencedAssets(tx: AssetTransaction, projectId: string, candidateIds: readonly string[], draftPageId: string | null = null) {
+  const unique = [...new Set(candidateIds)];
+  if (!unique.length) return;
+  const assets = await tx.select().from(docAssets).where(and(eq(docAssets.projectId, projectId), inArray(docAssets.id, unique)));
   if (!assets.length) return;
   // Archived pages/tasks remain restorable. Revision history alone does not
   // retain files after an explicit removal from the current document.
@@ -58,9 +71,10 @@ export async function finalizeRemovedAssets(tx: AssetTransaction, projectId: str
   const defects = await tx.select({ values: defectNodes.customValues }).from(defectNodes).where(eq(defectNodes.projectId, projectId));
   // Another page may have autosaved its removal without pressing Done yet.
   // Keep that page's Undo window open until it finalizes its own edit.
+  const inProject = eq(docs.projectId, projectId);
   const otherDrafts = await tx.select({ id: docAssetRemovals.assetId }).from(docAssetRemovals)
     .innerJoin(docPages, eq(docPages.id, docAssetRemovals.pageId)).innerJoin(docs, eq(docs.id, docPages.docId))
-    .where(and(eq(docs.projectId, projectId), ne(docAssetRemovals.pageId, pageId)));
+    .where(draftPageId ? and(inProject, ne(docAssetRemovals.pageId, draftPageId)) : inProject);
   // Conservative retention also covers an asset ID quoted in document text.
   const references = JSON.stringify([pages, templates, tasks, defects, otherDrafts]).toLowerCase();
   for (const asset of assets) {
@@ -68,7 +82,6 @@ export async function finalizeRemovedAssets(tx: AssetTransaction, projectId: str
     await tx.insert(docAssetDeletions).values({ id: asset.id, projectId, filename: asset.filename, createdAt: asset.createdAt }).onConflictDoNothing();
     await tx.delete(docAssets).where(eq(docAssets.id, asset.id));
   }
-  await tx.delete(docAssetRemovals).where(eq(docAssetRemovals.pageId, pageId));
 }
 
 /** Run only after Done commits. Failures retry on the next Done editing. */

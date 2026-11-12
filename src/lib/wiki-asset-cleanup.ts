@@ -68,29 +68,42 @@ export async function stageUploadedWikiAssets(tx: WikiAssetTransaction, wikiId: 
 export async function finalizeRemovedWikiAssets(tx: WikiAssetTransaction, wikiId: string, pageId: string) {
   const candidates = await tx.select({ id: wikiAssetRemovals.assetId }).from(wikiAssetRemovals)
     .where(eq(wikiAssetRemovals.pageId, pageId));
-  if (!candidates.length) return;
-  const assets = await tx.select().from(wikiAssets)
-    .where(and(eq(wikiAssets.wikiId, wikiId), inArray(wikiAssets.id, candidates.map((c) => c.id))));
-  if (assets.length) {
-    // Archived pages remain restorable, so they still hold their files.
-    // Revision history alone does not retain a file after an explicit removal.
-    const pages = await tx.select({ body: wikiPages.body }).from(wikiPages).where(eq(wikiPages.wikiId, wikiId));
-    // Another page may have autosaved its removal without pressing Done yet.
-    const otherDrafts = await tx.select({ id: wikiAssetRemovals.assetId }).from(wikiAssetRemovals)
-      .innerJoin(wikiPages, eq(wikiPages.id, wikiAssetRemovals.pageId))
-      .where(and(eq(wikiPages.wikiId, wikiId), ne(wikiAssetRemovals.pageId, pageId)));
-    // Conservative retention also covers an asset id quoted in page text.
-    const references = JSON.stringify([pages, otherDrafts]).toLowerCase();
-    for (const asset of assets) {
-      if (references.includes(asset.id.toLowerCase())) continue;
-      // The deletion row's key is the asset's own id: it has no default.
-      await tx.insert(wikiAssetDeletions)
-        .values({ id: asset.id, wikiId, filename: asset.filename, createdAt: asset.createdAt })
-        .onConflictDoNothing();
-      await tx.delete(wikiAssets).where(eq(wikiAssets.id, asset.id));
-    }
-  }
+  await releaseUnreferencedWikiAssets(tx, wikiId, candidates.map((c) => c.id), pageId);
   await tx.delete(wikiAssetRemovals).where(eq(wikiAssetRemovals.pageId, pageId));
+}
+
+/**
+ * Queue for deletion each candidate file nothing left in the wiki still names.
+ * Used by Done editing and by a page deleted for good (D-82), once its rows
+ * are gone in the same transaction. `draftPageId` is the page finalizing its
+ * own edit, whose pending removals do not count as references.
+ */
+export async function releaseUnreferencedWikiAssets(
+  tx: WikiAssetTransaction, wikiId: string, candidateIds: readonly string[], draftPageId: string | null = null,
+) {
+  const unique = [...new Set(candidateIds)];
+  if (!unique.length) return;
+  const assets = await tx.select().from(wikiAssets)
+    .where(and(eq(wikiAssets.wikiId, wikiId), inArray(wikiAssets.id, unique)));
+  if (!assets.length) return;
+  // Archived pages remain restorable, so they still hold their files.
+  // Revision history alone does not retain a file after an explicit removal.
+  const pages = await tx.select({ body: wikiPages.body }).from(wikiPages).where(eq(wikiPages.wikiId, wikiId));
+  // Another page may have autosaved its removal without pressing Done yet.
+  const inWiki = eq(wikiPages.wikiId, wikiId);
+  const otherDrafts = await tx.select({ id: wikiAssetRemovals.assetId }).from(wikiAssetRemovals)
+    .innerJoin(wikiPages, eq(wikiPages.id, wikiAssetRemovals.pageId))
+    .where(draftPageId ? and(inWiki, ne(wikiAssetRemovals.pageId, draftPageId)) : inWiki);
+  // Conservative retention also covers an asset id quoted in page text.
+  const references = JSON.stringify([pages, otherDrafts]).toLowerCase();
+  for (const asset of assets) {
+    if (references.includes(asset.id.toLowerCase())) continue;
+    // The deletion row's key is the asset's own id: it has no default.
+    await tx.insert(wikiAssetDeletions)
+      .values({ id: asset.id, wikiId, filename: asset.filename, createdAt: asset.createdAt })
+      .onConflictDoNothing();
+    await tx.delete(wikiAssets).where(eq(wikiAssets.id, asset.id));
+  }
 }
 
 /**

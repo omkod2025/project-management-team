@@ -1,6 +1,6 @@
 import { handle } from '@/lib/api';
 import { domainError } from '@/lib/errors';
-import { createWikiPage, loadWiki, restoreWikiPage } from '@/lib/wiki';
+import { createWikiPage, loadWiki, purgeWikiPage, restoreWikiPage } from '@/lib/wiki';
 
 type Context = { params: Promise<{ id: string }> };
 
@@ -25,4 +25,10 @@ export async function POST(req: Request, { params }: Context) {
 export async function PATCH(req: Request, { params }: Context) {
   const { id } = await params;
   return handle(`PATCH /api/wikis/${id}/pages`, async (userId) => restoreWikiPage(userId, id, await jsonBody(req)));
+}
+
+/** Delete a page in Deleted pages for good, with the pages under it: `{ pageId }` — owner and install admin. */
+export async function DELETE(req: Request, { params }: Context) {
+  const { id } = await params;
+  return handle(`DELETE /api/wikis/${id}/pages`, async (userId) => purgeWikiPage(userId, id, await jsonBody(req)));
 }

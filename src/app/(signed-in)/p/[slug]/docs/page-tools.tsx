@@ -5,10 +5,11 @@ import ConfirmDelete, { TrashIcon } from "../../../confirm-delete";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { publishedHref } from "@/lib/doc-publish-rules";
-import type { DocPage } from "@/lib/doc-rules";
+import { pageDeletion, pageDeletionNote, type DocPage } from "@/lib/doc-rules";
 import { projectDocEndpoints } from "@/lib/doc-endpoints";
 import { exportPages, readImportFile } from "./doc-transfer";
 import { hardNavigate } from "@/lib/hard-navigate";
+import PurgePage from "./purge-page";
 type ToolsData = {
   comments: {
     id: string;
@@ -21,7 +22,7 @@ type ToolsData = {
     assigneeId: string | null;
   }[];
   templates: { id: string; title: string; kind: string }[];
-  archived: { id: string; title: string }[];
+  archived: { id: string; title: string; parentId: string | null }[];
   people: { id: string; name: string }[];
   tasks: { id: string; name: string }[];
   currentUserId?: string;
@@ -71,6 +72,7 @@ export default function PageTools({
     [templateTitle, setTemplateTitle] = useState("");
   const [scope, setScope] = useState("page"),
     [confirmDelete, setConfirmDelete] = useState(false);
+  const removal = pageDeletion(pages, page.id);
   const [settings, setSettings] = useState(page.settings ?? {});
   const [filter, setFilter] = useState("");
   const [parentId, setParentId] = useState(page.parentId ?? "");
@@ -778,7 +780,8 @@ export default function PageTools({
                     <ConfirmDelete
                       title="Delete page"
                       name={page.title}
-                      note="Content is kept: the page moves to Deleted pages, where you can restore it. Subpages must be deleted first."
+                      blocked={removal.lockedBy ? `The subpage "${removal.lockedBy}" is protected. Unlock it first.` : undefined}
+                      note={pageDeletionNote(removal.subpages)}
                       onConfirm={deletePage}
                       onCancel={() => setConfirmDelete(false)}
                     />
@@ -911,17 +914,31 @@ export default function PageTools({
             <>
               <h3>Deleted pages</h3>
               {data.archived.map((p) => (
-                <div className="doc-comment" key={p.id}>
+                <div className="doc-comment doc-archived-row" key={p.id}>
                   <span>{p.title}</span>
-                  <button
-                    disabled={locked}
-                    aria-busy={working === `restore:${p.id}`}
-                    onClick={() =>
-                      void action({ action: "restore", pageId: p.id }, `restore:${p.id}`)
-                    }
-                  ><DocIcon name="history" />
-                    Restore
-                  </button>
+                  <span className="doc-archived-actions">
+                    <button
+                      type="button"
+                      disabled={locked}
+                      aria-busy={working === `restore:${p.id}`}
+                      onClick={() =>
+                        void action({ action: "restore", pageId: p.id }, `restore:${p.id}`)
+                      }
+                    ><DocIcon name="history" />
+                      Restore
+                    </button>
+                    <PurgePage
+                      endpoint={`/api/docs/${page.docId}/pages`}
+                      page={p}
+                      archived={data.archived}
+                      disabled={locked}
+                      onDone={(gone) => {
+                        setData((d) => ({ ...d, archived: d.archived.filter((a) => !gone.has(a.id)) }));
+                        setNotice("Deleted permanently.");
+                        router.refresh();
+                      }}
+                    />
+                  </span>
                 </div>
               ))}
             </>

@@ -273,7 +273,7 @@ svg[id^='doc-mermaid-'] :is(text, tspan) { letter-spacing: normal; text-transfor
 .doc-block-form label { display: block; font-size: 13px; margin-bottom: 10px; }
 .doc-block-form input { width: 100%; }
 .doc-archived { margin-top: 24px; font-size: 13px; }
-.doc-archived > div { display: grid; gap: 6px; margin-top: 12px; overflow-wrap: anywhere; }
+.doc-archived > .doc-archived-row { margin-top: 10px; }
 .doc-workspace:has(.focus-page) { grid-template-columns: minmax(0,1fr); }
 .doc-workspace:has(.focus-page) .doc-sidebar { display: none; }
 .focus-block .tiptap > :not(.doc-current-block) { opacity: .4; }
@@ -341,4 +341,64 @@ svg[id^='doc-mermaid-'] :is(text, tspan) { letter-spacing: normal; text-transfor
 @media print {
   .doc-page-outline, .doc-edit-actions { display: none; }
   .doc-reading-body { display: block; overflow: visible; padding: 0; }
+}
+
+/* ---- The Docs page tree: the shadcn Sidebar (doc-page-tree.tsx) ----
+ * Docs and the wiki both draw it (the wiki adds `.wiki-pages`); these rules are the
+ * shared shell. On a phone the tree is a drawer portalled out of
+ * `.docs-book`, so `.doc-pages` carries the variables it reads itself. Tailwind
+ * utilities are important and layered, so nothing here restates a property a
+ * Sidebar utility already sets. */
+.doc-shell { flex: 1; }
+.doc-shell > .doc-reading { flex: 1; min-width: 0; }
+.doc-pages {
+  --cu-hover: rgb(0 0 0 / 4%);
+  --docs-press: rgb(0 0 0 / 8%);
+  --cu-line: var(--color-hairline);
+  display: flex; flex-direction: column; height: 100%; min-height: 0;
+  font-family: var(--type-body-family);
+}
+.doc-pages a { text-decoration: none; }
+.doc-pages-head .doc-name { padding: 10px 8px 0; color: var(--color-ink); font-size: 15px; line-height: 1.4; }
+.doc-pages-head .docs-muted { margin: 0 8px 6px; }
+.doc-pages-label { display: flex; align-items: center; justify-content: space-between; padding-right: 4px; }
+.doc-pages-empty { margin: 4px 8px; }
+
+/* Fold, add, delete and fold-all: quiet square buttons on the paper. */
+.docs-book.doc-pages :is(.doc-tree-fold, .doc-tree-add, .doc-tree-fold-all) {
+  display: grid; place-items: center; flex: 0 0 28px; width: 28px; min-height: 28px; padding: 0;
+  border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-ink-muted);
+}
+.docs-book.doc-pages .doc-tree-fold-all { flex-basis: 24px; width: 24px; min-height: 24px; }
+.docs-book.doc-pages :is(.doc-tree-fold, .doc-tree-add, .doc-tree-fold-all):hover:not(:disabled) { background: var(--cu-hover); color: var(--color-ink); }
+.doc-pages :is(.doc-tree-fold, .doc-tree-add, .doc-tree-fold-all) svg { width: 14px; height: 14px; }
+/* The chevron turns to open; the guide line of the sub-list falls from its centre. */
+.doc-pages .doc-tree-fold svg { transition: transform .15s ease; }
+.doc-pages .doc-tree-fold[aria-expanded='true'] svg { transform: rotate(90deg); }
+.doc-tree-fold-space { flex: 0 0 28px; }
+.docs-book.doc-pages .doc-tree-row > .doc-tree-delete { flex: 0 0 28px; min-height: 28px; padding: 0; display: grid; place-items: center; }
+.doc-pages .doc-tree-row > a { gap: 6px; }
+.doc-tree-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.doc-pages .doc-tree-row > a small { flex: none; color: var(--color-ink-muted); font-size: 12px; font-weight: 400; }
+/* No preflight: drop the browser's bullets and 40px list indent. The sub-list's own
+   margin and padding come from its utilities, which outrank these. */
+.doc-pages :is([data-sidebar='menu'], [data-sidebar='menu-sub']) { list-style: none; margin: 0; padding: 0; }
+.doc-pages [data-sidebar='menu-sub'] { margin-top: 2px; }
+
+.doc-pages-foot { max-height: 45%; overflow: auto; border-top: 1px solid var(--color-hairline); }
+.doc-pages-foot .doc-add-actions { margin-top: 0; }
+.doc-pages-foot .doc-archived { margin-top: 0; padding: 6px 8px; }
+.doc-pages-foot [role='alert'] { margin: 4px 8px; color: var(--color-danger); font-size: 13px; }
+
+.doc-shell .doc-reading-tools { justify-content: flex-start; gap: 8px; }
+.doc-overview > .doc-reading-tools { margin-bottom: 16px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .doc-pages .doc-tree-fold svg { transition: none; }
+}
+@media (max-width: 750px) {
+  .doc-shell { flex-direction: column; overflow: hidden; }
+  .doc-shell > .doc-sidebar-toggle { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .doc-shell > .doc-sidebar-toggle svg { width: 16px; height: 16px; flex: none; }
+  .doc-pages-foot { max-height: 40%; }
 }

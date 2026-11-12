@@ -36,7 +36,7 @@ export async function loadWorkspace(wikiId: string, pageSlug?: string): Promise<
   return {
     wiki: { id: wiki.id, title: wiki.title, description: wiki.description, archived: wiki.archived },
     pages: pages.map(({ id, parentId, depth, title, slug }) => ({ id, parentId, depth, title, slug })),
-    archivedPages: archivedPages.map(({ id, title }) => ({ id, title })),
+    archivedPages: archivedPages.map(({ id, title, parentId }) => ({ id, title, parentId })),
     page: page ? asDocPage(page) : undefined,
     ...wikiAbilities(wiki.role, wiki.archived),
   };

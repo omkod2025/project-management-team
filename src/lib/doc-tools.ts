@@ -1,5 +1,5 @@
 import "server-only";
-import { and, desc, eq, isNull, isNotNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, isNotNull } from "drizzle-orm";
 import { db } from "@/db/client";
 import {
   docAssets,
@@ -11,10 +11,10 @@ import {
   projectMembers,
   users,
 } from "@/db/schema";
-import { requirePage } from "@/lib/docs";
+import { requirePage, restoreSubtree } from "@/lib/docs";
 import { authorize } from "@/lib/permissions";
 import { domainError } from "@/lib/errors";
-import { parseNewDoc, parsePageContent } from "@/lib/doc-rules";
+import { pageSubtree, parseNewDoc, parsePageContent } from "@/lib/doc-rules";
 import { mintPublishToken } from "@/lib/doc-publish-rules";
 import { lockAssetReferences, stageRemovedAssets } from '@/lib/doc-asset-cleanup';
 
@@ -42,7 +42,7 @@ export async function getDocTools(userId: string, id: string) {
     .where(eq(docTemplates.projectId, doc.projectId))
     .orderBy(docTemplates.title);
   const archived = await db
-    .select({ id: docPages.id, title: docPages.title })
+    .select({ id: docPages.id, title: docPages.title, parentId: docPages.parentId })
     .from(docPages)
     .where(and(eq(docPages.docId, doc.id), isNotNull(docPages.archivedAt)));
   const people = await db
@@ -282,10 +282,7 @@ export async function mutateDocTools(
         if (!parent)
           throw domainError("E_INVALID_DOC", "Restore the parent page first.");
       }
-      await tx
-        .update(docPages)
-        .set({ archivedAt: null, updatedAt: now, updatedBy: userId })
-        .where(eq(docPages.id, target.id));
+      await restoreSubtree(tx, doc.id, target, userId);
       return { slug: target.slug };
     }
     if (current.protected)
@@ -342,21 +339,24 @@ export async function mutateDocTools(
       return { ok: true };
     }
     if (action === "archive") {
-      const children = await tx
-        .select({ id: docPages.id })
+      // D-61: the page goes with every live subpage under it, all stamped with
+      // one archivedAt so a Restore can bring the same set back together.
+      const live = await tx
+        .select({ id: docPages.id, parentId: docPages.parentId, title: docPages.title, protected: docPages.protected })
         .from(docPages)
-        .where(and(eq(docPages.parentId, id), isNull(docPages.archivedAt)))
-        .limit(1);
-      if (children.length)
+        .where(and(eq(docPages.docId, doc.id), isNull(docPages.archivedAt)));
+      const ids = pageSubtree(live, id);
+      const locked = live.find((p) => p.id !== id && ids.has(p.id) && p.protected);
+      if (locked)
         throw domainError(
-          "E_INVALID_DOC",
-          "Archive subpages first. Their content will not be removed.",
+          "E_FORBIDDEN",
+          `Unprotect the subpage "${locked.title}" before deleting this page.`,
         );
       await tx
         .update(docPages)
         .set({ archivedAt: now, updatedAt: now, updatedBy: userId })
-        .where(eq(docPages.id, id));
-      return { archived: true };
+        .where(and(inArray(docPages.id, [...ids]), isNull(docPages.archivedAt)));
+      return { archived: true, count: ids.size };
     }
     if (action === "settings") {
       if (

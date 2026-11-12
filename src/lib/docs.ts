@@ -5,7 +5,7 @@ import { docs, docPages, docRevisions, nodes, projects, users, projectMembers } 
 import { authorize, requireProjectRole } from '@/lib/permissions';
 import { domainError } from '@/lib/errors';
 import { deleteQueuedAssets, lockAssetReferences, stageRemovedAssets, stageUploadedAssets, finalizeRemovedAssets, validateAddedAssets } from '@/lib/doc-asset-cleanup';
-import { parseNewDoc, pageSections, parsePageContent, nextPageDepth, extendRevision, type DocPage, type DocSummary, type PageTemplate } from '@/lib/doc-rules';
+import { parseNewDoc, pageSections, parsePageContent, nextPageDepth, extendRevision, pageSubtree, type DocPage, type DocSummary, type PageTemplate } from '@/lib/doc-rules';
 
 async function visibleProject(userId: string, projectId: string) {
   if (!/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(projectId)) {
@@ -73,7 +73,7 @@ export async function requireDoc(userId: string, id: string) {
 
 export async function loadDoc(userId: string, docId: string) {
   const doc = await requireDoc(userId, docId);
-  const archivedPages = await db.select({id:docPages.id,title:docPages.title}).from(docPages).where(and(eq(docPages.docId,docId),isNotNull(docPages.archivedAt)));
+  const archivedPages = await db.select({ id: docPages.id, title: docPages.title, parentId: docPages.parentId }).from(docPages).where(and(eq(docPages.docId,docId),isNotNull(docPages.archivedAt)));
   const pages = await db.select().from(docPages).where(and(eq(docPages.docId, docId), isNull(docPages.archivedAt)))
     .orderBy(docPages.sortOrder, docPages.id);
   const projectNodes = await db.select().from(nodes).where(eq(nodes.projectId, doc.projectId));
@@ -92,6 +92,26 @@ export async function loadDoc(userId: string, docId: string) {
     bindableNodes: projectNodes.filter((n) => n.depth > 1 && !n.archivedAt).map((n) => ({ id: n.id, name: n.name })) };
 }
 
+type DocTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/**
+ * D-61: restoring a page brings back the subpages that were deleted with it —
+ * the ones stamped with the same archivedAt — and not a subpage deleted on its
+ * own before or after. The caller has checked that the parent is live.
+ */
+export async function restoreSubtree(tx: DocTx, docId: string, page: { id: string; archivedAt: Date | null }, userId: string) {
+  const at = page.archivedAt?.getTime();
+  const archived = await tx.select({ id: docPages.id, parentId: docPages.parentId, archivedAt: docPages.archivedAt, updatedAt: docPages.updatedAt })
+    .from(docPages).where(and(eq(docPages.docId, docId), isNotNull(docPages.archivedAt)));
+  const ids = pageSubtree(archived, page.id, (p) => p.archivedAt?.getTime() === at);
+  for (const p of archived) {
+    if (!ids.has(p.id)) continue;
+    await tx.update(docPages)
+      .set({ archivedAt: null, updatedAt: new Date(Math.max(Date.now(), p.updatedAt.getTime() + 1)), updatedBy: userId })
+      .where(eq(docPages.id, p.id));
+  }
+}
+
 export async function restoreDocPage(userId:string,docId:string,input:unknown){
   const doc=await requireDoc(userId,docId);await authorize(userId,doc.projectId,'doc.create');
   const pageId=input&&typeof input==='object'?(input as {pageId?:unknown}).pageId:undefined;
@@ -102,7 +122,7 @@ export async function restoreDocPage(userId:string,docId:string,input:unknown){
     const [page]=await tx.select().from(docPages).where(and(eq(docPages.id,pageId),eq(docPages.docId,docId),isNotNull(docPages.archivedAt)));
     if(!page)throw domainError('E_NOT_FOUND','No such archived page.');
     if(page.parentId){const [parent]=await tx.select().from(docPages).where(and(eq(docPages.id,page.parentId),isNull(docPages.archivedAt)));if(!parent)throw domainError('E_INVALID_DOC','Restore the parent first.');}
-    await tx.update(docPages).set({archivedAt:null,updatedAt:new Date(Math.max(Date.now(),page.updatedAt.getTime()+1)),updatedBy:userId}).where(eq(docPages.id,pageId));
+    await restoreSubtree(tx,docId,page,userId);
     return {slug:page.slug};
   });
 }
