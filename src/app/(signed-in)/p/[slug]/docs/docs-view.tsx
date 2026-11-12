@@ -7,6 +7,7 @@ import { DataTable } from '@/components/data-table';
 import '../list.css';
 import './docs.css';
 import AppHeader from '../../../app-header';
+import ConfirmDelete, { TrashIcon } from '../../../confirm-delete';
 import { projectViews } from '../project-views';
 
 type Props = {
@@ -24,6 +25,7 @@ export default function DocsView({ project, initialDocs, canCreate }: Props) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [removing, setRemoving] = useState<DocSummary | null>(null);
   const submitting = useRef(false);
   const newButton = useRef<HTMLButtonElement>(null);
   const visible = docs.filter((d) => `${d.title} ${d.version}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
@@ -64,6 +66,18 @@ export default function DocsView({ project, initialDocs, canCreate }: Props) {
     }
   }
 
+  /** Deleting a document archives it (D-61); the dialog resolves or shows the error. */
+  async function remove(doc: DocSummary) {
+    const response = await fetch(`/api/docs/${doc.id}`, { method: 'DELETE' });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error(body.message ?? 'Nothing was deleted. Try again.');
+    }
+    setDocs((current) => current.filter((d) => d.id !== doc.id));
+    setRemoving(null);
+    setNotice(`Deleted “${doc.title}”.`);
+  }
+
   return (
     <div className="book docs-book">
       <main className="docs-main">
@@ -101,13 +115,18 @@ export default function DocsView({ project, initialDocs, canCreate }: Props) {
             {query && <button type="button" onClick={() => setQuery('')}><DocIcon name="close" />Clear search</button>}
           </div>
           {visible.length > 0 && <DataTable caption={`Documents in ${project.name}`} className="docs-table">
-              <thead><tr><th scope="col">Document</th><th scope="col">Version</th><th scope="col">Created by</th><th scope="col">Updated</th></tr></thead>
+              <thead><tr><th scope="col">Document</th><th scope="col">Version</th><th scope="col">Created by</th><th scope="col">Updated</th>{canCreate && <th scope="col"><span className="docs-sr-only">Actions</span></th>}</tr></thead>
               <tbody>{visible.map((doc) => <tr key={doc.id}>
                 <th scope="row"><a href={`${base}/docs?doc=${doc.id}`}>{doc.title}</a></th><td>{doc.version || '—'}</td>
                 <td>{doc.createdByName ?? 'Former member'}</td>
                 <td><time dateTime={doc.updatedAt}>{new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeZone: 'Asia/Bangkok' }).format(new Date(doc.updatedAt))}</time></td>
+                {canCreate && <td className="docs-row-actions"><button type="button" className="docs-delete" aria-label={`Delete document ${doc.title}`} title="Delete document"
+                  onClick={() => { setRemoving(doc); setNotice(''); }}><TrashIcon /></button></td>}
               </tr>)}</tbody>
           </DataTable>}
+          {removing && <ConfirmDelete title="Delete document" name={removing.title}
+            note="The document and all its pages are archived, and any published link stops working."
+            onConfirm={() => remove(removing)} onCancel={() => setRemoving(null)} />}
           {visible.length === 0 && <div className="docs-empty">
               <h2>{query.trim() ? 'No matching documents' : 'No documents yet'}</h2>
               <p>{query.trim() ? 'Try another title or version, or clear the search.' : canCreate

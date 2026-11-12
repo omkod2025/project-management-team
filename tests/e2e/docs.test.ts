@@ -159,7 +159,23 @@ test('Docs page renders the saved register and only offers creation to admins', 
     assert.match(html, /Search title or version/);
     assert.match(html, /ขอบเขตโครงการ/);
     assert.equal(html.includes('+ New doc'), isAdmin);
+    assert.equal(html.includes('Delete document ขอบเขตโครงการ'), isAdmin);
   }
+});
+
+test('only an admin deletes a document, and deleting archives it (D-61)', async () => {
+  const created = await (await call(admin, 'POST', { title: 'ลบทิ้ง' })).json();
+  const del = (jar: Jar, id = created.id) => fetch(`${BASE_URL}/api/docs/${id}`, { method: 'DELETE', headers: { cookie: jar.header } });
+  assert.equal((await del(viewer)).status, 403);
+  await fx.client.query("UPDATE pmt_project_members SET member_role = 'member' WHERE member_project_id = $1 AND member_user_id = $2", [fx.projectId, fx.viewer.id]);
+  try { assert.equal((await del(viewer)).status, 403); }
+  finally { await fx.client.query("UPDATE pmt_project_members SET member_role = 'viewer' WHERE member_project_id = $1 AND member_user_id = $2", [fx.projectId, fx.viewer.id]); }
+  assert.equal((await del(admin)).status, 200);
+  const { rows } = await fx.client.query('SELECT doc_archived_at FROM pmt_docs WHERE doc_id = $1', [created.id]);
+  assert.ok(rows[0].doc_archived_at, 'the row stays, archived');
+  assert.ok(!(await (await call(admin, 'GET')).json()).some((d: { id: string }) => d.id === created.id));
+  assert.equal((await del(admin)).status, 404);
+  assert.equal((await del(admin, 'not-a-uuid')).status, 404);
 });
 
 test('archived projects refuse reads and creates', async () => {
